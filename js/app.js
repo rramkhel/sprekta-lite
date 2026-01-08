@@ -1,21 +1,22 @@
-        lucide.createIcons();
+let conversationHistory = [];
+let events = [];
+let currentDate = new Date();
+let chatStarted = false;
+let userProfile = {
+    core: {},
+    context: {},
+    people: {},
+    goals: [],
+    updatedAt: null
+};
 
-        let conversationHistory = [];
-        let events = [];
-        let currentDate = new Date();
-        let chatStarted = false;
-        let userProfile = {
-            core: {},
-            context: {},
-            people: {},
-            goals: [],
-            updatedAt: null
-        };
-
-        // Initialize
-        renderCalendar();
-        loadEvents();
-        loadProfile();
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    lucide.createIcons();
+    renderCalendar();
+    loadEvents();
+    loadProfile();
+});
 
         // Profile functions
         function toggleProfile() {
