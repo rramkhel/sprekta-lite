@@ -1,3 +1,6 @@
+// Initialize icons immediately (script loads at end of body, DOM is ready)
+lucide.createIcons();
+
 let conversationHistory = [];
 let events = [];
 let currentDate = new Date();
@@ -10,13 +13,10 @@ let userProfile = {
     updatedAt: null
 };
 
-// Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
-    lucide.createIcons();
-    renderCalendar();
-    loadEvents();
-    loadProfile();
-});
+// Initialize app
+renderCalendar();
+loadEvents();
+loadProfile();
 
         // Profile functions
         function toggleProfile() {
