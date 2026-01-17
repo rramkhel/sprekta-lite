@@ -1,0 +1,11 @@
+{
+  "name": "sprekta-lite",
+  "version": "0.1.0",
+  "description": "AI-powered calendar with quick capture",
+  "scripts": {
+    "deploy": "vercel --prod"
+  },
+  "devDependencies": {
+    "vercel": "^50.4.5"
+  }
+}

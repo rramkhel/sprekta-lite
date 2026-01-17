@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sprekta - AI Calendar</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+</head>
+<body>
+    <!-- Overlay -->
+    <div class="profile-overlay" id="profileOverlay" onclick="closeMenu()"></div>
+    
+    <!-- Hamburger Menu Sidebar -->
+    <div class="profile-panel" id="profilePanel">
+        <div class="profile-header">
+            <div class="profile-title">Menu</div>
+        </div>
+        <div class="profile-menu">
+            <div class="menu-item" onclick="openProfileView()">
+                <i data-lucide="user"></i>
+                Profile
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Full Page View -->
+    <div class="profile-view" id="profileView">
+        <div class="profile-view-header">
+            <button class="back-btn" onclick="closeProfileView()">
+                <i data-lucide="arrow-left"></i>
+            </button>
+            <div class="profile-view-title">Your Profile</div>
+        </div>
+        <div class="profile-view-content">
+            <div class="profile-view-inner" id="profileViewContent">
+                <!-- Core Identity -->
+                <div class="profile-section">
+                    <div class="profile-section-header">
+                        <div class="profile-section-title">Core Identity</div>
+                        <div class="profile-section-subtitle">Stable facts about who you are</div>
+                    </div>
+                    <div class="profile-card">
+                        <div class="profile-field">
+                            <div class="profile-field-label">Name</div>
+                            <div class="profile-field-value">Alex Chen</div>
+                        </div>
+                        <div class="profile-field">
+                            <div class="profile-field-label">Role</div>
+                            <div class="profile-field-value">Senior Product Manager at TechCorp + Side Project Founder</div>
+                        </div>
+                        <div class="profile-field">
+                            <div class="profile-field-label">Location</div>
+                            <div class="profile-field-value">San Francisco Bay Area</div>
+                        </div>
+                        <div class="profile-field">
+                            <div class="profile-field-label">Personality</div>
+                            <div class="profile-field-value">Analytical, organized, values deep work. Introverted but collaborative. Prefers async communication. Strong preference for structure and planning.</div>
+                        </div>
+                        <div class="profile-field">
+                            <div class="profile-field-label">Work Style</div>
+                            <div class="profile-field-value">Deep focus blocks in mornings, meetings in afternoons. Prefers written documentation over verbal updates. Batch-processes similar tasks. Needs 2-3 hour uninterrupted blocks for complex work.</div>
+                        </div>
+                        <div class="profile-field">
+                            <div class="profile-field-label">Strengths</div>
+                            <div class="profile-field-value">Strategic thinking, data analysis, stakeholder management, systems design. Good at simplifying complex problems.</div>
+                        </div>
+                        <div class="profile-field">
+                            <div class="profile-field-label">Growth Areas</div>
+                            <div class="profile-field-value">Delegating tasks, saying no to non-priority requests, managing energy levels. Tendency to over-optimize and perfectionism.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Current Context -->
+                <div class="profile-section">
+                    <div class="profile-section-header">
+                        <div class="profile-section-title">Current Context</div>
+                        <div class="profile-section-subtitle">What's happening in your life right now</div>
+                    </div>
+                    <div class="profile-card">
+                        <div class="profile-field">
+                            <div class="profile-field-label">Current Focus</div>
+                            <div class="profile-field-value">Leading Q1 product roadmap planning. Preparing for performance reviews. Launching beta of side project (AI productivity tool).</div>
+                        </div>
+                        <div class="profile-field">
+                            <div class="profile-field-label">Life Phase</div>
+                            <div class="profile-field-value">Mid-career professional. Considering transition to full-time entrepreneurship within 2 years. Building financial runway.</div>
+                        </div>
+                        <div class="profile-field">
+                            <div class="profile-field-label">Recent Changes</div>
+                            <div class="profile-field-value">New team member onboarding (Sarah, junior PM). Moved to hybrid schedule (office Tue/Wed/Thu, remote Mon/Fri). Started physical therapy for shoulder injury (healing window: 6-8 weeks).</div>
+                        </div>
+                        <div class="profile-field">
+                            <div class="profile-field-label">Active Projects</div>
+                            <div class="profile-field-value">Day job: Mobile app redesign, user research initiative, analytics dashboard. Side project: Beta user interviews, fundraising prep, product iteration.</div>
+                        </div>
+                        <div class="profile-field">
+                            <div class="profile-field-label">Current Challenges</div>
+                            <div class="profile-field-value">Time management between day job and side project. Shoulder injury limiting workouts. Maintaining work-life boundaries. Managing team through org restructuring uncertainty.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Key People -->
+                <div class="profile-section">
+                    <div class="profile-section-header">
+                        <div class="profile-section-title">Key People</div>
+                        <div class="profile-section-subtitle">Important relationships in your life</div>
+                    </div>
+                    <div class="profile-list">
+                        <div class="profile-list-item">
+                            <div class="profile-list-item-title">Jamie (Partner)</div>
+                            <div class="profile-list-item-text">Long-term relationship. Busy schedule (nurse, night shifts). Quality time on weekends. Shared goal: save for house down payment.</div>
+                        </div>
+                        <div class="profile-list-item">
+                            <div class="profile-list-item-title">Marcus (Manager)</div>
+                            <div class="profile-list-item-text">TechCorp. 1:1s every Thursday 2pm. Supportive of career growth. Knows about side project plans.</div>
+                        </div>
+                        <div class="profile-list-item">
+                            <div class="profile-list-item-title">Sarah (Direct Report)</div>
+                            <div class="profile-list-item-text">Junior PM, recently joined team. Needs mentoring and clear direction. Quick learner, eager to contribute.</div>
+                        </div>
+                        <div class="profile-list-item">
+                            <div class="profile-list-item-title">Priya (Engineering Lead)</div>
+                            <div class="profile-list-item-text">Close collaborator. Weekly syncs on Tuesdays. Direct communication style, appreciates data-driven decisions.</div>
+                        </div>
+                        <div class="profile-list-item">
+                            <div class="profile-list-item-title">Jordan (Co-founder)</div>
+                            <div class="profile-list-item-text">Side project partner. Technical background. Evening/weekend collaboration. Timezone: EST (3 hours ahead).</div>
+                        </div>
+                        <div class="profile-list-item">
+                            <div class="profile-list-item-title">Mom</div>
+                            <div class="profile-list-item-text">Weekly video calls on Sundays. Lives across country. Important to stay connected.</div>
+                        </div>
+                        <div class="profile-list-item">
+                            <div class="profile-list-item-title">Dr. Patel (Physical Therapist)</div>
+                            <div class="profile-list-item-text">Treating shoulder injury. Appointments every Tuesday 5:30pm for next 6 weeks.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Goals -->
+                <div class="profile-section">
+                    <div class="profile-section-header">
+                        <div class="profile-section-title">Goals</div>
+                        <div class="profile-section-subtitle">What you're working towards</div>
+                    </div>
+                    <div class="profile-list">
+                        <div class="profile-list-item">
+                            <div class="profile-list-item-text"><strong>Professional:</strong> Get promoted to Director level within 18 months. Build reputation as thought leader in product strategy.</div>
+                        </div>
+                        <div class="profile-list-item">
+                            <div class="profile-list-item-text"><strong>Entrepreneurial:</strong> Launch side project beta by end of Q1. Secure first 100 paying customers. Raise pre-seed round by end of year.</div>
+                        </div>
+                        <div class="profile-list-item">
+                            <div class="profile-list-item-text"><strong>Financial:</strong> Save $50K for house down payment. Build 6-month runway before potential startup transition. Max out 401k contributions.</div>
+                        </div>
+                        <div class="profile-list-item">
+                            <div class="profile-list-item-text"><strong>Health:</strong> Complete physical therapy and return to full workout routine. Run a half marathon in fall. Establish consistent sleep schedule (target: 11pm-7am).</div>
+                        </div>
+                        <div class="profile-list-item">
+                            <div class="profile-list-item-text"><strong>Personal:</strong> Take a 2-week vacation with Jamie (first big trip in 3 years). Read 24 books this year. Learn Spanish to conversational level.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Preferences -->
+                <div class="profile-section">
+                    <div class="profile-section-header">
+                        <div class="profile-section-title">Preferences</div>
+                        <div class="profile-section-subtitle">How you like to work and communicate</div>
+                    </div>
+                    <div class="profile-card">
+                        <div class="profile-field">
+                            <div class="profile-field-label">Communication Style</div>
+                            <div class="profile-field-value">Prefers email/Slack over calls for non-urgent matters. Appreciates agendas sent 24 hours before meetings. Likes clear action items and next steps.</div>
+                        </div>
+                        <div class="profile-field">
+                            <div class="profile-field-label">Meeting Preferences</div>
+                            <div class="profile-field-value">Best meeting times: Tue-Thu 1-5pm. Avoid Monday mornings (planning time) and Friday afternoons (wrap-up time). Prefers 25/50 min meetings over 30/60 min. Likes walking 1:1s when weather permits.</div>
+                        </div>
+                        <div class="profile-field">
+                            <div class="profile-field-label">Work Hours</div>
+                            <div class="profile-field-value">Core hours: 9am-5pm. Deep work blocks: 9-11am and 2-4pm (minimal interruptions). Side project work: 7-9pm weeknights, Saturday mornings.</div>
+                        </div>
+                        <div class="profile-field">
+                            <div class="profile-field-label">Focus Environment</div>
+                            <div class="profile-field-value">Works best in quiet environments with noise-canceling headphones. Office: prefers corner desk away from high-traffic areas. Home: dedicated office space required.</div>
+                        </div>
+                        <div class="profile-field">
+                            <div class="profile-field-label">Feedback Style</div>
+                            <div class="profile-field-value">Appreciates direct, specific feedback. Prefers written feedback with time to process before discussion. Values both positive reinforcement and constructive criticism.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Constraints & Commitments -->
+                <div class="profile-section">
+                    <div class="profile-section-header">
+                        <div class="profile-section-title">Constraints & Commitments</div>
+                        <div class="profile-section-subtitle">Recurring obligations and time blocks</div>
+                    </div>
+                    <div class="profile-list">
+                        <div class="profile-list-item">
+                            <div class="profile-list-item-text"><strong>Weekly Recurring:</strong> Team standup (Mon 10am), 1:1 with Marcus (Thu 2pm), Engineering sync (Tue 11am), Physical therapy (Tue 5:30pm for 6 weeks).</div>
+                        </div>
+                        <div class="profile-list-item">
+                            <div class="profile-list-item-text"><strong>Personal Commitments:</strong> Call with Mom (Sun 4pm), Date night with Jamie (Fri evenings), Co-founder sync (Wed 7pm), Spanish lessons (Mon/Wed 8pm online).</div>
+                        </div>
+                        <div class="profile-list-item">
+                            <div class="profile-list-item-text"><strong>Blackout Times:</strong> No meetings before 9am or after 6pm. No meetings during lunch (12-1pm). Friday afternoons reserved for async work and planning.</div>
+                        </div>
+                        <div class="profile-list-item">
+                            <div class="profile-list-item-text"><strong>Travel Constraints:</strong> Office days are Tue/Wed/Thu (45 min commute each way). Remote Mon/Fri. Avoid scheduling early meetings on office days.</div>
+                        </div>
+                        <div class="profile-list-item">
+                            <div class="profile-list-item-text"><strong>Energy Patterns:</strong> Peak energy 9am-12pm. Post-lunch dip 1-2pm (good for admin tasks). Second wind 2-5pm. Evening energy varies (better Mon-Wed than Thu-Fri).</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Locations & Places -->
+                <div class="profile-section">
+                    <div class="profile-section-header">
+                        <div class="profile-section-title">Locations & Places</div>
+                        <div class="profile-section-subtitle">Frequent places and commute patterns</div>
+                    </div>
+                    <div class="profile-card">
+                        <div class="profile-field">
+                            <div class="profile-field-label">Home</div>
+                            <div class="profile-field-value">Mission District, SF. 2-bedroom apartment with dedicated office. Walkable to cafes and gym.</div>
+                        </div>
+                        <div class="profile-field">
+                            <div class="profile-field-label">Office</div>
+                            <div class="profile-field-value">SOMA, SF. TechCorp HQ, 6th floor. 45 min commute via BART. In office Tue/Wed/Thu. Prefers corner desk near windows.</div>
+                        </div>
+                        <div class="profile-field">
+                            <div class="profile-field-label">Gym</div>
+                            <div class="profile-field-value">24 Hour Fitness (Mission St location). 10 min walk from home. Currently limited by shoulder injury - focusing on lower body and cardio.</div>
+                        </div>
+                        <div class="profile-field">
+                            <div class="profile-field-label">Favorite Coffee Shops</div>
+                            <div class="profile-field-value">Ritual Coffee (Valencia St) for focused work. Philz for casual meetings. Blue Bottle for quick stops.</div>
+                        </div>
+                        <div class="profile-field">
+                            <div class="profile-field-label">Common Routes</div>
+                            <div class="profile-field-value">Home → Office: BART (45 min). Home → Gym: Walk (10 min). Home → PT: Bus 14 (20 min). Weekend errands: usually clusters Mission/Valencia corridor.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Habits & Routines -->
+                <div class="profile-section">
+                    <div class="profile-section-header">
+                        <div class="profile-section-title">Habits & Routines</div>
+                        <div class="profile-section-subtitle">Daily patterns and rituals</div>
+                    </div>
+                    <div class="profile-card">
+                        <div class="profile-field">
+                            <div class="profile-field-label">Morning Routine</div>
+                            <div class="profile-field-value">Wake 7am. Coffee + news/emails (7-7:30am). Shower and breakfast (7:30-8am). Planning/journaling (8-8:30am). Start work by 9am. Gym on non-office days (7:30-8:30am on Mon/Fri).</div>
+                        </div>
+                        <div class="profile-field">
+                            <div class="profile-field-label">Work Day Structure</div>
+                            <div class="profile-field-value">Deep work block (9-11am). Quick break and emails (11-11:30am). Meetings/collaboration (11:30am-1pm). Lunch (1-1:30pm). Admin tasks (1:30-2pm). Afternoon focus/meetings (2-5pm). Wrap-up and planning (5-5:30pm).</div>
+                        </div>
+                        <div class="profile-field">
+                            <div class="profile-field-label">Evening Routine</div>
+                            <div class="profile-field-value">Dinner with Jamie when home (6-7pm). Side project work (7-9pm Mon/Wed/Fri). Relaxation/reading (9-10:30pm). Wind-down routine (10:30-11pm). Target bedtime: 11pm.</div>
+                        </div>
+                        <div class="profile-field">
+                            <div class="profile-field-label">Weekend Patterns</div>
+                            <div class="profile-field-value">Saturday: Side project work (9am-12pm), errands/chores (afternoon), date night/social (evening). Sunday: Gym or hiking (morning), meal prep (afternoon), call with Mom (4pm), planning for week ahead (evening).</div>
+                        </div>
+                        <div class="profile-field">
+                            <div class="profile-field-label">Self-Care Practices</div>
+                            <div class="profile-field-value">Meditation (10 min, mornings). Walking breaks (every 90 min). Stretching exercises (for shoulder, 3x daily). Reading before bed (30 min). Monthly therapy sessions (first Tuesday of month, 6pm).</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tools & Systems -->
+                <div class="profile-section">
+                    <div class="profile-section-header">
+                        <div class="profile-section-title">Tools & Systems</div>
+                        <div class="profile-section-subtitle">Software and workflows you use</div>
+                    </div>
+                    <div class="profile-card">
+                        <div class="profile-field">
+                            <div class="profile-field-label">Core Tools</div>
+                            <div class="profile-field-value">Notion (personal knowledge base), Linear (work tasks), Figma (design reviews), Slack (team communication), Google Workspace (docs/calendar), GitHub (side project).</div>
+                        </div>
+                        <div class="profile-field">
+                            <div class="profile-field-label">Task Management</div>
+                            <div class="profile-field-value">Uses GTD method. Weekly reviews on Sunday evenings. Daily MIT (Most Important Tasks) - max 3 per day. Time blocking in calendar for deep work.</div>
+                        </div>
+                        <div class="profile-field">
+                            <div class="profile-field-label">Note-Taking System</div>
+                            <div class="profile-field-value">Notion for long-form docs and project planning. Apple Notes for quick captures. Voice memos for thoughts while commuting. Weekly synthesis on Sundays.</div>
+                        </div>
+                        <div class="profile-field">
+                            <div class="profile-field-label">Communication Preferences</div>
+                            <div class="profile-field-value">Email for external/formal. Slack for team. Notion comments for async project discussion. Zoom for video calls. Prefers Loom for async video updates.</div>
+                        </div>
+                        <div class="profile-field">
+                            <div class="profile-field-label">Learning & Development</div>
+                            <div class="profile-field-value">Pocket for article saving. Audible for audiobooks during commute. Coursera/Udemy for courses. Technical blogs via Feedly. Product Hunt for inspiration.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="app view-chat">
+        <div class="header">
+            <div class="header-left">
+                <button class="menu-btn" onclick="toggleProfile()">
+                    <i data-lucide="menu"></i>
+                </button>
+                <div class="logo">Calendar</div>
+            </div>
+            <div class="view-toggle">
+                <button class="view-btn active" onclick="setView('chat')">
+                    <i data-lucide="message-square"></i>
+                    <span>Chat</span>
+                </button>
+                <button class="view-btn" onclick="setView('split')">
+                    <i data-lucide="layout-panel-left"></i>
+                    <span>Both</span>
+                </button>
+                <button class="view-btn" onclick="setView('calendar')">
+                    <i data-lucide="calendar-days"></i>
+                    <span>Calendar</span>
+                </button>
+                <button class="view-btn" onclick="setView('notes')">
+                    <i data-lucide="file-text"></i>
+                    <span>Notes</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="main">
+            <!-- Chat View -->
+            <div class="chat-view">
+                <!-- Empty State -->
+                <div class="empty-chat" id="emptyChat">
+                    <div class="greeting">
+                        <i data-lucide="sparkles" class="greeting-icon"></i>
+                        <span>Hey there</span>
+                    </div>
+                    <div class="empty-input-wrapper">
+                        <div class="empty-input-box">
+                            <input 
+                                type="text" 
+                                placeholder="Schedule lunch with Sarah on Thursday..."
+                                id="emptyInput"
+                                onkeydown="if(event.key==='Enter') handleEmptyInput()"
+                            >
+                            <button class="send-btn" onclick="handleEmptyInput()">
+                                <i data-lucide="arrow-up"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Chat -->
+                <div class="active-chat hidden" id="activeChat">
+                    <div class="chat-messages">
+                        <div class="messages-inner" id="chatMessages"></div>
+                    </div>
+                </div>
+
+                <div class="bottom-input hidden" id="bottomInput">
+                    <div class="bottom-input-wrapper">
+                        <div class="input-box">
+                            <textarea 
+                                id="chatInput" 
+                                class="chat-input" 
+                                placeholder="Schedule lunch with Sarah on Thursday..."
+                                rows="1"
+                                onkeydown="handleKeyPress(event)"
+                                oninput="autoResize(this)"
+                            ></textarea>
+                            <button class="send-btn" onclick="sendMessage()">
+                                <i data-lucide="arrow-up"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Calendar View -->
+            <div class="calendar-view">
+                <div class="calendar-container">
+                    <div class="calendar-header">
+                        <div class="calendar-nav">
+                            <button class="nav-btn" onclick="changeMonth(-1)">
+                                <i data-lucide="chevron-left"></i>
+                            </button>
+                            <div class="month-year" id="monthYear"></div>
+                            <button class="nav-btn" onclick="changeMonth(1)">
+                                <i data-lucide="chevron-right"></i>
+                            </button>
+                        </div>
+                        <button class="clear-btn" onclick="clearCalendar()">
+                            <i data-lucide="trash-2"></i>
+                            Clear All
+                        </button>
+                    </div>
+                    <div class="calendar-grid" id="calendarGrid"></div>
+                </div>
+            </div>
+
+            <!-- Notes View -->
+            <div class="notes-view">
+                <div class="notes-sidebar">
+                    <div class="notes-sidebar-header">
+                        <button class="new-note-btn" onclick="createNewNote()">
+                            <i data-lucide="plus"></i>
+                            New Note
+                        </button>
+                    </div>
+                    <div class="notes-list" id="notesList"></div>
+                </div>
+                <div class="notes-editor" id="notesEditor">
+                    <div class="notes-empty-state">
+                        <i data-lucide="file-text"></i>
+                        <p>Select a note or create a new one</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Capture Button -->
+    <button class="quick-capture-btn" onclick="openQuickCapture()">
+        <i data-lucide="pencil"></i>
+        Jot it down
+    </button>
+
+    <!-- Quick Capture Modal -->
+    <div class="quick-capture-modal" id="quickCaptureModal">
+        <div class="quick-capture-header">
+            <div class="quick-capture-title">Quick Capture</div>
+            <button class="quick-capture-close" onclick="closeQuickCapture()">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="quick-capture-body">
+            <textarea 
+                class="quick-capture-input" 
+                id="quickCaptureInput"
+                placeholder="Jot anything down... tasks, reminders, ideas, events. Sprekta will process it for you."
+            ></textarea>
+        </div>
+        <div class="quick-capture-footer">
+            <button class="quick-capture-action" onclick="closeQuickCapture()">
+                Cancel
+            </button>
+            <button class="quick-capture-action" onclick="captureWithVoice()">
+                <i data-lucide="mic"></i>
+                Voice
+            </button>
+            <button class="quick-capture-action primary" onclick="submitQuickCapture()">
+                <i data-lucide="check"></i>
+                Capture
+            </button>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast">
+        <i data-lucide="check-circle" class="toast-icon"></i>
+        <div class="toast-content">
+            <div class="toast-title">Captured</div>
+            <div class="toast-message" id="toastMessage">Meeting with Sarah tomorrow at 2pm</div>
+            <div class="toast-actions">
+                <button class="toast-btn" onclick="viewInbox()">View in Inbox</button>
+            </div>
+        </div>
+        <button class="toast-close" onclick="hideToast()">
+            <i data-lucide="x"></i>
+        </button>
+    </div>
+
+    <!-- Triage Modal -->
+    <div class="triage-modal" id="triageModal" onclick="if(event.target===this) closeTriageModal()">
+        <div class="triage-content">
+            <div class="triage-header">
+                <div class="triage-title" id="triageTitle">Confirm Event</div>
+                <div class="triage-subtitle">Let's add some details</div>
+            </div>
+            <div class="triage-body" id="triageBody">
+                <!-- Dynamic content will be inserted here -->
+            </div>
+            <div class="triage-footer">
+                <button class="triage-btn" onclick="closeTriageModal()">Cancel</button>
+                <button class="triage-btn primary" onclick="confirmEvent()">Confirm Event</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/app.js"></script>
+</body>
+</html>
