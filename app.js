@@ -14,6 +14,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadEvents();
     renderCalendar();
     lucide.createIcons();
+
+    // Close modals when clicking backdrop
+    document.getElementById('eventDetailModal').addEventListener('click', (e) => {
+        if (e.target.id === 'eventDetailModal') {
+            closeEventDetail();
+        }
+    });
+
+    document.getElementById('deleteConfirmModal').addEventListener('click', (e) => {
+        if (e.target.id === 'deleteConfirmModal') {
+            closeDeleteConfirm();
+        }
+    });
 });
 
 // ============================================
@@ -52,7 +65,7 @@ function renderCalendar() {
                 <div class="day-number">${day}</div>
                 <div class="day-events">
                     ${dayEvents.map(event => `
-                        <div class="event-pill" onclick="showEventDebug(${event.id})">
+                        <div class="event-pill" onclick="openEventDetail(${event.id})">
                             ${event.title}
                             ${event.time ? ` ${formatTime(event.time)}` : ''}
                         </div>
@@ -214,14 +227,255 @@ async function processQuickCaptureResponse(originalText, response) {
 }
 
 // ============================================
-// EVENT DEBUG
+// EVENT DETAIL MODAL
 // ============================================
 
-function showEventDebug(eventId) {
+let currentEventId = null;
+
+function openEventDetail(eventId) {
     const event = events.find(e => e.id === eventId);
-    if (event) {
-        alert(JSON.stringify(event, null, 2));
+    if (!event) {
+        console.error('Event not found:', eventId);
+        return;
     }
+
+    currentEventId = eventId;
+
+    // Populate view mode
+    document.getElementById('eventViewTitle').textContent = event.title;
+    document.getElementById('eventViewDate').textContent = formatDateLong(event.date);
+    document.getElementById('eventViewTime').textContent = event.time ? formatTime(event.time) : 'No time set';
+    document.getElementById('eventViewNotes').textContent = event.notes || '';
+
+    // Populate edit mode (so it's ready if they click Edit)
+    document.getElementById('eventEditTitle').value = event.title;
+    document.getElementById('eventEditDate').value = event.date;
+    document.getElementById('eventEditTime').value = event.time || '';
+    document.getElementById('eventEditNotes').value = event.notes || '';
+
+    // Show view mode, hide edit mode
+    document.getElementById('eventViewMode').style.display = 'block';
+    document.getElementById('eventEditMode').style.display = 'none';
+
+    // Open modal
+    document.getElementById('eventDetailModal').classList.add('open');
+
+    // Refresh icons
+    lucide.createIcons();
+
+    // Log to dev panel
+    if (window.devPanelModule) {
+        window.devPanelModule.logAction(`Opened event: "${event.title}"`);
+    }
+}
+
+function closeEventDetail() {
+    document.getElementById('eventDetailModal').classList.remove('open');
+    currentEventId = null;
+}
+
+function formatDateLong(dateStr) {
+    if (!dateStr) return 'No date';
+    const date = new Date(dateStr + 'T00:00:00');
+    return date.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+}
+
+// ============================================
+// EVENT EDITING
+// ============================================
+
+function enterEditMode() {
+    document.getElementById('eventViewMode').style.display = 'none';
+    document.getElementById('eventEditMode').style.display = 'block';
+
+    // Focus title input
+    document.getElementById('eventEditTitle').focus();
+
+    if (window.devPanelModule) {
+        window.devPanelModule.logAction('Entered edit mode');
+    }
+}
+
+function exitEditMode() {
+    // Reset form to original values
+    const event = events.find(e => e.id === currentEventId);
+    if (event) {
+        document.getElementById('eventEditTitle').value = event.title;
+        document.getElementById('eventEditDate').value = event.date;
+        document.getElementById('eventEditTime').value = event.time || '';
+        document.getElementById('eventEditNotes').value = event.notes || '';
+    }
+
+    // Switch back to view mode
+    document.getElementById('eventViewMode').style.display = 'block';
+    document.getElementById('eventEditMode').style.display = 'none';
+
+    if (window.devPanelModule) {
+        window.devPanelModule.logAction('Cancelled edit');
+    }
+}
+
+async function saveEventChanges() {
+    if (!currentEventId) return;
+
+    const title = document.getElementById('eventEditTitle').value.trim();
+    const date = document.getElementById('eventEditDate').value;
+    const time = document.getElementById('eventEditTime').value;
+    const notes = document.getElementById('eventEditNotes').value.trim();
+
+    // Validation
+    if (!title) {
+        alert('Title is required');
+        return;
+    }
+    if (!date) {
+        alert('Date is required');
+        return;
+    }
+
+    // Find and update event
+    const eventIndex = events.findIndex(e => e.id === currentEventId);
+    if (eventIndex === -1) {
+        console.error('Event not found for save:', currentEventId);
+        return;
+    }
+
+    const updatedEvent = {
+        ...events[eventIndex],
+        title,
+        date,
+        time,
+        notes
+    };
+
+    events[eventIndex] = updatedEvent;
+
+    // Save to Supabase
+    try {
+        const response = await fetch('/api/events', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedEvent)
+        });
+
+        if (!response.ok) {
+            console.warn('Failed to save to Supabase, using localStorage only');
+        } else {
+            console.log('[Storage] Event updated in Supabase');
+        }
+    } catch (error) {
+        console.error('[Storage] Supabase error:', error);
+    }
+
+    // Save to localStorage (fallback/backup)
+    localStorage.setItem('events', JSON.stringify(events));
+
+    // Update UI
+    renderCalendar();
+    closeEventDetail();
+
+    // Log to dev panel
+    if (window.devPanelModule) {
+        window.devPanelModule.logAction(`Saved event: "${title}"`);
+    }
+
+    // Show feedback
+    showToast('Event saved');
+}
+
+// ============================================
+// EVENT DELETION
+// ============================================
+
+function confirmDeleteEvent() {
+    const event = events.find(e => e.id === currentEventId);
+    if (!event) return;
+
+    document.getElementById('deleteConfirmText').textContent =
+        `Are you sure you want to delete "${event.title}"?`;
+    document.getElementById('deleteConfirmModal').classList.add('open');
+}
+
+function closeDeleteConfirm() {
+    document.getElementById('deleteConfirmModal').classList.remove('open');
+}
+
+async function executeDeleteEvent() {
+    if (!currentEventId) return;
+
+    const event = events.find(e => e.id === currentEventId);
+    const eventTitle = event ? event.title : 'Unknown';
+
+    // Remove from array
+    events = events.filter(e => e.id !== currentEventId);
+
+    // Delete from Supabase
+    try {
+        const response = await fetch('/api/events', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: currentEventId })
+        });
+
+        if (!response.ok) {
+            console.warn('Failed to delete from Supabase');
+        } else {
+            console.log('[Storage] Event deleted from Supabase');
+        }
+    } catch (error) {
+        console.error('[Storage] Supabase delete error:', error);
+    }
+
+    // Update localStorage
+    localStorage.setItem('events', JSON.stringify(events));
+
+    // Update UI
+    renderCalendar();
+    closeDeleteConfirm();
+    closeEventDetail();
+
+    // Log to dev panel
+    if (window.devPanelModule) {
+        window.devPanelModule.logAction(`Deleted event: "${eventTitle}"`);
+    }
+
+    // Show feedback
+    showToast('Event deleted');
+}
+
+// ============================================
+// TOAST NOTIFICATIONS
+// ============================================
+
+function showToast(message) {
+    // Check if toast container exists, create if not
+    let toastContainer = document.getElementById('toastContainer');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toastContainer';
+        toastContainer.className = 'toast-container';
+        document.body.appendChild(toastContainer);
+    }
+
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = message;
+    toastContainer.appendChild(toast);
+
+    // Trigger animation
+    setTimeout(() => toast.classList.add('show'), 10);
+
+    // Remove after delay
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 }
 
 // ============================================

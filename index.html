@@ -88,6 +88,88 @@
         </div>
     </div>
 
+    <!-- Event Detail Modal -->
+    <div id="eventDetailModal" class="modal">
+        <div class="modal-content event-modal">
+            <!-- Header -->
+            <div class="modal-header">
+                <button class="close-btn" onclick="closeEventDetail()">
+                    <i data-lucide="x"></i>
+                </button>
+                <button id="deleteEventBtn" class="delete-btn" onclick="confirmDeleteEvent()">
+                    <i data-lucide="trash-2"></i>
+                </button>
+            </div>
+
+            <!-- View Mode -->
+            <div id="eventViewMode" class="event-mode">
+                <h2 id="eventViewTitle" class="event-title"></h2>
+
+                <div class="event-detail-row">
+                    <i data-lucide="calendar"></i>
+                    <span id="eventViewDate"></span>
+                </div>
+
+                <div class="event-detail-row">
+                    <i data-lucide="clock"></i>
+                    <span id="eventViewTime"></span>
+                </div>
+
+                <div class="event-notes-section">
+                    <label>Notes</label>
+                    <p id="eventViewNotes" class="event-notes-display"></p>
+                </div>
+
+                <div class="modal-actions">
+                    <button class="btn btn-primary" onclick="enterEditMode()">
+                        <i data-lucide="pencil"></i>
+                        Edit
+                    </button>
+                </div>
+            </div>
+
+            <!-- Edit Mode -->
+            <div id="eventEditMode" class="event-mode" style="display: none;">
+                <div class="form-group">
+                    <label for="eventEditTitle">Title</label>
+                    <input type="text" id="eventEditTitle" class="form-input" placeholder="Event title" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="eventEditDate">Date</label>
+                    <input type="date" id="eventEditDate" class="form-input" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="eventEditTime">Time</label>
+                    <input type="time" id="eventEditTime" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label for="eventEditNotes">Notes</label>
+                    <textarea id="eventEditNotes" class="form-input form-textarea" rows="3" placeholder="Add notes..."></textarea>
+                </div>
+
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" onclick="exitEditMode()">Cancel</button>
+                    <button class="btn btn-primary" onclick="saveEventChanges()">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteConfirmModal" class="modal">
+        <div class="modal-content delete-confirm-modal">
+            <h3>Delete Event?</h3>
+            <p id="deleteConfirmText">Are you sure you want to delete this event?</p>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeDeleteConfirm()">Cancel</button>
+                <button class="btn btn-danger" onclick="executeDeleteEvent()">Delete</button>
+            </div>
+        </div>
+    </div>
+
     <script type="module">
         import devPanel from '/dev-panel.js';
 

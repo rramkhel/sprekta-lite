@@ -623,6 +623,242 @@ body {
 }
 
 /* ============================================
+ * EVENT DETAIL MODAL
+ * ============================================ */
+
+.event-modal {
+    max-width: 400px;
+    width: 90%;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.close-btn,
+.delete-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 8px;
+    color: #666;
+    transition: all 0.2s;
+}
+
+.close-btn:hover {
+    background: #f0f0f0;
+    color: #333;
+}
+
+.delete-btn:hover {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.event-mode {
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* View Mode */
+.event-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0 0 16px 0;
+    color: #1a1a1a;
+}
+
+.event-detail-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    color: #555;
+}
+
+.event-detail-row i {
+    width: 20px;
+    height: 20px;
+    color: #888;
+}
+
+.event-notes-section {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid #eee;
+}
+
+.event-notes-section label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #888;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.event-notes-display {
+    color: #555;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    min-height: 40px;
+}
+
+.event-notes-display:empty::before {
+    content: "No notes";
+    color: #aaa;
+    font-style: italic;
+}
+
+/* Edit Mode */
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #555;
+    margin-bottom: 6px;
+}
+
+.form-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: inherit;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.form-textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+/* Modal Actions */
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+/* Buttons */
+.btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+}
+
+.btn i {
+    width: 18px;
+    height: 18px;
+}
+
+.btn-primary {
+    background: #6366f1;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #4f46e5;
+}
+
+.btn-secondary {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.btn-secondary:hover {
+    background: #e5e7eb;
+}
+
+.btn-danger {
+    background: #dc2626;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #b91c1c;
+}
+
+/* Delete Confirmation Modal */
+.delete-confirm-modal {
+    max-width: 320px;
+    text-align: center;
+}
+
+.delete-confirm-modal h3 {
+    margin: 0 0 8px 0;
+    font-size: 1.25rem;
+    color: #1a1a1a;
+}
+
+.delete-confirm-modal p {
+    color: #666;
+    margin-bottom: 20px;
+}
+
+.delete-confirm-modal .modal-actions {
+    justify-content: center;
+}
+
+/* ============================================
+ * TOAST NOTIFICATIONS
+ * ============================================ */
+
+.toast-container {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.toast {
+    background: #1a1a1a;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* ============================================
  * MOBILE RESPONSIVE
  * ============================================ */
 
