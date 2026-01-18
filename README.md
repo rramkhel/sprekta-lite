@@ -6,9 +6,14 @@ AI-powered calendar with quick capture.
 
 ```
 sprekta-lite/
-├── index.html         # Single-file app (calendar-11 based)
+├── index.html         # HTML structure
+├── style.css          # All styles (extracted from monolithic file)
+├── app.js             # All JavaScript logic
 ├── api/
 │   └── parse.js      # AI parsing serverless function
+├── docs/              # Documentation
+│   ├── tech-stack.md # Tech stack overview
+│   └── quick-reference.md # Common commands & troubleshooting
 ├── .env              # API keys (not in git)
 ├── .gitignore
 ├── package.json
@@ -51,9 +56,29 @@ sprekta-lite/
 3. Events are parsed and added to calendar
 4. Click pending events to triage and add details
 
+## Tech Stack
+
+- **Frontend:** Vanilla JavaScript, HTML, CSS
+- **Backend:** Vercel Serverless Functions
+- **AI:** Anthropic Claude API (Sonnet 4)
+- **Database:** Supabase (PostgreSQL) + LocalStorage (current)
+- **Deployment:** Vercel + GitHub (auto-deploy on push)
+
+## Documentation
+
+New to development? Check out:
+- **[Tech Stack Overview](docs/tech-stack.md)** - Understand how everything works
+- **[Quick Reference](docs/quick-reference.md)** - Common commands and troubleshooting
+
+## Deployment
+
+- **Live Site:** https://sprekta-lite.vercel.app
+- **Auto-deploys** when you push to GitHub `main` branch
+- **Manual deploy:** `npx vercel --prod`
+
 ## Notes
 
-- Uses calendar-11 design (clean, modern UI)
-- All CSS/JS is inline in index.html for simplicity
-- LocalStorage for data persistence
-- `/api/parse` endpoint for AI-powered parsing (optional - has built-in parser too)
+- Uses modern, clean UI design
+- CSS/JS split into separate files for maintainability
+- LocalStorage for data persistence (will migrate to Supabase)
+- Serverless `/api/parse` endpoint for AI-powered event parsing
