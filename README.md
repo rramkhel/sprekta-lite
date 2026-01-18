@@ -60,8 +60,8 @@ sprekta-lite/
 
 - **Frontend:** Vanilla JavaScript, HTML, CSS
 - **Backend:** Vercel Serverless Functions
-- **AI:** Anthropic Claude API (Sonnet 4)
-- **Database:** Supabase (PostgreSQL) + LocalStorage (current)
+- **AI:** Anthropic Claude API (Haiku 3.5 in dev, Sonnet 3.5 in prod)
+- **Database:** Supabase (PostgreSQL via Session Pooler) + localStorage fallback
 - **Deployment:** Vercel + GitHub (auto-deploy on push)
 
 ## Documentation
@@ -80,5 +80,5 @@ New to development? Check out:
 
 - Uses modern, clean UI design
 - CSS/JS split into separate files for maintainability
-- LocalStorage for data persistence (will migrate to Supabase)
-- Serverless `/api/parse` endpoint for AI-powered event parsing
+- Supabase for cloud persistence, localStorage as fallback
+- Serverless API endpoints: `/api/parse` (AI), `/api/events` (CRUD), `/api/setup-db` (init)

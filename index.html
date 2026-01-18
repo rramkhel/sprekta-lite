@@ -46,24 +46,6 @@
         </div>
 
         <div class="dev-panel-content">
-            <!-- Demo Mode Toggle -->
-            <div class="dev-section">
-                <label class="dev-toggle-label">
-                    <input type="checkbox" id="demo-mode-toggle">
-                    <span>Demo Mode (Mock AI)</span>
-                </label>
-            </div>
-
-            <!-- Test Scenarios -->
-            <div id="scenario-controls" class="dev-section" style="display: none;">
-                <h4>Test Scenarios</h4>
-                <select id="scenario-select" class="dev-select">
-                    <option value="">-- Select a scenario --</option>
-                </select>
-                <button id="load-scenario-btn" class="dev-btn">Load into Quick Capture</button>
-                <div id="scenario-preview" class="scenario-preview"></div>
-            </div>
-
             <!-- Response Inspector -->
             <div class="dev-section">
                 <h4>Last Response</h4>
@@ -112,7 +94,6 @@
         // Initialize dev panel when DOM is ready
         document.addEventListener('DOMContentLoaded', () => {
             devPanel.initDevPanel();
-            devPanel.populateScenarioSelector();
         });
 
         // Make dev panel available globally

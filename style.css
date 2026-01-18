@@ -264,10 +264,6 @@ body {
     background: #44403c;
 }
 
-.dev-badge.active {
-    background: #ea580c;
-}
-
 .dev-panel {
     position: fixed;
     top: 0;

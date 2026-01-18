@@ -1,17 +1,11 @@
 /**
- * Developer Panel for Demo Mode
+ * Developer Panel
  *
  * Provides in-app testing controls:
- * - Toggle between demo/real mode
- * - Quick scenario selection
  * - Response inspector
  * - Action log
- * - Visual indicators
  */
 
-import { mockAI } from './test-data/mock-ai-engine.js';
-import { quickCaptureScenarios } from './test-data/scenarios/quick-capture-scenarios.js';
-import { triageScenarios } from './test-data/scenarios/triage-scenarios.js';
 import * as versionUI from './versioning/version-ui.js';
 
 // ============================================
@@ -33,22 +27,13 @@ let devPanelState = {
  * Initialize the dev panel
  */
 export function initDevPanel() {
-  // Restore demo mode state from localStorage
-  const savedDemoMode = localStorage.getItem('DEMO_MODE');
-  if (savedDemoMode !== null) {
-    window.DEMO_MODE = savedDemoMode === 'true';
-  }
-
   // Set up event listeners
   setupEventListeners();
-
-  // Update UI to reflect current state
-  updateDemoModeUI();
 
   // Initialize version UI
   versionUI.init();
 
-  console.log('[Dev Panel] Initialized. Demo mode:', window.DEMO_MODE);
+  console.log('[Dev Panel] Initialized');
 }
 
 /**
@@ -65,24 +50,6 @@ function setupEventListeners() {
   const closeBtn = document.getElementById('dev-panel-close');
   if (closeBtn) {
     closeBtn.addEventListener('click', () => setDevPanelOpen(false));
-  }
-
-  // Demo mode toggle
-  const demoToggle = document.getElementById('demo-mode-toggle');
-  if (demoToggle) {
-    demoToggle.addEventListener('change', handleDemoModeToggle);
-  }
-
-  // Scenario selector
-  const scenarioSelect = document.getElementById('scenario-select');
-  if (scenarioSelect) {
-    scenarioSelect.addEventListener('change', handleScenarioSelect);
-  }
-
-  // Load scenario button
-  const loadScenarioBtn = document.getElementById('load-scenario-btn');
-  if (loadScenarioBtn) {
-    loadScenarioBtn.addEventListener('click', loadSelectedScenario);
   }
 
   // Clear log button
@@ -114,125 +81,6 @@ function setDevPanelOpen(isOpen) {
   }
 }
 
-/**
- * Handle demo mode toggle
- */
-function handleDemoModeToggle(event) {
-  window.DEMO_MODE = event.target.checked;
-  localStorage.setItem('DEMO_MODE', window.DEMO_MODE);
-  updateDemoModeUI();
-  logAction(`Demo mode ${window.DEMO_MODE ? 'ENABLED' : 'DISABLED'}`);
-}
-
-/**
- * Update UI to reflect demo mode state
- */
-function updateDemoModeUI() {
-  // Update toggle checkbox
-  const toggle = document.getElementById('demo-mode-toggle');
-  if (toggle) {
-    toggle.checked = window.DEMO_MODE;
-  }
-
-  // Update demo pill in header
-  const pill = document.getElementById('demo-pill');
-  if (pill) {
-    pill.style.display = window.DEMO_MODE ? 'inline-flex' : 'none';
-  }
-
-  // Update dev badge appearance
-  const badge = document.getElementById('dev-badge');
-  if (badge) {
-    badge.classList.toggle('active', window.DEMO_MODE);
-  }
-
-  // Update scenario controls visibility
-  const scenarioControls = document.getElementById('scenario-controls');
-  if (scenarioControls) {
-    scenarioControls.style.display = window.DEMO_MODE ? 'block' : 'none';
-  }
-}
-
-// ============================================
-// SCENARIO MANAGEMENT
-// ============================================
-
-/**
- * Populate scenario selector dropdown
- */
-export function populateScenarioSelector() {
-  const select = document.getElementById('scenario-select');
-  if (!select) return;
-
-  // Clear existing options
-  select.innerHTML = '<option value="">-- Select a scenario --</option>';
-
-  // Get all categories
-  const categories = [...new Set(quickCaptureScenarios.map(s => s.category))];
-
-  // Add scenarios by category
-  categories.forEach(category => {
-    const optgroup = document.createElement('optgroup');
-    optgroup.label = category.replace('-', ' ').toUpperCase();
-
-    const scenarios = quickCaptureScenarios.filter(s => s.category === category);
-    scenarios.forEach(scenario => {
-      const option = document.createElement('option');
-      option.value = scenario.id;
-      option.textContent = scenario.name;
-      option.dataset.input = scenario.input;
-      optgroup.appendChild(option);
-    });
-
-    select.appendChild(optgroup);
-  });
-}
-
-/**
- * Handle scenario selection
- */
-function handleScenarioSelect(event) {
-  const scenarioId = event.target.value;
-  if (!scenarioId) {
-    devPanelState.selectedScenario = null;
-    return;
-  }
-
-  const scenario = quickCaptureScenarios.find(s => s.id === scenarioId);
-  devPanelState.selectedScenario = scenario;
-
-  // Show scenario preview
-  const preview = document.getElementById('scenario-preview');
-  if (preview && scenario) {
-    preview.innerHTML = `
-      <div class="scenario-preview-content">
-        <div class="preview-label">Input:</div>
-        <div class="preview-input">"${scenario.input}"</div>
-        <div class="preview-label">Expected:</div>
-        <div class="preview-expected">
-          ${scenario.expectedAction} (${scenario.expectedConfidence} confidence)
-        </div>
-      </div>
-    `;
-  }
-}
-
-/**
- * Load selected scenario into quick capture
- */
-function loadSelectedScenario() {
-  const scenario = devPanelState.selectedScenario;
-  if (!scenario) return;
-
-  // Set input value
-  const input = document.getElementById('quick-capture-input');
-  if (input) {
-    input.value = scenario.input;
-    input.focus();
-  }
-
-  logAction(`Loaded scenario: ${scenario.name}`);
-}
 
 // ============================================
 // RESPONSE INSPECTION
@@ -418,7 +266,6 @@ window.devPanel = {
 // Export functions for use in app.js
 export default {
   initDevPanel,
-  populateScenarioSelector,
   updateResponseInspector,
   logAction
 };

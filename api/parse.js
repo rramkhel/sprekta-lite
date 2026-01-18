@@ -27,8 +27,8 @@ export default async function handler(req, res) {
     // Select AI model based on feature flag
     // Using Haiku for prototyping - switch to Sonnet for production
     const model = isEnabled('PROTOTYPE_MODE')
-      ? 'claude-haiku-4-5-20251001'  // Cheaper model for development
-      : 'claude-sonnet-4-20250514';   // Production model
+      ? 'claude-3-5-haiku-20241022'  // Cheaper model for development ($0.80/MTok vs $3/MTok)
+      : 'claude-3-5-sonnet-20241022';   // Production model
 
     // Load the system prompt from markdown file with current date
     const systemPrompt = loadPrompt('calendar-parser', {
@@ -58,7 +58,18 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
+    // Check for API errors
+    if (!response.ok || data.error) {
+      console.error('[Parse] Anthropic API error:', data);
+      throw new Error(data.error?.message || `API returned ${response.status}`);
+    }
+
     // Extract the JSON from Claude's response
+    if (!data.content || !data.content[0]) {
+      console.error('[Parse] Unexpected API response:', data);
+      throw new Error('Invalid API response format');
+    }
+
     const content = data.content[0].text;
     const cleaned = content.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(cleaned);

@@ -6,18 +6,12 @@ let currentMonth = new Date().getMonth();
 let currentYear = new Date().getFullYear();
 let events = [];
 
-// Initialize demo mode (managed by dev panel)
-window.DEMO_MODE = localStorage.getItem('DEMO_MODE') === 'true';
-
-// We'll use dynamic import for mock AI to avoid module loading issues
-let mockAIModule = null;
-
 // ============================================
 // INITIALIZATION
 // ============================================
 
-document.addEventListener('DOMContentLoaded', () => {
-    loadEvents();
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadEvents();
     renderCalendar();
     lucide.createIcons();
 });
@@ -101,10 +95,24 @@ function changeMonth(direction) {
     renderCalendar();
 }
 
-function clearCalendar() {
+async function clearCalendar() {
     if (confirm('Clear all events?')) {
+        // Delete from Supabase
+        try {
+            for (const event of events) {
+                await fetch('/api/events', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: event.id })
+                });
+            }
+            console.log('[Storage] Deleted all events from Supabase');
+        } catch (error) {
+            console.error('[Storage] Failed to delete from Supabase:', error);
+        }
+
         events = [];
-        saveEvents();
+        localStorage.setItem('events', JSON.stringify(events));
         renderCalendar();
     }
 }
@@ -130,41 +138,22 @@ async function submitQuickCapture() {
     if (!text) return;
 
     try {
-        let parsed;
+        // Call real AI endpoint
+        const response = await fetch('/api/parse', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text })
+        });
 
-        if (window.DEMO_MODE) {
-            // Load mock AI if not already loaded
-            if (!mockAIModule) {
-                mockAIModule = await import('/test-data/mock-ai-engine.js');
-            }
+        if (!response.ok) throw new Error('Parse failed');
 
-            // Use mock response in demo mode
-            parsed = mockAIModule.parseQuickCapture(text);
-            console.log('DEMO Response:', parsed);
+        const parsed = await response.json();
+        console.log('AI Response:', parsed);
 
-            // Log to dev panel if available
-            if (window.devPanelModule) {
-                window.devPanelModule.logAction(`Quick capture (demo): "${text}"`);
-                window.devPanelModule.updateResponseInspector(parsed);
-            }
-        } else {
-            // Call real AI endpoint
-            const response = await fetch('/api/parse', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text })
-            });
-
-            if (!response.ok) throw new Error('Parse failed');
-
-            parsed = await response.json();
-            console.log('AI Response:', parsed);
-
-            // Log to dev panel if available
-            if (window.devPanelModule) {
-                window.devPanelModule.logAction(`Quick capture (live): "${text}"`);
-                window.devPanelModule.updateResponseInspector(parsed);
-            }
+        // Log to dev panel if available
+        if (window.devPanelModule) {
+            window.devPanelModule.logAction(`Quick capture: "${text}"`);
+            window.devPanelModule.updateResponseInspector(parsed);
         }
 
         // Add events from AI response
@@ -183,21 +172,44 @@ async function submitQuickCapture() {
 }
 
 async function processQuickCaptureResponse(originalText, response) {
-    // Simple: just add events directly, no triage
-    if (response.events && response.events.length > 0) {
-        response.events.forEach((eventData, index) => {
-            events.push({
+    console.log('[Process Response] Original text:', originalText);
+    console.log('[Process Response] Full response:', response);
+
+    // Handle the actual API format: { items: [...] }
+    if (response.items && response.items.length > 0) {
+        console.log('[Process Response] Found', response.items.length, 'items');
+
+        // Filter only items that are events (have event data)
+        const eventItems = response.items.filter(item => item.category === 'event' && item.event);
+        console.log('[Process Response] Found', eventItems.length, 'event items');
+
+        eventItems.forEach((item, index) => {
+            const eventData = item.event;
+            const newEvent = {
                 id: Date.now() + index,
                 title: eventData.title,
                 date: eventData.date,
                 time: eventData.time || '09:00',
                 raw: originalText,
-                aiResponse: eventData // store full AI response for debugging
-            });
+                aiResponse: item // store full AI response for debugging
+            };
+
+            console.log('[Process Response] Creating event:', newEvent);
+            events.push(newEvent);
         });
 
-        await saveEvents();
-        renderCalendar();
+        if (eventItems.length > 0) {
+            await saveEvents();
+            console.log('[Process Response] Events saved to localStorage:', events);
+            renderCalendar();
+            console.log('[Process Response] Calendar re-rendered');
+        } else {
+            console.warn('[Process Response] No event items found. Items were:', response.items);
+            alert('No events found. AI parsed as tasks/notes instead.');
+        }
+    } else {
+        console.warn('[Process Response] No items in response!', response);
+        alert('AI returned no items.');
     }
 }
 
@@ -213,16 +225,102 @@ function showEventDebug(eventId) {
 }
 
 // ============================================
-// STORAGE
+// STORAGE (Supabase)
 // ============================================
 
-function loadEvents() {
-    const stored = localStorage.getItem('events');
-    if (stored) {
-        events = JSON.parse(stored);
+async function loadEvents() {
+    console.log('[Storage] Loading events from Supabase...');
+
+    try {
+        const response = await fetch('/api/events');
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        events = data.events || [];
+
+        console.log('[Storage] Loaded', events.length, 'events from Supabase');
+
+        // Also cache in localStorage as backup
+        localStorage.setItem('events', JSON.stringify(events));
+    } catch (error) {
+        console.error('[Storage] Failed to load from Supabase:', error);
+
+        // Fallback to localStorage
+        console.log('[Storage] Falling back to localStorage');
+        const stored = localStorage.getItem('events');
+        if (stored) {
+            events = JSON.parse(stored);
+            console.log('[Storage] Loaded', events.length, 'events from localStorage');
+        }
     }
 }
 
 async function saveEvents() {
+    console.log('[Storage] Saving', events.length, 'events to Supabase...');
+
+    // Save to localStorage first (immediate backup)
     localStorage.setItem('events', JSON.stringify(events));
+
+    try {
+        // Get existing events from Supabase to find which ones to save
+        const response = await fetch('/api/events');
+        const data = await response.json();
+        const existingIds = new Set((data.events || []).map(e => e.id));
+
+        // Save new events to Supabase
+        const savePromises = events
+            .filter(event => !existingIds.has(event.id))
+            .map(event => {
+                return fetch('/api/events', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(event)
+                });
+            });
+
+        await Promise.all(savePromises);
+        console.log('[Storage] Saved to Supabase successfully');
+    } catch (error) {
+        console.error('[Storage] Failed to save to Supabase:', error);
+        console.log('[Storage] Event saved to localStorage only');
+    }
 }
+
+// ============================================
+// DEBUG / TESTING
+// ============================================
+
+// Add test event manually (for debugging)
+window.addTestEvent = function(title, date, time) {
+    const testEvent = {
+        id: Date.now(),
+        title: title || 'Test Event',
+        date: date || '2026-01-21', // Tuesday
+        time: time || '18:30',
+        raw: 'Manual test',
+        aiResponse: null
+    };
+
+    console.log('[Test] Adding test event:', testEvent);
+    events.push(testEvent);
+    saveEvents();
+    renderCalendar();
+    console.log('[Test] Event added. Total events:', events.length);
+};
+
+// View all events (for debugging)
+window.viewEvents = function() {
+    console.log('[Debug] Current events:', events);
+    console.log('[Debug] localStorage events:', JSON.parse(localStorage.getItem('events') || '[]'));
+};
+
+// Clear all events (for debugging)
+window.clearEvents = function() {
+    events = [];
+    saveEvents();
+    renderCalendar();
+    console.log('[Debug] All events cleared');
+};

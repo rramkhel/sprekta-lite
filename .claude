@@ -1,164 +1,127 @@
-# Claude Code Project Instructions
+# Sprekta Lite - Dev Instructions
 
-## Development Server
-
-**IMPORTANT:** Always run the development server before testing:
-```bash
-npx vercel dev --yes
-```
-
-The `--yes` flag auto-confirms Vercel CLI prompts. Without it, you'll get stuck on confirmation dialogs.
-
-## Git Workflow Reminders
-
-### Regular Commits
-- **Remind user to commit every 30-60 minutes** of active development
-- Suggest: `git add -A && git commit -m "descriptive message"`
-- Push to GitHub: `git push origin main`
-
-### When to Push
-- After completing a feature or fix
-- Before taking a break
-- After creating a milestone
-- End of coding session
-
-### Before Big Changes
-- Remind user to **save a snapshot** first (via dev panel)
-- Or create a git branch: `git checkout -b experiment-name`
-
-## Versioning Workflow
-
-### Save Snapshots Often
-- Remind user to save snapshots when making significant changes to:
-  - `types/schemas.js` (prompt engineering)
-  - `test-data/mock-ai-engine.js` (AI logic)
-  - Test scenarios
-  - Feature flags
-
-### Snapshot Naming Convention
-- Use format: `vX-description` (e.g., `v3-confidence-tweaks`)
-- Include what changed in description
-
-### Milestones
-- Only promote to milestone when ready for "release"
-- Use semantic versioning: `v1.0`, `v1.1`, `v2.0`
-
-## Testing Reminders
-
-### Before Committing
-- Remind to test in demo mode with scenarios
-- Check both quick capture and triage flows
-- Verify dev panel works
-
-### After Major Changes
-- Test all quick capture categories (events, tasks, notes)
-- Check confidence levels are appropriate
-- Review response inspector JSON
-
-## File-Specific Notes
-
-### When Editing `types/schemas.js`
-- Changes affect AI behavior significantly
-- Save snapshot before major prompt changes
-- Test with multiple scenarios after changes
-
-### When Editing `test-data/mock-ai-engine.js`
-- Update corresponding test scenarios
-- Check confidence levels make sense
-- Verify all response fields present
-
-### When Editing `style.css`
-- We're using **light theme** (converted 2026-01-18)
-- Don't accidentally revert to dark colors
-- Test responsive design (mobile view)
-
-## Common Mistakes to Avoid
-
-### Import Paths
-- Always include `.js` extension: `import { x } from './file.js'`
-- Use relative paths in browser code: `./module.js`
-- Use absolute paths in API code: `path.join(PROJECT_ROOT, ...)`
-
-### API Usage
-- API endpoints only work when `npx vercel dev` is running
-- Check console if version save/load fails
-- Snapshots require filesystem access (won't work in browser alone)
-
-### Demo Mode
-- Remember to toggle demo mode in dev panel
-- Demo mode state persists in localStorage
-- Clear localStorage if behavior seems stuck
-
-## Proactive Suggestions
-
-### When User Says "test this"
-- Suggest loading relevant scenario from dev panel
-- Remind to check demo mode is on
-- Offer to open response inspector
-
-### When User Makes Schema Changes
-- Suggest saving a snapshot first
-- Recommend testing with multiple scenarios
-- Offer to check confidence levels across test cases
-
-### When Session Ends
-- Remind to:
-  1. Save any unsaved snapshots
-  2. Commit changes to git
-  3. Push to GitHub
-  4. Note any WIP items for next session
-
-### When Starting Session
-- Check if `npx vercel dev` is running
-- Verify demo mode state
-- Ask if they want to restore a previous snapshot
-
-## Special Workflows
-
-### Experimenting with New Prompt
-1. Save current state as snapshot
-2. Make changes to schemas.js
-3. Test with scenarios
-4. If good → commit. If bad → restore snapshot
-
-### Creating a Release
-1. Test thoroughly with all scenarios
-2. Save final snapshot
-3. Promote to milestone (creates git branch/commit)
-4. Push to GitHub
-5. Deploy to Vercel if needed
-
-## Quick Commands Reference
+## Running the App
 
 ```bash
-# Start dev server
+# Start dev server (IMPORTANT: use npx, NOT npm run dev)
 npx vercel dev --yes
 
-# Git workflow
-git status
-git add -A
-git commit -m "message"
-git push origin main
-
-# Create branch for experiments
-git checkout -b experiment-name
-
-# Deploy to Vercel
-vercel --prod
+# App runs at: http://localhost:3000
 ```
 
-## Important Paths
+## Database Setup
 
-- Snapshots: `versioning/snapshots/`
-- Milestones: `versioning/milestones/`
-- Scenarios: `test-data/scenarios/`
-- Documentation: `DEVELOPMENT.md`
+```bash
+# One-time setup (creates events table in Supabase)
+npm run setup-db
 
-## Contact/Notes
+# IMPORTANT: Uses Session Pooler connection (IPv4-compatible)
+# DATABASE_URL: postgresql://postgres.tqezvppmechaczaulput:PASSWORD@aws-1-us-east-1.pooler.supabase.com:5432/postgres
+# DO NOT use direct connection (db.*.supabase.co) - fails on macOS/Vercel due to IPv6
+```
 
-This is a solo prototype project. Development focus is on:
-- Rapid iteration on AI prompt engineering
-- Testing confidence models
-- Refining quick capture UX
+## Testing API Endpoints
 
-Production deployment and real AI integration come later.
+```bash
+# Test AI parse (uses Haiku model when PROTOTYPE_MODE: true)
+curl -X POST http://localhost:3000/api/parse \
+  -H 'Content-Type: application/json' \
+  -d '{"text": "Meeting tomorrow at 2pm"}' | jq .
+
+# Get all events
+curl http://localhost:3000/api/events | jq .
+
+# Create event manually
+curl -X POST http://localhost:3000/api/events \
+  -H 'Content-Type: application/json' \
+  -d '{"id": 1234567890, "title": "Test", "date": "2026-01-20", "time": "14:00"}' | jq .
+
+# Check database setup
+curl http://localhost:3000/api/setup-db | jq .
+```
+
+## Browser Console Helpers
+
+```javascript
+// Add test event (saves to Supabase + localStorage)
+addTestEvent("Meeting", "2026-01-20", "14:00")
+
+// View all events in memory
+viewEvents()
+
+// Clear all events (both Supabase and localStorage)
+clearEvents()
+```
+
+## Important Config
+
+**AI Model** (`api/parse.js`)
+- PROTOTYPE_MODE: true → `claude-3-5-haiku-20241022` ($0.80/MTok - cheap)
+- PROTOTYPE_MODE: false → `claude-3-5-sonnet-20241022` ($3/MTok - production)
+- Toggle in: `config/features.js`
+
+**Field Mapping** (`api/events.js`)
+- App uses camelCase: `aiResponse`
+- Database uses snake_case: `ai_response`
+- API automatically converts between formats
+
+**Event Loading** (`app.js`)
+- `loadEvents()` is async and awaited before calendar renders
+- Loads from Supabase first, falls back to localStorage
+- `saveEvents()` saves to Supabase + localStorage
+
+## Common Issues
+
+**Events not showing on calendar**
+- Refresh page (events load on DOMContentLoaded)
+- Check console for `[Storage] Loaded X events from Supabase`
+
+**DNS/Connection errors**
+- Use Session Pooler URL (aws-1-us-east-1.pooler.supabase.com)
+- Direct connection (db.*.supabase.co) fails on IPv4-only systems
+
+**"Credit balance too low" error**
+- Add credits at: https://console.anthropic.com/settings/billing
+- Using Haiku model helps (much cheaper)
+
+**Field name errors (aiResponse/ai_response)**
+- api/events.js handles conversion automatically
+- Check that transformation is working in both GET and POST
+
+## Push to GitHub (Single Command)
+
+When user says "push to github" or "commit changes":
+1. Run `git status` and `git diff` in parallel to analyze changes
+2. Draft DETAILED commit message:
+   - Title summarizing the work
+   - Bullet points for each significant change
+   - Technical details, bug fixes, files modified
+   - Full context of what was accomplished
+3. Execute single command with HEREDOC for multi-line message:
+   ```bash
+   git add -A && git commit -m "$(cat <<'EOF'
+   Add Supabase integration with Session Pooler and fix event persistence
+
+   - Integrated Supabase PostgreSQL for cloud event storage
+   - Fixed IPv6/IPv4 issue by switching to Session Pooler connection
+   - Added field name mapping (camelCase ↔ snake_case) in API layer
+   - Fixed async event loading bug causing empty calendar on initial render
+   - Updated to Haiku 3.5 model for cheaper development costs
+   - Created automated database setup script (npm run setup-db)
+   - Updated .claude and README with accurate tech stack and dev workflow
+
+   🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+   Co-Authored-By: Claude <noreply@anthropic.com>
+   EOF
+   )" && git push origin main
+   ```
+4. Only ONE confirmation needed for entire operation (add + commit + push)
+5. User wants LONG detailed commit messages, not short summaries
+
+## Architecture Notes
+
+- **Vercel Serverless**: API routes in `/api/` directory
+- **Supabase**: PostgreSQL database with Row Level Security enabled
+- **localStorage**: Fallback cache when Supabase unavailable
+- **AI Parser**: `/api/parse` → Claude API → structured JSON → events
