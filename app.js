@@ -1,3 +1,33 @@
+        // ============================================
+        // DEMO MODE CONFIGURATION
+        // ============================================
+        // Set DEMO_MODE = true to use mock AI responses (no API calls, free prototyping)
+        // Set DEMO_MODE = false to use real AI (requires API key, costs money)
+        window.DEMO_MODE = true; // <-- Toggle this for prototyping vs production
+        // ============================================
+
+        // Import dev panel and mock AI (if in demo mode)
+        let devPanel = null;
+        let mockAI = null;
+
+        // Initialize dev panel
+        (async () => {
+            try {
+                const devPanelModule = await import('./dev-panel.js');
+                devPanel = devPanelModule.default;
+                devPanel.initDevPanel();
+                devPanel.populateScenarioSelector();
+
+                // Import mock AI for demo mode
+                const mockAIModule = await import('./test-data/mock-ai-engine.js');
+                mockAI = mockAIModule.mockAI;
+
+                console.log('[App] Dev panel and mock AI loaded');
+            } catch (error) {
+                console.error('[App] Failed to load dev panel:', error);
+            }
+        })();
+
         lucide.createIcons();
 
         let conversationHistory = [];
@@ -783,46 +813,139 @@ Reference the profile naturally in responses when relevant. Respond with ONLY th
         async function submitQuickCapture() {
             const input = document.getElementById('quickCaptureInput');
             const text = input.value.trim();
-            
+
             if (!text) return;
-            
-            // Simple parsing for demo - in production this would use AI
-            const lines = text.split('\n').filter(line => line.trim());
+
+            // Log action in dev panel
+            if (devPanel) {
+                devPanel.logAction(`User submitted: "${text.substring(0, 50)}${text.length > 50 ? '...' : ''}"`);
+            }
+
+            try {
+                let response;
+
+                // === DEMO MODE: Use Mock AI ===
+                if (window.DEMO_MODE && mockAI) {
+                    // Add artificial delay for realism
+                    await new Promise(resolve => setTimeout(resolve, 300));
+
+                    // Get mock response
+                    response = mockAI.parseQuickCapture(text);
+
+                    console.log('[Demo Mode] Mock AI response:', response);
+                }
+                // === PRODUCTION MODE: Use Real API ===
+                else {
+                    const apiResponse = await fetch('/api/parse', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ text })
+                    });
+
+                    if (!apiResponse.ok) {
+                        throw new Error(`API error: ${apiResponse.status}`);
+                    }
+
+                    response = await apiResponse.json();
+                    console.log('[Production Mode] Real AI response:', response);
+                }
+
+                // Update dev panel with response
+                if (devPanel) {
+                    devPanel.updateResponseInspector(response);
+                }
+
+                // Process the response
+                await processQuickCaptureResponse(text, response);
+
+            } catch (error) {
+                console.error('[Quick Capture] Error:', error);
+
+                if (devPanel) {
+                    devPanel.logAction(`Error: ${error.message}`);
+                }
+
+                showToast('Error', 'Failed to process capture. Please try again.');
+            }
+        }
+
+        /**
+         * Process AI response from quick capture
+         */
+        async function processQuickCaptureResponse(originalText, response) {
             let addedEvents = 0;
             let addedTasks = 0;
-            
-            for (const line of lines) {
-                // Check if line contains time-related keywords
-                const hasTime = /\d{1,2}(:\d{2})?\s*(am|pm|AM|PM)|tomorrow|today|next|monday|tuesday|wednesday|thursday|friday|saturday|sunday/i.test(line);
-                
-                if (hasTime) {
-                    // Try to extract event details
-                    const eventData = parseEventFromText(line);
-                    if (eventData) {
-                        // Add as pending event
-                        events.push({
-                            id: Date.now() + addedEvents,
-                            title: eventData.title,
-                            date: eventData.date,
-                            time: eventData.time,
-                            description: '',
-                            pending: true,
-                            originalText: line
+            let addedNotes = 0;
+
+            // Handle different actions
+            switch (response.action) {
+                case 'create_event':
+                    // Add events to calendar
+                    if (response.events && response.events.length > 0) {
+                        response.events.forEach((eventData, index) => {
+                            events.push({
+                                id: Date.now() + index,
+                                title: eventData.title,
+                                date: eventData.date,
+                                time: eventData.time,
+                                endTime: eventData.endTime,
+                                location: eventData.location,
+                                description: eventData.userMessage || '',
+                                pending: eventData.confidence !== 'high', // Only high confidence auto-confirms
+                                originalText: eventData.originalText || originalText,
+                                confidence: eventData.confidence
+                            });
+                            addedEvents++;
                         });
-                        addedEvents++;
+
+                        await saveEvents();
+                        renderCalendar();
                     }
-                } else {
-                    // Add to tasks (would be implemented later)
-                    addedTasks++;
-                }
+                    break;
+
+                case 'ask_question':
+                    // Show triage modal for more info
+                    if (response.events && response.events.length > 0) {
+                        const tempEvent = {
+                            id: Date.now(),
+                            title: response.events[0].title,
+                            date: response.events[0].date || getTodayDate(),
+                            time: response.events[0].time || '09:00',
+                            originalText: originalText,
+                            pending: true
+                        };
+                        events.push(tempEvent);
+                        await saveEvents();
+                        renderCalendar();
+
+                        // Open triage after a moment
+                        setTimeout(() => openTriageModal(tempEvent.id), 500);
+                    }
+                    break;
+
+                case 'create_task':
+                    // For now, just count tasks
+                    // TODO: Implement actual task creation
+                    addedTasks = response.events ? response.events.length : 1;
+                    break;
+
+                case 'create_note':
+                    // Create a note
+                    // TODO: Implement note creation from quick capture
+                    addedNotes = 1;
+                    break;
+
+                case 'create_checklist':
+                    // TODO: Implement checklist creation
+                    break;
+
+                case 'show_alternatives':
+                    // TODO: Show alternatives UI
+                    break;
             }
-            
-            // Save and render
-            if (addedEvents > 0) {
-                await saveEvents();
-                renderCalendar();
-            }
-            
+
             // Save capture to storage
             try {
                 let captures = [];
@@ -832,38 +955,55 @@ Reference the profile naturally in responses when relevant. Respond with ONLY th
                         captures = JSON.parse(result);
                     }
                 } catch (e) {}
-                
+
                 captures.push({
                     id: Date.now(),
-                    text: text,
+                    text: originalText,
                     capturedAt: new Date().toISOString(),
+                    action: response.action,
+                    confidence: response.confidence,
                     processed: true
                 });
-                
+
                 localStorage.setItem('quick-captures', JSON.stringify(captures));
             } catch (error) {
                 console.error('Failed to save capture:', error);
             }
-            
+
             // Show appropriate toast
             let toastTitle = "✓ Captured";
-            let toastMsg = "";
-            
-            if (addedEvents > 0 && addedTasks > 0) {
-                toastTitle = "✓ Processed";
-                toastMsg = `${addedEvents} event${addedEvents > 1 ? 's' : ''} penciled in, ${addedTasks} task${addedTasks > 1 ? 's' : ''} added`;
-            } else if (addedEvents > 0) {
-                toastTitle = "✓ Event penciled in";
-                toastMsg = `${addedEvents} event${addedEvents > 1 ? 's' : ''} added to calendar (needs confirmation)`;
-            } else if (addedTasks > 0) {
-                toastTitle = "✓ Tasks created";
-                toastMsg = `${addedTasks} item${addedTasks > 1 ? 's' : ''} added to your task list`;
-            } else {
-                toastMsg = "Saved for processing";
+            let toastMsg = response.userMessage || "";
+
+            if (!toastMsg) {
+                if (addedEvents > 0 && addedTasks > 0) {
+                    toastTitle = "✓ Processed";
+                    toastMsg = `${addedEvents} event${addedEvents > 1 ? 's' : ''} added, ${addedTasks} task${addedTasks > 1 ? 's' : ''} created`;
+                } else if (addedEvents > 0) {
+                    toastTitle = response.confidence === 'high' ? "✓ Event confirmed" : "✓ Event penciled in";
+                    toastMsg = addedEvents === 1
+                        ? `${response.events[0].title} added to calendar`
+                        : `${addedEvents} events added to calendar`;
+                } else if (addedTasks > 0) {
+                    toastTitle = "✓ Tasks created";
+                    toastMsg = `${addedTasks} task${addedTasks > 1 ? 's' : ''} added`;
+                } else if (addedNotes > 0) {
+                    toastTitle = "✓ Note saved";
+                    toastMsg = "Note added to your notes";
+                } else {
+                    toastMsg = "Saved for processing";
+                }
             }
-            
+
             showToast(toastTitle, toastMsg);
             closeQuickCapture();
+        }
+
+        /**
+         * Helper: Get today's date in YYYY-MM-DD format
+         */
+        function getTodayDate() {
+            const today = new Date();
+            return today.toISOString().split('T')[0];
         }
 
         function parseEventFromText(text) {

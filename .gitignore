@@ -2,3 +2,8 @@
 .vercel
 node_modules
 .DS_Store
+
+# Versioning - snapshots are local only, milestones are tracked
+versioning/snapshots/
+
+sprekta-lite-prd-01.md

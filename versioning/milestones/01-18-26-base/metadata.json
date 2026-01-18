@@ -1,0 +1,18 @@
+{
+  "id": "01-18-26-base",
+  "name": "01-18-26-base",
+  "description": "original version (calendar_final_11.html converted to new system)",
+  "timestamp": "2026-01-18T11:26:09.753Z",
+  "gitBranch": "prototype/01-18-26-base",
+  "gitCommit": "f3221778162b99f969b1c3de3b1a143555036fa4",
+  "promotedFrom": "snap_1768735568416",
+  "files": {
+    "schemas": "schemas.js",
+    "mockAI": "mock-ai-engine.js",
+    "scenarios": [
+      "quick-capture-scenarios.js",
+      "triage-scenarios.js"
+    ],
+    "features": "features.js"
+  }
+}

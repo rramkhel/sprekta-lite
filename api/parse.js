@@ -1,4 +1,14 @@
 // api/parse.js
+/**
+ * Calendar Event Parser - Serverless Function
+ *
+ * Parses natural language input into structured calendar events using AI.
+ * Now with extracted prompts and feature flags for easier iteration.
+ */
+
+import { loadPrompt } from '../prompts/loader.js';
+import { isEnabled } from '../config/features.js';
+
 export default async function handler(req, res) {
   // Only allow POST
   if (req.method !== 'POST') {
@@ -14,6 +24,17 @@ export default async function handler(req, res) {
   try {
     const { text } = req.body;
 
+    // Select AI model based on feature flag
+    // Using Haiku for prototyping - switch to Sonnet for production
+    const model = isEnabled('PROTOTYPE_MODE')
+      ? 'claude-haiku-4-5-20251001'  // Cheaper model for development
+      : 'claude-sonnet-4-20250514';   // Production model
+
+    // Load the system prompt from markdown file with current date
+    const systemPrompt = loadPrompt('calendar-parser', {
+      CURRENT_DATE: new Date().toISOString().split('T')[0]
+    });
+
     // Call Anthropic API
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -23,30 +44,9 @@ export default async function handler(req, res) {
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model,
         max_tokens: 1000,
-        system: `You are a smart calendar parser. Parse captured text into discrete events/tasks/notes.
-
-For each line of input:
-1. If it has BOTH a date and time → categorize as "event" and extract details
-2. Otherwise → categorize as "task" or "note"
-
-Current date: ${new Date().toISOString().split('T')[0]}
-
-Respond with JSON only:
-{
-  "items": [
-    {
-      "originalText": "the captured line",
-      "category": "event" | "task" | "note",
-      "event": {
-        "title": "event title",
-        "date": "YYYY-MM-DD",
-        "time": "HH:MM"
-      } // only if category is "event" and you found date+time
-    }
-  ]
-}`,
+        system: systemPrompt,
         messages: [
           {
             role: 'user',
@@ -62,6 +62,19 @@ Respond with JSON only:
     const content = data.content[0].text;
     const cleaned = content.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(cleaned);
+
+    // Add metadata if debugging is enabled
+    if (isEnabled('SHOW_AI_REASONING')) {
+      parsed._debug = {
+        model,
+        promptLength: systemPrompt.length,
+        featureFlags: {
+          PROTOTYPE_MODE: isEnabled('PROTOTYPE_MODE'),
+          AUTO_CREATE_HIGH_CONFIDENCE: isEnabled('AUTO_CREATE_HIGH_CONFIDENCE'),
+          SHOW_AI_REASONING: isEnabled('SHOW_AI_REASONING')
+        }
+      };
+    }
 
     return res.status(200).json(parsed);
 

@@ -1,0 +1,164 @@
+# Claude Code Project Instructions
+
+## Development Server
+
+**IMPORTANT:** Always run the development server before testing:
+```bash
+npx vercel dev --yes
+```
+
+The `--yes` flag auto-confirms Vercel CLI prompts. Without it, you'll get stuck on confirmation dialogs.
+
+## Git Workflow Reminders
+
+### Regular Commits
+- **Remind user to commit every 30-60 minutes** of active development
+- Suggest: `git add -A && git commit -m "descriptive message"`
+- Push to GitHub: `git push origin main`
+
+### When to Push
+- After completing a feature or fix
+- Before taking a break
+- After creating a milestone
+- End of coding session
+
+### Before Big Changes
+- Remind user to **save a snapshot** first (via dev panel)
+- Or create a git branch: `git checkout -b experiment-name`
+
+## Versioning Workflow
+
+### Save Snapshots Often
+- Remind user to save snapshots when making significant changes to:
+  - `types/schemas.js` (prompt engineering)
+  - `test-data/mock-ai-engine.js` (AI logic)
+  - Test scenarios
+  - Feature flags
+
+### Snapshot Naming Convention
+- Use format: `vX-description` (e.g., `v3-confidence-tweaks`)
+- Include what changed in description
+
+### Milestones
+- Only promote to milestone when ready for "release"
+- Use semantic versioning: `v1.0`, `v1.1`, `v2.0`
+
+## Testing Reminders
+
+### Before Committing
+- Remind to test in demo mode with scenarios
+- Check both quick capture and triage flows
+- Verify dev panel works
+
+### After Major Changes
+- Test all quick capture categories (events, tasks, notes)
+- Check confidence levels are appropriate
+- Review response inspector JSON
+
+## File-Specific Notes
+
+### When Editing `types/schemas.js`
+- Changes affect AI behavior significantly
+- Save snapshot before major prompt changes
+- Test with multiple scenarios after changes
+
+### When Editing `test-data/mock-ai-engine.js`
+- Update corresponding test scenarios
+- Check confidence levels make sense
+- Verify all response fields present
+
+### When Editing `style.css`
+- We're using **light theme** (converted 2026-01-18)
+- Don't accidentally revert to dark colors
+- Test responsive design (mobile view)
+
+## Common Mistakes to Avoid
+
+### Import Paths
+- Always include `.js` extension: `import { x } from './file.js'`
+- Use relative paths in browser code: `./module.js`
+- Use absolute paths in API code: `path.join(PROJECT_ROOT, ...)`
+
+### API Usage
+- API endpoints only work when `npx vercel dev` is running
+- Check console if version save/load fails
+- Snapshots require filesystem access (won't work in browser alone)
+
+### Demo Mode
+- Remember to toggle demo mode in dev panel
+- Demo mode state persists in localStorage
+- Clear localStorage if behavior seems stuck
+
+## Proactive Suggestions
+
+### When User Says "test this"
+- Suggest loading relevant scenario from dev panel
+- Remind to check demo mode is on
+- Offer to open response inspector
+
+### When User Makes Schema Changes
+- Suggest saving a snapshot first
+- Recommend testing with multiple scenarios
+- Offer to check confidence levels across test cases
+
+### When Session Ends
+- Remind to:
+  1. Save any unsaved snapshots
+  2. Commit changes to git
+  3. Push to GitHub
+  4. Note any WIP items for next session
+
+### When Starting Session
+- Check if `npx vercel dev` is running
+- Verify demo mode state
+- Ask if they want to restore a previous snapshot
+
+## Special Workflows
+
+### Experimenting with New Prompt
+1. Save current state as snapshot
+2. Make changes to schemas.js
+3. Test with scenarios
+4. If good → commit. If bad → restore snapshot
+
+### Creating a Release
+1. Test thoroughly with all scenarios
+2. Save final snapshot
+3. Promote to milestone (creates git branch/commit)
+4. Push to GitHub
+5. Deploy to Vercel if needed
+
+## Quick Commands Reference
+
+```bash
+# Start dev server
+npx vercel dev --yes
+
+# Git workflow
+git status
+git add -A
+git commit -m "message"
+git push origin main
+
+# Create branch for experiments
+git checkout -b experiment-name
+
+# Deploy to Vercel
+vercel --prod
+```
+
+## Important Paths
+
+- Snapshots: `versioning/snapshots/`
+- Milestones: `versioning/milestones/`
+- Scenarios: `test-data/scenarios/`
+- Documentation: `DEVELOPMENT.md`
+
+## Contact/Notes
+
+This is a solo prototype project. Development focus is on:
+- Rapid iteration on AI prompt engineering
+- Testing confidence models
+- Refining quick capture UX
+
+Production deployment and real AI integration come later.

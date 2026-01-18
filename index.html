@@ -324,6 +324,7 @@
                     <i data-lucide="menu"></i>
                 </button>
                 <div class="logo">Calendar</div>
+                <span class="demo-pill" id="demo-pill" style="display: none;">DEMO</span>
             </div>
             <div class="view-toggle">
                 <button class="view-btn active" onclick="setView('chat')">
@@ -506,6 +507,98 @@
         </div>
     </div>
 
+    <!-- Dev Panel Badge (Bottom Left) -->
+    <div class="dev-badge" id="dev-badge">
+        <span class="dev-badge-icon">🛠</span>
+        <span class="dev-badge-text">DEV</span>
+    </div>
+
+    <!-- Dev Panel (Slide-out from left) -->
+    <div class="dev-panel" id="dev-panel">
+        <div class="dev-panel-header">
+            <div class="dev-panel-title">Developer Panel</div>
+            <button class="dev-panel-close" id="dev-panel-close">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+
+        <div class="dev-panel-body">
+            <!-- Demo Mode Toggle -->
+            <div class="dev-section">
+                <div class="dev-section-header">
+                    <div class="dev-section-title">Demo Mode</div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="demo-mode-toggle">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="dev-section-description">
+                    Use mock AI responses instead of real API calls
+                </div>
+            </div>
+
+            <!-- Scenario Selector -->
+            <div class="dev-section" id="scenario-controls">
+                <div class="dev-section-header">
+                    <div class="dev-section-title">Test Scenarios</div>
+                </div>
+                <select id="scenario-select" class="dev-select">
+                    <option value="">-- Select a scenario --</option>
+                </select>
+                <div id="scenario-preview" class="scenario-preview"></div>
+                <button id="load-scenario-btn" class="dev-btn">Load Scenario</button>
+            </div>
+
+            <!-- Response Inspector -->
+            <div class="dev-section">
+                <div class="dev-section-header">
+                    <div class="dev-section-title">Last Response</div>
+                </div>
+                <div id="response-inspector" class="response-inspector">
+                    <div class="empty-state">No response yet. Submit a quick capture to see the response here.</div>
+                </div>
+            </div>
+
+            <!-- Action Log -->
+            <div class="dev-section">
+                <div class="dev-section-header">
+                    <div class="dev-section-title">Action Log</div>
+                    <button id="clear-log-btn" class="dev-btn-small">Clear</button>
+                </div>
+                <div id="action-log-entries" class="action-log">
+                    <div class="empty-state">No actions logged yet.</div>
+                </div>
+            </div>
+
+            <!-- Versions -->
+            <div class="dev-section">
+                <div class="dev-section-header">
+                    <div class="dev-section-title">Versions</div>
+                    <button id="save-snapshot-btn" class="dev-btn-small">Save</button>
+                </div>
+
+                <div class="version-tabs">
+                    <button class="version-tab active" data-tab="snapshots">Snapshots</button>
+                    <button class="version-tab" data-tab="milestones">Milestones</button>
+                </div>
+
+                <div id="snapshots-list" class="version-list">
+                    <div class="empty-state">No snapshots yet. Click "Save" to create one.</div>
+                </div>
+
+                <div id="milestones-list" class="version-list" style="display:none">
+                    <div class="empty-state">No milestones yet. Promote a snapshot to create one.</div>
+                </div>
+
+                <div class="version-actions">
+                    <button id="compare-btn" class="dev-btn">Compare Selected</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/versioning/version-ui.js"></script>
+    <script type="module" src="/dev-panel.js"></script>
     <script src="/app.js"></script>
 </body>
 </html>
