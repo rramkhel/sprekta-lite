@@ -4,7 +4,11 @@
 
 let currentMonth = new Date().getMonth();
 let currentYear = new Date().getFullYear();
+let currentDay = new Date().getDate();
 let events = [];
+let draggedEventId = null;
+let isDragging = false;
+let currentView = 'month'; // 'month' or 'day'
 
 // ============================================
 // INITIALIZATION
@@ -61,11 +65,18 @@ function renderCalendar() {
         const todayCheck = isTodayDate(day);
 
         html += `
-            <div class="day-cell ${todayCheck ? 'today' : ''}">
+            <div class="day-cell ${todayCheck ? 'today' : ''}"
+                 ondragover="handleDragOver(event)"
+                 ondragleave="handleDragLeave(event)"
+                 ondrop="handleDrop(event, '${date}')">
                 <div class="day-number">${day}</div>
                 <div class="day-events">
                     ${dayEvents.map(event => `
-                        <div class="event-pill" onclick="openEventDetail(${event.id})">
+                        <div class="event-pill"
+                             draggable="true"
+                             ondragstart="handleDragStart(event, ${event.id})"
+                             ondragend="handleDragEnd(event)"
+                             onclick="openEventDetail(${event.id})">
                             ${event.title}
                             ${event.time ? ` ${formatTime(event.time)}` : ''}
                         </div>
@@ -96,15 +107,358 @@ function formatTime(time) {
 }
 
 function changeMonth(direction) {
-    currentMonth += direction;
-    if (currentMonth > 11) {
-        currentMonth = 0;
-        currentYear++;
+    if (currentView === 'month') {
+        // Navigate months
+        currentMonth += direction;
+        if (currentMonth > 11) {
+            currentMonth = 0;
+            currentYear++;
+        }
+        if (currentMonth < 0) {
+            currentMonth = 11;
+            currentYear--;
+        }
+        renderCalendar();
+    } else {
+        // Navigate days
+        currentDay += direction;
+
+        const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+        if (currentDay > daysInMonth) {
+            currentDay = 1;
+            currentMonth++;
+            if (currentMonth > 11) {
+                currentMonth = 0;
+                currentYear++;
+            }
+        }
+
+        if (currentDay < 1) {
+            currentMonth--;
+            if (currentMonth < 0) {
+                currentMonth = 11;
+                currentYear--;
+            }
+            currentDay = new Date(currentYear, currentMonth + 1, 0).getDate();
+        }
+
+        renderDayView();
     }
-    if (currentMonth < 0) {
-        currentMonth = 11;
-        currentYear--;
+}
+
+// ============================================
+// VIEW SWITCHING
+// ============================================
+
+function switchView(view) {
+    currentView = view;
+
+    // Update button states
+    document.getElementById('monthViewBtn').classList.toggle('active', view === 'month');
+    document.getElementById('dayViewBtn').classList.toggle('active', view === 'day');
+
+    // Show/hide appropriate grid
+    if (view === 'month') {
+        document.getElementById('calendarGrid').style.display = 'grid';
+        document.getElementById('dayViewGrid').style.display = 'none';
+        renderCalendar();
+    } else {
+        document.getElementById('calendarGrid').style.display = 'none';
+        document.getElementById('dayViewGrid').style.display = 'block';
+        renderDayView();
     }
+
+    lucide.createIcons();
+}
+
+// ============================================
+// DAY VIEW RENDERING
+// ============================================
+
+function renderDayView() {
+    const date = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`;
+    const dayEvents = events.filter(e => e.date === date);
+
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'];
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const dayOfWeek = new Date(currentYear, currentMonth, currentDay).getDay();
+
+    document.getElementById('monthYear').textContent =
+        `${dayNames[dayOfWeek]}, ${monthNames[currentMonth]} ${currentDay}, ${currentYear}`;
+
+    let html = '<div class="day-view-container">';
+
+    // Time labels column
+    html += '<div class="day-view-times">';
+    for (let hour = 6; hour < 22; hour++) {
+        const displayHour = hour % 12 || 12;
+        const ampm = hour < 12 ? 'AM' : 'PM';
+        html += `<div class="time-slot-label">${displayHour}:00 ${ampm}</div>`;
+    }
+    html += '</div>';
+
+    // Events column
+    html += '<div class="day-view-events">';
+
+    // Time slots (for clicking to create events)
+    for (let hour = 6; hour < 22; hour++) {
+        html += `<div class="time-slot" data-hour="${hour}"></div>`;
+    }
+
+    // Render events as positioned blocks
+    dayEvents.forEach(event => {
+        const startHour = event.time ? parseInt(event.time.split(':')[0]) : 9;
+        const startMinute = event.time ? parseInt(event.time.split(':')[1]) : 0;
+        const endHour = event.endTime ? parseInt(event.endTime.split(':')[0]) : startHour + 1;
+        const endMinute = event.endTime ? parseInt(event.endTime.split(':')[1]) : startMinute;
+
+        // Calculate position and height
+        const topPosition = ((startHour - 6) * 60) + (startMinute / 60 * 60);
+        const durationMinutes = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
+        const height = (durationMinutes / 60) * 60;
+
+        const endTimeFormatted = event.endTime ? formatTime(event.endTime) : '';
+
+        html += `
+            <div class="day-event-block"
+                 style="top: ${topPosition}px; height: ${height}px;"
+                 onclick="openEventDetail(${event.id})"
+                 data-event-id="${event.id}">
+                <div class="day-event-title">${event.title}</div>
+                <div class="day-event-time">${formatTime(event.time)}${endTimeFormatted ? ' - ' + endTimeFormatted : ''}</div>
+                <div class="resize-handle"
+                     onmousedown="startResize(event, ${event.id})"
+                     onclick="event.stopPropagation()"></div>
+            </div>
+        `;
+    });
+
+    html += '</div></div>';
+
+    document.getElementById('dayViewGrid').innerHTML = html;
+    lucide.createIcons();
+}
+
+// ============================================
+// EVENT RESIZE (DAY VIEW)
+// ============================================
+
+let resizingEventId = null;
+let resizeStartY = 0;
+let resizeStartHeight = 0;
+
+function startResize(e, eventId) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    resizingEventId = eventId;
+    resizeStartY = e.clientY;
+
+    const eventBlock = e.target.closest('.day-event-block');
+    resizeStartHeight = eventBlock.offsetHeight;
+
+    // Add event listeners
+    document.addEventListener('mousemove', handleResize);
+    document.addEventListener('mouseup', stopResize);
+
+    eventBlock.classList.add('resizing');
+}
+
+function handleResize(e) {
+    if (!resizingEventId) return;
+
+    const eventBlock = document.querySelector(`[data-event-id="${resizingEventId}"]`);
+    if (!eventBlock) return;
+
+    const deltaY = e.clientY - resizeStartY;
+    const newHeight = Math.max(30, resizeStartHeight + deltaY); // Min 30px (30 minutes)
+
+    eventBlock.style.height = `${newHeight}px`;
+}
+
+async function stopResize(e) {
+    if (!resizingEventId) return;
+
+    const eventBlock = document.querySelector(`[data-event-id="${resizingEventId}"]`);
+    if (eventBlock) {
+        eventBlock.classList.remove('resizing');
+
+        // Calculate new end time based on height
+        const height = eventBlock.offsetHeight;
+        const durationMinutes = Math.round((height / 60) * 60); // Convert px to minutes
+
+        const event = events.find(ev => ev.id === resizingEventId);
+        if (event && event.time) {
+            const [startHour, startMinute] = event.time.split(':').map(Number);
+            const startTotalMinutes = startHour * 60 + startMinute;
+            const endTotalMinutes = startTotalMinutes + durationMinutes;
+
+            const endHour = Math.floor(endTotalMinutes / 60);
+            const endMinute = endTotalMinutes % 60;
+            const newEndTime = `${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}`;
+
+            // Update event
+            event.endTime = newEndTime;
+
+            // Save to Supabase
+            try {
+                const response = await fetch('/api/events', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(event)
+                });
+
+                if (!response.ok) {
+                    console.warn('Failed to save to Supabase, using localStorage only');
+                } else {
+                    console.log('[Storage] Event duration updated in Supabase');
+                }
+            } catch (error) {
+                console.error('[Storage] Supabase error:', error);
+            }
+
+            // Save to localStorage
+            localStorage.setItem('events', JSON.stringify(events));
+
+            // Log to dev panel
+            if (window.devPanelModule) {
+                window.devPanelModule.logAction(`Resized "${event.title}" to ${formatTime(event.time)} - ${formatTime(newEndTime)}`);
+            }
+
+            // Show feedback
+            showToast('Event duration updated');
+
+            // Re-render
+            renderDayView();
+        }
+    }
+
+    // Clean up
+    document.removeEventListener('mousemove', handleResize);
+    document.removeEventListener('mouseup', stopResize);
+    resizingEventId = null;
+    resizeStartY = 0;
+    resizeStartHeight = 0;
+}
+
+// ============================================
+// DRAG AND DROP HANDLERS
+// ============================================
+
+function handleDragStart(e, eventId) {
+    draggedEventId = eventId;
+    isDragging = true;
+    e.target.classList.add('dragging');
+
+    // Set drag data (for good browser compatibility)
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', e.target.innerHTML);
+
+    // Log to dev panel
+    if (window.devPanelModule) {
+        const event = events.find(ev => ev.id === eventId);
+        window.devPanelModule.logAction(`Started dragging: "${event?.title}"`);
+    }
+}
+
+function handleDragEnd(e) {
+    e.target.classList.remove('dragging');
+    draggedEventId = null;
+
+    // Remove all drag-over highlights
+    document.querySelectorAll('.day-cell').forEach(cell => {
+        cell.classList.remove('drag-over');
+    });
+
+    // Reset isDragging after a small delay to prevent click from firing
+    setTimeout(() => {
+        isDragging = false;
+    }, 100);
+}
+
+function handleDragOver(e) {
+    e.preventDefault(); // Necessary to allow drop
+    e.dataTransfer.dropEffect = 'move';
+
+    // Add visual feedback
+    const dayCell = e.currentTarget;
+    if (!dayCell.classList.contains('drag-over')) {
+        dayCell.classList.add('drag-over');
+    }
+}
+
+function handleDragLeave(e) {
+    // Only remove if we're leaving the day-cell itself
+    const dayCell = e.currentTarget;
+    if (!dayCell.contains(e.relatedTarget)) {
+        dayCell.classList.remove('drag-over');
+    }
+}
+
+async function handleDrop(e, targetDate) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const dayCell = e.currentTarget;
+    dayCell.classList.remove('drag-over');
+
+    if (!draggedEventId) return;
+
+    // Find the event being dragged
+    const eventIndex = events.findIndex(ev => ev.id === draggedEventId);
+    if (eventIndex === -1) {
+        console.error('Dragged event not found:', draggedEventId);
+        return;
+    }
+
+    const event = events[eventIndex];
+    const oldDate = event.date;
+
+    // Don't do anything if dropping on same date
+    if (oldDate === targetDate) {
+        console.log('[Drag] Dropped on same date, no change needed');
+        return;
+    }
+
+    // Update the event's date
+    const updatedEvent = {
+        ...event,
+        date: targetDate
+    };
+
+    events[eventIndex] = updatedEvent;
+
+    // Save to Supabase
+    try {
+        const response = await fetch('/api/events', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedEvent)
+        });
+
+        if (!response.ok) {
+            console.warn('Failed to save to Supabase, using localStorage only');
+        } else {
+            console.log('[Storage] Event updated in Supabase');
+        }
+    } catch (error) {
+        console.error('[Storage] Supabase error:', error);
+    }
+
+    // Save to localStorage (fallback/backup)
+    localStorage.setItem('events', JSON.stringify(events));
+
+    // Log to dev panel
+    if (window.devPanelModule) {
+        window.devPanelModule.logAction(`Moved "${event.title}" from ${oldDate} to ${targetDate}`);
+    }
+
+    // Show feedback
+    showToast('Event moved');
+
+    // Re-render calendar
     renderCalendar();
 }
 
@@ -198,11 +552,13 @@ async function processQuickCaptureResponse(originalText, response) {
 
         eventItems.forEach((item, index) => {
             const eventData = item.event;
+            const startTime = eventData.time || '09:00';
             const newEvent = {
                 id: Date.now() + index,
                 title: eventData.title,
                 date: eventData.date,
-                time: eventData.time || '09:00',
+                time: startTime,
+                endTime: getDefaultEndTime(startTime),
                 raw: originalText,
                 aiResponse: item // store full AI response for debugging
             };
@@ -233,6 +589,12 @@ async function processQuickCaptureResponse(originalText, response) {
 let currentEventId = null;
 
 function openEventDetail(eventId) {
+    // Prevent opening modal if we just finished dragging
+    if (isDragging) {
+        console.log('[Event] Ignoring click - drag in progress');
+        return;
+    }
+
     const event = events.find(e => e.id === eventId);
     if (!event) {
         console.error('Event not found:', eventId);
@@ -271,6 +633,10 @@ function openEventDetail(eventId) {
 
 function closeEventDetail() {
     document.getElementById('eventDetailModal').classList.remove('open');
+
+    // Restore delete button visibility (in case it was hidden for new event creation)
+    document.getElementById('deleteEventBtn').style.display = 'block';
+
     currentEventId = null;
 }
 
@@ -283,6 +649,70 @@ function formatDateLong(dateStr) {
         month: 'long',
         day: 'numeric'
     });
+}
+
+// ============================================
+// MANUAL EVENT CREATION
+// ============================================
+
+function openNewEventModal() {
+    // Clear the current event (we're creating new, not editing)
+    currentEventId = null;
+
+    // Set default values
+    const today = new Date();
+    const defaultDate = formatDateISO(today);
+    const defaultTime = getNextHourTime();
+
+    // Clear/set form fields
+    document.getElementById('eventEditTitle').value = '';
+    document.getElementById('eventEditDate').value = defaultDate;
+    document.getElementById('eventEditTime').value = defaultTime;
+    document.getElementById('eventEditNotes').value = '';
+
+    // Hide view mode, show edit mode directly
+    document.getElementById('eventViewMode').style.display = 'none';
+    document.getElementById('eventEditMode').style.display = 'block';
+
+    // Hide delete button (can't delete what doesn't exist yet)
+    document.getElementById('deleteEventBtn').style.display = 'none';
+
+    // Open modal
+    document.getElementById('eventDetailModal').classList.add('open');
+
+    // Focus title input
+    setTimeout(() => {
+        document.getElementById('eventEditTitle').focus();
+    }, 100);
+
+    // Refresh icons
+    lucide.createIcons();
+
+    // Log to dev panel
+    if (window.devPanelModule) {
+        window.devPanelModule.logAction('Opened new event modal');
+    }
+}
+
+function formatDateISO(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function getNextHourTime() {
+    const now = new Date();
+    let hours = now.getHours() + 1;
+    if (hours > 23) hours = 9; // Default to 9am if late night
+    return `${String(hours).padStart(2, '0')}:00`;
+}
+
+function getDefaultEndTime(startTime) {
+    if (!startTime) return null;
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const endHour = hours + 1; // Default 1 hour duration
+    return `${String(endHour).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
 
 // ============================================
@@ -302,6 +732,12 @@ function enterEditMode() {
 }
 
 function exitEditMode() {
+    // If we're creating a new event (no currentEventId), just close the modal
+    if (!currentEventId) {
+        closeEventDetail();
+        return;
+    }
+
     // Reset form to original values
     const event = events.find(e => e.id === currentEventId);
     if (event) {
@@ -315,14 +751,15 @@ function exitEditMode() {
     document.getElementById('eventViewMode').style.display = 'block';
     document.getElementById('eventEditMode').style.display = 'none';
 
+    // Restore delete button visibility (in case it was hidden for new event creation)
+    document.getElementById('deleteEventBtn').style.display = 'block';
+
     if (window.devPanelModule) {
         window.devPanelModule.logAction('Cancelled edit');
     }
 }
 
 async function saveEventChanges() {
-    if (!currentEventId) return;
-
     const title = document.getElementById('eventEditTitle').value.trim();
     const date = document.getElementById('eventEditDate').value;
     const time = document.getElementById('eventEditTime').value;
@@ -338,7 +775,54 @@ async function saveEventChanges() {
         return;
     }
 
-    // Find and update event
+    // CREATE NEW EVENT
+    if (!currentEventId) {
+        const newEvent = {
+            id: Date.now(),
+            title,
+            date,
+            time,
+            endTime: getDefaultEndTime(time),
+            notes
+        };
+
+        events.push(newEvent);
+
+        // Save to Supabase
+        try {
+            const response = await fetch('/api/events', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newEvent)
+            });
+
+            if (!response.ok) {
+                console.warn('Failed to save to Supabase, using localStorage only');
+            } else {
+                console.log('[Storage] Event created in Supabase');
+            }
+        } catch (error) {
+            console.error('[Storage] Supabase error:', error);
+        }
+
+        // Save to localStorage (fallback/backup)
+        localStorage.setItem('events', JSON.stringify(events));
+
+        // Update UI
+        renderCalendar();
+        closeEventDetail();
+
+        // Log to dev panel
+        if (window.devPanelModule) {
+            window.devPanelModule.logAction(`Created event: "${title}"`);
+        }
+
+        // Show feedback
+        showToast('Event created');
+        return;
+    }
+
+    // UPDATE EXISTING EVENT
     const eventIndex = events.findIndex(e => e.id === currentEventId);
     if (eventIndex === -1) {
         console.error('Event not found for save:', currentEventId);

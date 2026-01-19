@@ -6,6 +6,8 @@ CREATE TABLE IF NOT EXISTS events (
   title TEXT NOT NULL,
   date DATE NOT NULL,
   time TEXT,
+  end_time TEXT,
+  notes TEXT,
   raw TEXT,
   ai_response JSONB,
   created_at TIMESTAMPTZ DEFAULT NOW(),

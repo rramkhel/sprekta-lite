@@ -32,6 +32,8 @@ export default async function handler(req, res) {
         title: e.title,
         date: e.date,
         time: e.time,
+        endTime: e.end_time,
+        notes: e.notes,
         raw: e.raw,
         aiResponse: e.ai_response,
         created_at: e.created_at,
@@ -68,6 +70,8 @@ export default async function handler(req, res) {
         title: event.title,
         date: event.date,
         time: event.time || null,
+        end_time: event.endTime || null,
+        notes: event.notes || null,
         raw: event.raw || null,
         ai_response: event.aiResponse || null
       };
@@ -88,6 +92,8 @@ export default async function handler(req, res) {
         title: data[0].title,
         date: data[0].date,
         time: data[0].time,
+        endTime: data[0].end_time,
+        notes: data[0].notes,
         raw: data[0].raw,
         aiResponse: data[0].ai_response,
         created_at: data[0].created_at,
@@ -107,22 +113,55 @@ export default async function handler(req, res) {
   // PUT - Update event
   if (req.method === 'PUT') {
     try {
-      const { id, ...updates } = req.body;
+      const event = req.body;
 
-      if (!id) {
+      if (!event.id) {
         return res.status(400).json({ error: 'Event ID required' });
       }
 
+      // Transform camelCase to snake_case for database
+      const dbUpdates = {
+        title: event.title,
+        date: event.date,
+        time: event.time || null,
+        end_time: event.endTime || null,
+        notes: event.notes || null,
+        raw: event.raw || null,
+        ai_response: event.aiResponse || null
+      };
+
+      // Remove undefined/null values to avoid overwriting with nulls
+      Object.keys(dbUpdates).forEach(key => {
+        if (dbUpdates[key] === undefined) {
+          delete dbUpdates[key];
+        }
+      });
+
       const { data, error } = await supabase
         .from('events')
-        .update(updates)
-        .eq('id', id)
+        .update(dbUpdates)
+        .eq('id', event.id)
         .select();
 
       if (error) throw error;
 
-      console.log('[Events API] Updated event:', id);
-      return res.status(200).json({ event: data[0] });
+      console.log('[Events API] Updated event:', event.id);
+
+      // Transform back to camelCase for response
+      const responseEvent = {
+        id: data[0].id,
+        title: data[0].title,
+        date: data[0].date,
+        time: data[0].time,
+        endTime: data[0].end_time,
+        notes: data[0].notes,
+        raw: data[0].raw,
+        aiResponse: data[0].ai_response,
+        created_at: data[0].created_at,
+        updated_at: data[0].updated_at
+      };
+
+      return res.status(200).json({ event: responseEvent });
     } catch (error) {
       console.error('[Events API] Update error:', error);
       return res.status(500).json({

@@ -24,12 +24,25 @@
                         <i data-lucide="chevron-right"></i>
                     </button>
                 </div>
-                <button class="clear-btn" onclick="clearCalendar()">
-                    <i data-lucide="trash-2"></i>
-                    Clear All
-                </button>
+                <div class="header-actions">
+                    <div class="view-toggle">
+                        <button class="view-toggle-btn active" id="monthViewBtn" onclick="switchView('month')">
+                            <i data-lucide="calendar"></i>
+                            Month
+                        </button>
+                        <button class="view-toggle-btn" id="dayViewBtn" onclick="switchView('day')">
+                            <i data-lucide="clock"></i>
+                            Day
+                        </button>
+                    </div>
+                    <button class="clear-btn" onclick="clearCalendar()">
+                        <i data-lucide="trash-2"></i>
+                        Clear All
+                    </button>
+                </div>
             </div>
             <div class="calendar-grid" id="calendarGrid"></div>
+            <div class="day-view-grid" id="dayViewGrid" style="display: none;"></div>
         </div>
     </div>
 
@@ -65,11 +78,16 @@
         </div>
     </div>
 
-    <!-- Quick Capture Button -->
-    <button class="quick-capture-btn" onclick="openQuickCapture()">
-        <i data-lucide="pencil"></i>
-        Quick Capture
-    </button>
+    <!-- Action Buttons -->
+    <div class="action-buttons">
+        <button class="quick-capture-btn" onclick="openQuickCapture()">
+            <i data-lucide="pencil"></i>
+            Quick Capture
+        </button>
+        <button class="new-event-btn" onclick="openNewEventModal()">
+            <i data-lucide="plus"></i>
+        </button>
+    </div>
 
     <!-- Quick Capture Modal -->
     <div class="modal" id="quickCaptureModal">

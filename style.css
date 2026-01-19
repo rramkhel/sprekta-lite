@@ -72,6 +72,51 @@ body {
     text-align: center;
 }
 
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.view-toggle {
+    display: flex;
+    gap: 4px;
+    background: #f5f5f4;
+    padding: 4px;
+    border-radius: 8px;
+}
+
+.view-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: #78716c;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 150ms ease;
+}
+
+.view-toggle-btn.active {
+    background: white;
+    color: #292524;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.view-toggle-btn:hover:not(.active) {
+    color: #292524;
+}
+
+.view-toggle-btn i {
+    width: 16px;
+    height: 16px;
+}
+
 .clear-btn {
     padding: 8px 16px;
     background: white;
@@ -173,35 +218,201 @@ body {
     opacity: 0.9;
 }
 
+.event-pill.dragging {
+    opacity: 0.4;
+    cursor: grabbing;
+}
+
 /* ============================================
- * QUICK CAPTURE BUTTON
+ * DRAG AND DROP
  * ============================================ */
 
-.quick-capture-btn {
+.day-cell.drag-over {
+    background: rgba(99, 102, 241, 0.1);
+    border: 2px dashed #6366f1;
+    box-shadow: inset 0 0 8px rgba(99, 102, 241, 0.2);
+}
+
+/* ============================================
+ * DAY VIEW
+ * ============================================ */
+
+.day-view-grid {
+    background: white;
+    border: 1px solid #e7e5e4;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.day-view-container {
+    display: flex;
+    height: 700px;
+}
+
+.day-view-times {
+    width: 80px;
+    border-right: 1px solid #e7e5e4;
+    background: #fafaf9;
+}
+
+.time-slot-label {
+    height: 60px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 8px;
+    font-size: 11px;
+    color: #78716c;
+    font-weight: 500;
+    border-bottom: 1px solid #e7e5e4;
+}
+
+.time-slot-label:first-child {
+    border-top: none;
+}
+
+.day-view-events {
+    flex: 1;
+    position: relative;
+    background: white;
+}
+
+.time-slot {
+    height: 60px;
+    border-bottom: 1px solid #e7e5e4;
+    position: relative;
+}
+
+.time-slot:hover {
+    background: #fafaf9;
+}
+
+.day-event-block {
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    background: #ea580c;
+    color: white;
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: move;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.2s;
+    z-index: 1;
+}
+
+.day-event-block:hover {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    z-index: 2;
+}
+
+.day-event-block.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+}
+
+.day-event-title {
+    font-weight: 600;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.day-event-time {
+    font-size: 11px;
+    opacity: 0.9;
+}
+
+.resize-handle {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 8px;
+    cursor: ns-resize;
+    background: rgba(255, 255, 255, 0.2);
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.day-event-block:hover .resize-handle {
+    opacity: 1;
+}
+
+.resize-handle:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* ============================================
+ * ACTION BUTTONS (Bottom Right)
+ * ============================================ */
+
+.action-buttons {
     position: fixed;
     bottom: 24px;
     right: 24px;
-    padding: 12px 20px;
-    background: #ea580c;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-family: 'Inter', sans-serif;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
     display: flex;
+    gap: 12px;
     align-items: center;
-    gap: 8px;
-    box-shadow: 0 4px 12px rgba(234, 88, 12, 0.3);
-    transition: all 200ms ease;
     z-index: 900;
 }
 
+.quick-capture-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 24px;
+    background: #6366f1;
+    color: white;
+    border: none;
+    border-radius: 50px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+    transition: all 0.2s;
+}
+
 .quick-capture-btn:hover {
-    background: #c2410c;
+    background: #4f46e5;
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(234, 88, 12, 0.4);
+    box-shadow: 0 6px 16px rgba(99, 102, 241, 0.5);
+}
+
+.quick-capture-btn i {
+    width: 20px;
+    height: 20px;
+}
+
+.new-event-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    background: white;
+    color: #6366f1;
+    border: 2px solid #6366f1;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s;
+}
+
+.new-event-btn:hover {
+    background: #6366f1;
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+}
+
+.new-event-btn i {
+    width: 24px;
+    height: 24px;
 }
 
 /* ============================================
