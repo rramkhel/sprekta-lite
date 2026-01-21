@@ -11,8 +11,11 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
+    <!-- Triage / Plan Mode Container -->
+    <div id="triage-container" class="hidden"></div>
+
     <!-- Calendar View -->
-    <div class="calendar-view">
+    <div class="calendar-view app-container">
         <div class="calendar-container">
             <div class="calendar-header">
                 <div class="calendar-nav">
@@ -83,6 +86,10 @@
         <button class="quick-capture-btn" onclick="openQuickCapture()">
             <i data-lucide="pencil"></i>
             Quick Capture
+        </button>
+        <button id="plan-mode-btn" class="plan-mode-btn">
+            <i data-lucide="calendar-check"></i>
+            Plan something
         </button>
         <button class="new-event-btn" onclick="openNewEventModal()">
             <i data-lucide="plus"></i>
@@ -198,6 +205,17 @@
 
         // Make dev panel available globally
         window.devPanelModule = devPanel;
+    </script>
+    <script type="module">
+        import TriageUI from './js/triage-ui.js';
+
+        // Initialize Plan Mode
+        TriageUI.init('triage-container');
+
+        // Wire up button
+        document.getElementById('plan-mode-btn')?.addEventListener('click', () => {
+            TriageUI.open();
+        });
     </script>
     <script src="/app.js"></script>
 </body>
