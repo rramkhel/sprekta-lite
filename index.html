@@ -14,6 +14,9 @@
     <!-- Triage / Plan Mode Container -->
     <div id="triage-container" class="hidden"></div>
 
+    <!-- Profile Container -->
+    <div id="profile-container" class="hidden"></div>
+
     <!-- Calendar View -->
     <div class="calendar-view app-container">
         <div class="calendar-container">
@@ -38,6 +41,10 @@
                             Day
                         </button>
                     </div>
+                    <button id="profile-btn" class="profile-btn">
+                        <i data-lucide="user"></i>
+                        Profile
+                    </button>
                     <button class="clear-btn" onclick="clearCalendar()">
                         <i data-lucide="trash-2"></i>
                         Clear All
@@ -208,13 +215,19 @@
     </script>
     <script type="module">
         import TriageUI from './js/triage-ui.js';
+        import ProfileUI from './js/profile-ui.js';
 
         // Initialize Plan Mode
         TriageUI.init('triage-container');
+        ProfileUI.init('profile-container');
 
-        // Wire up button
+        // Wire up buttons
         document.getElementById('plan-mode-btn')?.addEventListener('click', () => {
             TriageUI.open();
+        });
+
+        document.getElementById('profile-btn')?.addEventListener('click', () => {
+            ProfileUI.open();
         });
     </script>
     <script src="/app.js"></script>

@@ -19,10 +19,7 @@ const TriageUI = {
     TriageState.start();
     this.container.classList.remove('hidden');
     document.querySelector('.app-container')?.classList.add('hidden');
-    this.render();
-    setTimeout(() => {
-      document.getElementById('triage-input')?.focus();
-    }, 100);
+    this.renderChatStep();
   },
 
   close() {
@@ -31,7 +28,7 @@ const TriageUI = {
     document.querySelector('.app-container')?.classList.remove('hidden');
   },
 
-  render() {
+  renderChatStep() {
     const messages = TriageState.getMessages();
     const card = TriageState.getCard();
 
@@ -61,6 +58,9 @@ const TriageUI = {
     `;
 
     this.bindEvents();
+    setTimeout(() => {
+      document.getElementById('triage-input')?.focus();
+    }, 100);
   },
 
   renderMessages(messages) {
@@ -98,6 +98,15 @@ const TriageUI = {
         ${card.anchor.dates ? `<span class="triage-card-dates">${this.escapeHtml(card.anchor.dates)}</span>` : ''}
       </div>
     `;
+
+    // Warnings (profile-based)
+    if (card.warnings && card.warnings.length > 0) {
+      html += `<div class="triage-warnings">`;
+      card.warnings.forEach(w => {
+        html += `<div class="triage-warning">${this.escapeHtml(w.text)}</div>`;
+      });
+      html += `</div>`;
+    }
 
     // Locked items
     if (card.locked && card.locked.length > 0) {
@@ -173,16 +182,28 @@ const TriageUI = {
     const content = input.value.trim();
     if (!content) return;
 
-    // Add user message
     TriageState.addUserMessage(content);
     input.value = '';
     this.updateMessages();
-
-    // Show typing indicator
     this.showTyping();
 
-    // Mock AI response (replace with real API in Sprint 2)
-    await this.mockResponse(content);
+    try {
+      const response = await this.callTriageAPI(content);
+      this.hideTyping();
+
+      TriageState.addAssistantMessage(response.reply, response.card);
+      this.updateMessages();
+      this.updateCard();
+
+    } catch (error) {
+      this.hideTyping();
+      console.error('Triage API error:', error);
+      TriageState.addAssistantMessage(
+        "Sorry, I had trouble with that. Can you try again?",
+        null
+      );
+      this.updateMessages();
+    }
   },
 
   showTyping() {
@@ -199,60 +220,25 @@ const TriageUI = {
     document.getElementById('typing-indicator')?.remove();
   },
 
-  async mockResponse(userInput) {
-    // Simulate network delay
-    await new Promise(r => setTimeout(r, 600 + Math.random() * 400));
-    this.hideTyping();
+  async callTriageAPI(newMessage) {
+    const messages = TriageState.getMessages();
+    const profile = localStorage.getItem('userProfile');
 
-    const lower = userInput.toLowerCase();
-    let reply, card;
+    const response = await fetch('/api/triage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: messages.map(m => ({ role: m.role, content: m.content })),
+        profile: profile,
+        newMessage: newMessage
+      })
+    });
 
-    // Detect trip/travel keywords for realistic mock
-    if (lower.includes('trip') || lower.includes('travel') || lower.includes('toronto') || lower.includes('flight')) {
-      reply = "Got it! Sounds like you're prepping for a trip. I've identified the key anchors and put together a quick plan. What time works for that shower/office visit tonight?";
-      card = {
-        anchor: { title: 'Toronto Trip', dates: 'Jan 19-23' },
-        locked: [
-          { text: 'Mom pickup: 10:00 AM' },
-          { text: 'Flight: 12:50 PM' }
-        ],
-        todos: [
-          { text: 'Start laundry', note: 'do this first - blocks packing' },
-          { text: 'Plan outfits (4-5 days)' },
-          { text: 'Pack: laptop, headphones, Dr. Sealy' },
-          { text: 'Office for shower/hair' },
-          { text: 'Check landlord login project' }
-        ],
-        insight: 'You have tonight + tomorrow morning before 10am. Laundry first.',
-        openQuestion: 'What time works for the office tonight?'
-      };
-    }
-    // Detect deadline/project keywords
-    else if (lower.includes('deadline') || lower.includes('due') || lower.includes('project') || lower.includes('submit')) {
-      reply = "Deadline mode - let's figure out what needs to happen and when. What's the actual due date/time?";
-      card = {
-        anchor: { title: 'Project Deadline', dates: null },
-        locked: [],
-        todos: [{ text: 'Clarify deadline date/time' }],
-        insight: 'Need to know the hard deadline to work backwards.',
-        openQuestion: 'When exactly is this due?'
-      };
-    }
-    // Generic response
-    else {
-      reply = "I'm here to help you plan. Tell me more - what's the main event or deadline, and what needs to happen before/during/after?";
-      card = {
-        anchor: { title: 'Your Plan', dates: null },
-        locked: [],
-        todos: [],
-        insight: 'Tell me more so I can help organize this.',
-        openQuestion: 'What are the key dates or deadlines?'
-      };
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
     }
 
-    TriageState.addAssistantMessage(reply, card);
-    this.updateMessages();
-    this.updateCard();
+    return response.json();
   },
 
   updateMessages() {

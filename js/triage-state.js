@@ -10,13 +10,15 @@ const TriageState = {
     this.session = {
       id: crypto.randomUUID(),
       status: 'active',
+      profile: null,
       messages: [],
       card: {
         anchor: null,
         locked: [],
         todos: [],
         insight: null,
-        openQuestion: null
+        openQuestion: null,
+        warnings: []
       },
       createdAt: new Date(),
       updatedAt: new Date()
@@ -68,6 +70,20 @@ const TriageState = {
 
   isActive() {
     return this.session?.status === 'active';
+  },
+
+  setProfile(profileText) {
+    if (!this.session) this.start();
+    this.session.profile = profileText;
+    this.session.updatedAt = new Date();
+  },
+
+  getProfile() {
+    return this.session?.profile || null;
+  },
+
+  hasProfile() {
+    return !!(this.session?.profile);
   }
 };
 
