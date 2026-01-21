@@ -10,6 +10,7 @@
     "vercel": "^50.4.5"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.2",
     "@supabase/supabase-js": "^2.90.1",
     "dotenv": "^17.2.3",
     "pg": "^8.17.1",
