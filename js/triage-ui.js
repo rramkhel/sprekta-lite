@@ -1,226 +1,205 @@
 /**
- * Triage UI - Plan Mode Interface
+ * Planning Chat UI - Side Panel
  */
 
 import TriageState from './triage-state.js';
 
-const TriageUI = {
-  container: null,
+const STORAGE_KEY = 'sprekta_chat_session';
 
-  init(containerId) {
-    this.container = document.getElementById(containerId);
-    if (!this.container) {
-      console.error('Triage container not found:', containerId);
+const ChatUI = {
+  panel: null,
+  appMain: null,
+
+  init() {
+    this.panel = document.getElementById('chat-panel');
+    this.appMain = document.getElementById('app-main');
+
+    if (!this.panel) {
+      console.error('Chat panel not found');
       return;
     }
-  },
 
-  open() {
-    TriageState.start();
-    this.container.classList.remove('hidden');
-    document.querySelector('.app-container')?.classList.add('hidden');
-    this.renderChatStep();
-  },
+    // Load persisted session
+    this.loadSession();
 
-  close() {
-    TriageState.clear();
-    this.container.classList.add('hidden');
-    document.querySelector('.app-container')?.classList.remove('hidden');
-  },
-
-  renderChatStep() {
-    const messages = TriageState.getMessages();
-    const card = TriageState.getCard();
-
-    this.container.innerHTML = `
-      <div class="triage-split">
-        <div class="triage-chat">
-          <div class="triage-header">
-            <button class="triage-back">← Back</button>
-            <h2>Plan something</h2>
-          </div>
-          <div class="triage-messages" id="triage-messages">
-            ${this.renderMessages(messages)}
-          </div>
-          <div class="triage-input-area">
-            <textarea
-              id="triage-input"
-              placeholder="Dump everything here - what you're planning, what needs to happen, deadlines, constraints..."
-              rows="3"
-            ></textarea>
-            <button id="triage-send" class="triage-send-btn">Send</button>
-          </div>
-        </div>
-        <div class="triage-card-panel">
-          ${this.renderCard(card)}
-        </div>
-      </div>
-    `;
-
+    // Bind events
     this.bindEvents();
-    setTimeout(() => {
-      document.getElementById('triage-input')?.focus();
-    }, 100);
-  },
 
-  renderMessages(messages) {
-    if (!messages || messages.length === 0) {
-      return `
-        <div class="triage-empty">
-          <p>What are you trying to plan?</p>
-          <p class="triage-hint">A trip, deadline, event, or anything you need to organize.</p>
-        </div>
-      `;
-    }
-
-    return messages.map(msg => `
-      <div class="triage-message triage-message-${msg.role}">
-        <div class="triage-message-content">${this.escapeHtml(msg.content)}</div>
-      </div>
-    `).join('');
-  },
-
-  renderCard(card) {
-    if (!card || !card.anchor) {
-      return `
-        <div class="triage-card triage-card-empty">
-          <p>Your plan will appear here</p>
-        </div>
-      `;
-    }
-
-    let html = `<div class="triage-card">`;
-
-    // Header
-    html += `
-      <div class="triage-card-header">
-        <h3>${this.escapeHtml(card.anchor.title)}</h3>
-        ${card.anchor.dates ? `<span class="triage-card-dates">${this.escapeHtml(card.anchor.dates)}</span>` : ''}
-      </div>
-    `;
-
-    // Warnings (profile-based)
-    if (card.warnings && card.warnings.length > 0) {
-      html += `<div class="triage-warnings">`;
-      card.warnings.forEach(w => {
-        html += `<div class="triage-warning">${this.escapeHtml(w.text)}</div>`;
-      });
-      html += `</div>`;
-    }
-
-    // Locked items
-    if (card.locked && card.locked.length > 0) {
-      html += `
-        <div class="triage-card-section">
-          <h4>🔒 LOCKED IN</h4>
-          <ul class="triage-list">
-            ${card.locked.map(item => `<li>${this.escapeHtml(item.text)}</li>`).join('')}
-          </ul>
-        </div>
-      `;
-    }
-
-    // Todos
-    if (card.todos && card.todos.length > 0) {
-      html += `
-        <div class="triage-card-section">
-          <h4>☑️ TO DO</h4>
-          <ul class="triage-list">
-            ${card.todos.map(item => `
-              <li>
-                ${this.escapeHtml(item.text)}
-                ${item.note ? `<span class="triage-note">${this.escapeHtml(item.note)}</span>` : ''}
-              </li>
-            `).join('')}
-          </ul>
-        </div>
-      `;
-    }
-
-    // Insight
-    if (card.insight) {
-      html += `<div class="triage-insight">💡 ${this.escapeHtml(card.insight)}</div>`;
-    }
-
-    // Open question
-    if (card.openQuestion) {
-      html += `<div class="triage-question">❓ ${this.escapeHtml(card.openQuestion)}</div>`;
-    }
-
-    // Accept button
-    html += `
-      <div class="triage-actions">
-        <button id="triage-accept" class="triage-accept-btn">Looks good ✓</button>
-      </div>
-    `;
-
-    html += `</div>`;
-    return html;
+    // Initial render
+    this.renderMessages();
   },
 
   bindEvents() {
-    // Back button
-    this.container.querySelector('.triage-back')?.addEventListener('click', () => this.close());
+    // Close button
+    document.getElementById('chat-panel-close')?.addEventListener('click', () => {
+      this.close();
+    });
 
     // Send button
-    this.container.querySelector('#triage-send')?.addEventListener('click', () => this.handleSend());
+    document.getElementById('chat-send')?.addEventListener('click', () => {
+      this.handleSend();
+    });
 
-    // Enter to send
-    this.container.querySelector('#triage-input')?.addEventListener('keydown', (e) => {
+    // Enter to send (shift+enter for newline)
+    document.getElementById('chat-input')?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         this.handleSend();
       }
     });
-
-    // Accept button
-    this.container.querySelector('#triage-accept')?.addEventListener('click', () => this.handleAccept());
   },
 
-  async handleSend() {
-    const input = document.getElementById('triage-input');
-    const content = input.value.trim();
-    if (!content) return;
+  open() {
+    // Start session if none exists
+    if (!TriageState.isActive()) {
+      TriageState.start();
+    }
 
-    TriageState.addUserMessage(content);
-    input.value = '';
-    this.updateMessages();
-    this.showTyping();
+    // Show panel
+    this.panel.classList.remove('hidden');
+    this.panel.classList.add('open');
+    this.appMain?.classList.add('chat-open');
 
-    try {
-      const response = await this.callTriageAPI(content);
-      this.hideTyping();
+    // Render and focus
+    this.renderMessages();
+    setTimeout(() => {
+      document.getElementById('chat-input')?.focus();
+    }, 300); // After animation
+  },
 
-      TriageState.addAssistantMessage(response.reply, response.card);
-      this.updateMessages();
-      this.updateCard();
+  close() {
+    this.panel.classList.remove('open');
+    this.appMain?.classList.remove('chat-open');
 
-    } catch (error) {
-      this.hideTyping();
-      console.error('Triage API error:', error);
-      TriageState.addAssistantMessage(
-        "Sorry, I had trouble with that. Can you try again?",
-        null
-      );
-      this.updateMessages();
+    // Save session for persistence
+    this.saveSession();
+
+    // Don't clear state - conversation persists!
+  },
+
+  toggle() {
+    if (this.panel.classList.contains('open')) {
+      this.close();
+    } else {
+      this.open();
     }
   },
 
+  isOpen() {
+    return this.panel.classList.contains('open');
+  },
+
+  // ============================================
+  // PERSISTENCE
+  // ============================================
+
+  saveSession() {
+    if (TriageState.session) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(TriageState.session));
+    }
+  },
+
+  loadSession() {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        const session = JSON.parse(saved);
+        TriageState.session = session;
+      } catch (e) {
+        console.error('Failed to load chat session:', e);
+      }
+    }
+  },
+
+  clearSession() {
+    localStorage.removeItem(STORAGE_KEY);
+    TriageState.clear();
+    this.renderMessages();
+  },
+
+  // ============================================
+  // RENDERING
+  // ============================================
+
+  renderMessages() {
+    const container = document.getElementById('chat-messages');
+    if (!container) return;
+
+    const messages = TriageState.getMessages();
+    const hasProfile = !!localStorage.getItem('userProfile');
+
+    if (!messages || messages.length === 0) {
+      container.innerHTML = `
+        <div class="chat-empty">
+          <p>What are you trying to figure out?</p>
+          <p>Talk through a trip, deadline, overwhelming week, or anything on your mind.</p>
+          ${hasProfile ? '<span class="chat-profile-badge">✓ Profile loaded</span>' : ''}
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = messages.map(msg => `
+      <div class="chat-message chat-message-${msg.role}">
+        ${this.escapeHtml(msg.content)}
+      </div>
+    `).join('');
+
+    container.scrollTop = container.scrollHeight;
+  },
+
   showTyping() {
-    const messagesEl = document.getElementById('triage-messages');
+    const container = document.getElementById('chat-messages');
     const typingEl = document.createElement('div');
-    typingEl.className = 'triage-message triage-message-assistant triage-typing';
-    typingEl.innerHTML = '<div class="triage-message-content">...</div>';
+    typingEl.className = 'chat-message chat-message-assistant chat-typing';
     typingEl.id = 'typing-indicator';
-    messagesEl.appendChild(typingEl);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
+    typingEl.textContent = '...';
+    container.appendChild(typingEl);
+    container.scrollTop = container.scrollHeight;
   },
 
   hideTyping() {
     document.getElementById('typing-indicator')?.remove();
   },
 
-  async callTriageAPI(newMessage) {
+  // ============================================
+  // SENDING MESSAGES
+  // ============================================
+
+  async handleSend() {
+    const input = document.getElementById('chat-input');
+    const content = input.value.trim();
+    if (!content) return;
+
+    // Add user message
+    TriageState.addUserMessage(content);
+    input.value = '';
+    this.renderMessages();
+    this.showTyping();
+
+    try {
+      const response = await this.callAPI(content);
+      this.hideTyping();
+
+      // Add assistant message (no card for now - scratchpad mode)
+      TriageState.addAssistantMessage(response.reply, null);
+      this.renderMessages();
+
+      // Save after each exchange
+      this.saveSession();
+
+    } catch (error) {
+      this.hideTyping();
+      console.error('Chat API error:', error);
+      TriageState.addAssistantMessage(
+        "Sorry, I had trouble with that. Can you try again?",
+        null
+      );
+      this.renderMessages();
+    }
+  },
+
+  async callAPI(newMessage) {
     const messages = TriageState.getMessages();
     const profile = localStorage.getItem('userProfile');
 
@@ -241,32 +220,6 @@ const TriageUI = {
     return response.json();
   },
 
-  updateMessages() {
-    const messagesEl = document.getElementById('triage-messages');
-    if (messagesEl) {
-      messagesEl.innerHTML = this.renderMessages(TriageState.getMessages());
-      messagesEl.scrollTop = messagesEl.scrollHeight;
-    }
-  },
-
-  updateCard() {
-    const cardPanel = this.container.querySelector('.triage-card-panel');
-    if (cardPanel) {
-      cardPanel.innerHTML = this.renderCard(TriageState.getCard());
-      // Rebind accept button
-      cardPanel.querySelector('#triage-accept')?.addEventListener('click', () => this.handleAccept());
-    }
-  },
-
-  handleAccept() {
-    const card = TriageState.getCard();
-    console.log('Plan accepted:', card);
-    // TODO Sprint 3: Create calendar events from card.locked
-    alert('Plan accepted! (Calendar integration coming in Sprint 3)');
-    TriageState.resolve();
-    this.close();
-  },
-
   escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
@@ -275,4 +228,4 @@ const TriageUI = {
   }
 };
 
-export default TriageUI;
+export default ChatUI;

@@ -11,14 +11,32 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
-    <!-- Triage / Plan Mode Container -->
-    <div id="triage-container" class="hidden"></div>
-
     <!-- Profile Container -->
     <div id="profile-container" class="hidden"></div>
 
-    <!-- Calendar View -->
-    <div class="calendar-view app-container">
+    <!-- Planning Chat Side Panel -->
+    <div id="chat-panel" class="chat-panel hidden">
+        <div class="chat-panel-header">
+            <h3>Planning</h3>
+            <button id="chat-panel-close" class="chat-panel-close">×</button>
+        </div>
+        <div class="chat-panel-messages" id="chat-messages">
+            <!-- Messages render here -->
+        </div>
+        <div class="chat-panel-input">
+            <textarea
+                id="chat-input"
+                placeholder="What's on your mind?"
+                rows="2"
+            ></textarea>
+            <button id="chat-send" class="chat-send-btn">Send</button>
+        </div>
+    </div>
+
+    <!-- App Main (wraps calendar for resize) -->
+    <div id="app-main" class="app-main">
+        <!-- Calendar View -->
+        <div class="calendar-view app-container">
         <div class="calendar-container">
             <div class="calendar-header">
                 <div class="calendar-nav">
@@ -214,16 +232,16 @@
         window.devPanelModule = devPanel;
     </script>
     <script type="module">
-        import TriageUI from './js/triage-ui.js';
+        import ChatUI from './js/triage-ui.js';
         import ProfileUI from './js/profile-ui.js';
 
-        // Initialize Plan Mode
-        TriageUI.init('triage-container');
+        // Initialize
+        ChatUI.init();
         ProfileUI.init('profile-container');
 
         // Wire up buttons
         document.getElementById('plan-mode-btn')?.addEventListener('click', () => {
-            TriageUI.open();
+            ChatUI.toggle();
         });
 
         document.getElementById('profile-btn')?.addEventListener('click', () => {

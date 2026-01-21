@@ -179,7 +179,7 @@ body {
 }
 
 .day-cell.today {
-    background: #fff7ed;
+    background: #f5f3ff;
 }
 
 .day-number {
@@ -190,7 +190,7 @@ body {
 }
 
 .day-cell.today .day-number {
-    color: #ea580c;
+    color: #6366f1;
     font-weight: 600;
 }
 
@@ -201,7 +201,7 @@ body {
 }
 
 .event-pill {
-    background: #ea580c;
+    background: #6366f1;
     color: white;
     font-size: 11px;
     padding: 4px 8px;
@@ -215,7 +215,7 @@ body {
 }
 
 .event-pill:hover {
-    opacity: 0.9;
+    background: #4f46e5;
 }
 
 .event-pill.dragging {
@@ -291,7 +291,7 @@ body {
     position: absolute;
     left: 4px;
     right: 4px;
-    background: #ea580c;
+    background: #6366f1;
     color: white;
     border-radius: 4px;
     padding: 6px 8px;
@@ -583,7 +583,7 @@ body {
 }
 
 .dev-toggle-label input[type="checkbox"]:checked {
-    background: #ea580c;
+    background: #6366f1;
 }
 
 .dev-toggle-label input[type="checkbox"]::before {
@@ -619,7 +619,7 @@ body {
 .dev-btn {
     width: 100%;
     padding: 8px 16px;
-    background: #ea580c;
+    background: #6366f1;
     color: white;
     border: none;
     border-radius: 6px;
@@ -631,7 +631,7 @@ body {
 }
 
 .dev-btn:hover {
-    background: #c2410c;
+    background: #4f46e5;
 }
 
 .dev-btn-small {
@@ -1219,7 +1219,7 @@ body {
 
 .triage-message-user {
     align-self: flex-end;
-    background: #007AFF;
+    background: #6366f1;
     color: #fff;
     border-bottom-right-radius: 4px;
 }
@@ -1256,12 +1256,12 @@ body {
 
 .triage-input-area textarea:focus {
     outline: none;
-    border-color: #007AFF;
+    border-color: #6366f1;
 }
 
 .triage-send-btn {
     padding: 10px 18px;
-    background: #007AFF;
+    background: #6366f1;
     color: #fff;
     border: none;
     border-radius: 10px;
@@ -1271,7 +1271,7 @@ body {
 }
 
 .triage-send-btn:hover {
-    background: #0066DD;
+    background: #4f46e5;
 }
 
 /* Right panel - Card */
@@ -1519,8 +1519,8 @@ body {
 
 .profile-textarea:focus {
     outline: none;
-    border-color: #007AFF;
-    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .profile-actions {
@@ -1532,7 +1532,7 @@ body {
 
 .profile-btn-primary {
     padding: 12px 24px;
-    background: #007AFF;
+    background: #6366f1;
     color: #fff;
     border: none;
     border-radius: 8px;
@@ -1543,7 +1543,7 @@ body {
 }
 
 .profile-btn-primary:hover {
-    background: #0066DD;
+    background: #4f46e5;
 }
 
 .profile-btn-danger {
@@ -1596,4 +1596,206 @@ body {
     font-size: 13px;
     margin-bottom: 8px;
     line-height: 1.4;
+}
+
+/* ============================================
+   HYBRID LAYOUT: Calendar + Chat Panel
+   ============================================ */
+
+/* Main app area - shrinks when chat is open */
+.app-main {
+    transition: width 0.3s ease, margin-left 0.3s ease;
+    width: 100%;
+}
+
+.app-main.chat-open {
+    width: 60%;
+    margin-left: 40%;
+}
+
+/* Chat Side Panel */
+.chat-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 40%;
+    height: 100vh;
+    height: 100dvh;
+    background: #fff;
+    border-right: 1px solid #e5e5e5;
+    display: flex;
+    flex-direction: column;
+    z-index: 100;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+}
+
+.chat-panel.open {
+    transform: translateX(0);
+}
+
+.chat-panel.hidden {
+    display: flex; /* Keep in DOM for persistence */
+    transform: translateX(-100%);
+}
+
+/* Panel Header */
+.chat-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e5e5e5;
+    background: #fafafa;
+}
+
+.chat-panel-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.chat-panel-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #666;
+    padding: 0;
+    line-height: 1;
+}
+
+.chat-panel-close:hover {
+    color: #333;
+}
+
+/* Messages Area */
+.chat-panel-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.chat-empty {
+    color: #999;
+    text-align: center;
+    margin-top: 40px;
+}
+
+.chat-empty p:first-child {
+    font-size: 16px;
+    color: #666;
+    margin-bottom: 8px;
+}
+
+.chat-empty p:last-child {
+    font-size: 14px;
+}
+
+/* Message Bubbles */
+.chat-message {
+    max-width: 85%;
+    padding: 10px 14px;
+    border-radius: 16px;
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.chat-message-user {
+    align-self: flex-end;
+    background: #6366f1;
+    color: #fff;
+    border-bottom-right-radius: 4px;
+}
+
+.chat-message-assistant {
+    align-self: flex-start;
+    background: #f0f0f0;
+    color: #000;
+    border-bottom-left-radius: 4px;
+}
+
+.chat-typing {
+    opacity: 0.6;
+}
+
+/* Input Area */
+.chat-panel-input {
+    padding: 16px 20px;
+    border-top: 1px solid #e5e5e5;
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    background: #fff;
+}
+
+.chat-panel-input textarea {
+    flex: 1;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-family: inherit;
+    resize: none;
+    line-height: 1.4;
+    max-height: 120px;
+}
+
+.chat-panel-input textarea:focus {
+    outline: none;
+    border-color: #6366f1;
+}
+
+.chat-send-btn {
+    padding: 10px 16px;
+    background: #6366f1;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.chat-send-btn:hover {
+    background: #4f46e5;
+}
+
+/* Profile badge in header (optional) */
+.chat-profile-badge {
+    font-size: 11px;
+    color: #34C759;
+    background: #E8F9ED;
+    padding: 3px 8px;
+    border-radius: 10px;
+    margin-left: 8px;
+}
+
+/* ============================================
+   MOBILE: Stacked Layout
+   ============================================ */
+
+@media (max-width: 768px) {
+    .app-main.chat-open {
+        width: 100%;
+        height: 50vh;
+        overflow: hidden;
+    }
+
+    .chat-panel {
+        width: 100%;
+        height: 50vh;
+        top: auto;
+        bottom: 0;
+        transform: translateY(100%);
+        border-left: none;
+        border-top: 1px solid #e5e5e5;
+    }
+
+    .chat-panel.open {
+        transform: translateY(0);
+    }
 }
