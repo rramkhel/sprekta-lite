@@ -232,10 +232,35 @@
         window.devPanelModule = devPanel;
     </script>
     <script type="module">
+        import AuthUI from './js/auth-ui.js';
         import ChatUI from './js/triage-ui.js';
         import ProfileUI from './js/profile-ui.js';
+        import TriageState from './js/triage-state.js';
 
-        // Initialize
+        // Initialize auth
+        AuthUI.init();
+
+        // Listen for auth changes
+        AuthUI.onAuthChange = async (event, session) => {
+            console.log('Auth event:', event, session?.user?.email);
+
+            if (event === 'SIGNED_IN') {
+                // Claim anonymous conversations
+                await TriageState.claimConversations();
+
+                // Reload conversation to show claimed data
+                if (ChatUI.isOpen()) {
+                    await ChatUI.open();
+                }
+            } else if (event === 'SIGNED_OUT') {
+                // Clear conversation
+                if (ChatUI.isOpen()) {
+                    ChatUI.close();
+                }
+            }
+        };
+
+        // Initialize UI
         ChatUI.init();
         ProfileUI.init('profile-container');
 

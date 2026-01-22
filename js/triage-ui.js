@@ -1,10 +1,4 @@
-/**
- * Planning Chat UI - Side Panel
- */
-
 import TriageState from './triage-state.js';
-
-const STORAGE_KEY = 'sprekta_chat_session';
 
 const ChatUI = {
   panel: null,
@@ -19,15 +13,145 @@ const ChatUI = {
       return;
     }
 
-    // Load persisted session
-    this.loadSession();
-
-    // Bind events
-    this.bindEvents();
-
-    // Initial render
-    this.renderMessages();
+    // Initial render (empty/loading state)
+    this.renderClosed();
   },
+
+  async open() {
+    // Show panel
+    this.panel.classList.remove('hidden');
+    this.panel.classList.add('open');
+    this.appMain?.classList.add('chat-open');
+
+    // Show loading state
+    this.renderLoading();
+
+    try {
+      // Start or resume conversation
+      await TriageState.start();
+      this.render();
+    } catch (error) {
+      this.renderError('Failed to load conversation');
+    }
+  },
+
+  close() {
+    this.panel.classList.remove('open');
+    this.appMain?.classList.remove('chat-open');
+  },
+
+  toggle() {
+    if (this.panel.classList.contains('open')) {
+      this.close();
+    } else {
+      this.open();
+    }
+  },
+
+  isOpen() {
+    return this.panel.classList.contains('open');
+  },
+
+  // ============================================
+  // RENDERING
+  // ============================================
+
+  renderClosed() {
+    // Panel exists but is hidden - no need to render content
+  },
+
+  render() {
+    const messages = TriageState.getMessages();
+    const hasProfile = !!TriageState.getProfile();
+
+    this.panel.innerHTML = `
+      <div class="chat-panel-header">
+        <h3>Planning ${hasProfile ? '<span class="chat-profile-badge">✓</span>' : ''}</h3>
+        <button id="chat-panel-close" class="chat-panel-close">×</button>
+      </div>
+
+      <div class="chat-panel-messages" id="chat-messages">
+        ${this.renderMessages(messages)}
+      </div>
+
+      <div class="chat-panel-input">
+        <textarea
+          id="chat-input"
+          placeholder="What's on your mind?"
+          rows="2"
+        ></textarea>
+        <button id="chat-send" class="chat-send-btn">Send</button>
+      </div>
+    `;
+
+    this.bindEvents();
+    this.scrollToBottom();
+  },
+
+  renderLoading() {
+    this.panel.innerHTML = `
+      <div class="chat-panel-header">
+        <h3>Planning</h3>
+        <button id="chat-panel-close" class="chat-panel-close">×</button>
+      </div>
+
+      <div class="chat-loading">
+        <div class="typing-indicator">
+          <span></span><span></span><span></span>
+        </div>
+        <p>Loading conversation...</p>
+      </div>
+    `;
+
+    // Bind close button even in loading state
+    document.getElementById('chat-panel-close')?.addEventListener('click', () => this.close());
+  },
+
+  renderError(message) {
+    this.panel.innerHTML = `
+      <div class="chat-panel-header">
+        <h3>Planning</h3>
+        <button id="chat-panel-close" class="chat-panel-close">×</button>
+      </div>
+
+      <div class="chat-error">
+        <p>${message}</p>
+        <button class="chat-retry">Try again</button>
+      </div>
+    `;
+
+    document.getElementById('chat-panel-close')?.addEventListener('click', () => this.close());
+    this.panel.querySelector('.chat-retry')?.addEventListener('click', () => this.open());
+  },
+
+  renderMessages(messages) {
+    if (!messages || messages.length === 0) {
+      return `
+        <div class="chat-empty">
+          <p>What are you trying to figure out?</p>
+          <p>Talk through a trip, deadline, overwhelming week, or anything on your mind.</p>
+        </div>
+      `;
+    }
+
+    return messages.map(msg => `
+      <div class="chat-message chat-message-${msg.role}">
+        ${this.formatContent(msg.content)}
+      </div>
+    `).join('');
+  },
+
+  formatContent(content) {
+    if (!content) return '';
+    // Basic markdown-ish formatting
+    return this.escapeHtml(content)
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\n/g, '<br>');
+  },
+
+  // ============================================
+  // EVENTS
+  // ============================================
 
   bindEvents() {
     // Close button
@@ -49,182 +173,79 @@ const ChatUI = {
     });
   },
 
-  open() {
-    // Start session if none exists
-    if (!TriageState.isActive()) {
-      TriageState.start();
+  async handleSend() {
+    const input = document.getElementById('chat-input');
+    const content = input.value.trim();
+    if (!content) return;
+
+    input.value = '';
+
+    // Re-render with optimistic user message
+    this.render();
+
+    // Show typing indicator
+    this.showTyping();
+
+    try {
+      await TriageState.sendMessage(content);
+      this.hideTyping();
+      this.render();
+    } catch (error) {
+      this.hideTyping();
+      this.showError('Failed to send message. Please try again.');
     }
-
-    // Show panel
-    this.panel.classList.remove('hidden');
-    this.panel.classList.add('open');
-    this.appMain?.classList.add('chat-open');
-
-    // Render and focus
-    this.renderMessages();
-    setTimeout(() => {
-      document.getElementById('chat-input')?.focus();
-    }, 300); // After animation
-  },
-
-  close() {
-    this.panel.classList.remove('open');
-    this.appMain?.classList.remove('chat-open');
-
-    // Save session for persistence
-    this.saveSession();
-
-    // Don't clear state - conversation persists!
-  },
-
-  toggle() {
-    if (this.panel.classList.contains('open')) {
-      this.close();
-    } else {
-      this.open();
-    }
-  },
-
-  isOpen() {
-    return this.panel.classList.contains('open');
-  },
-
-  // ============================================
-  // PERSISTENCE
-  // ============================================
-
-  saveSession() {
-    if (TriageState.session) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(TriageState.session));
-    }
-  },
-
-  loadSession() {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        const session = JSON.parse(saved);
-        TriageState.session = session;
-      } catch (e) {
-        console.error('Failed to load chat session:', e);
-      }
-    }
-  },
-
-  clearSession() {
-    localStorage.removeItem(STORAGE_KEY);
-    TriageState.clear();
-    this.renderMessages();
-  },
-
-  // ============================================
-  // RENDERING
-  // ============================================
-
-  renderMessages() {
-    const container = document.getElementById('chat-messages');
-    if (!container) return;
-
-    const messages = TriageState.getMessages();
-    const hasProfile = !!localStorage.getItem('userProfile');
-
-    if (!messages || messages.length === 0) {
-      container.innerHTML = `
-        <div class="chat-empty">
-          <p>What are you trying to figure out?</p>
-          <p>Talk through a trip, deadline, overwhelming week, or anything on your mind.</p>
-          ${hasProfile ? '<span class="chat-profile-badge">✓ Profile loaded</span>' : ''}
-        </div>
-      `;
-      return;
-    }
-
-    container.innerHTML = messages.map(msg => `
-      <div class="chat-message chat-message-${msg.role}">
-        ${this.escapeHtml(msg.content)}
-      </div>
-    `).join('');
-
-    container.scrollTop = container.scrollHeight;
   },
 
   showTyping() {
     const container = document.getElementById('chat-messages');
+    if (!container) return;
+
     const typingEl = document.createElement('div');
     typingEl.className = 'chat-message chat-message-assistant chat-typing';
     typingEl.id = 'typing-indicator';
-    typingEl.textContent = '...';
+    typingEl.innerHTML = '<span>...</span>';
     container.appendChild(typingEl);
-    container.scrollTop = container.scrollHeight;
+    this.scrollToBottom();
   },
 
   hideTyping() {
     document.getElementById('typing-indicator')?.remove();
   },
 
-  // ============================================
-  // SENDING MESSAGES
-  // ============================================
-
-  async handleSend() {
-    const input = document.getElementById('chat-input');
-    const content = input.value.trim();
-    if (!content) return;
-
-    // Add user message
-    TriageState.addUserMessage(content);
-    input.value = '';
-    this.renderMessages();
-    this.showTyping();
-
-    try {
-      const response = await this.callAPI(content);
-      this.hideTyping();
-
-      // Add assistant message (no card for now - scratchpad mode)
-      TriageState.addAssistantMessage(response.reply, null);
-      this.renderMessages();
-
-      // Save after each exchange
-      this.saveSession();
-
-    } catch (error) {
-      this.hideTyping();
-      console.error('Chat API error:', error);
-      TriageState.addAssistantMessage(
-        "Sorry, I had trouble with that. Can you try again?",
-        null
-      );
-      this.renderMessages();
+  showError(message) {
+    const container = document.getElementById('chat-messages');
+    if (container) {
+      container.insertAdjacentHTML('beforeend', `
+        <div class="chat-error-message">${message}</div>
+      `);
     }
   },
 
-  async callAPI(newMessage) {
-    const messages = TriageState.getMessages();
-    const profile = localStorage.getItem('userProfile');
-
-    const response = await fetch('/api/triage', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: messages.map(m => ({ role: m.role, content: m.content })),
-        profile: profile,
-        newMessage: newMessage
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
+  scrollToBottom() {
+    const container = document.getElementById('chat-messages');
+    if (container) {
+      container.scrollTop = container.scrollHeight;
     }
-
-    return response.json();
   },
+
+  // ============================================
+  // UTILITIES
+  // ============================================
 
   escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  },
+
+  // For test scenarios (dev panel)
+  sendMessage(content) {
+    const input = document.getElementById('chat-input');
+    if (input) {
+      input.value = content;
+      this.handleSend();
+    }
   }
 };
 

@@ -1,89 +1,194 @@
-/**
- * Triage State Manager
- * Holds conversation + card state in memory.
- */
+import Session from './session.js';
+import AuthUI from './auth-ui.js';
+
+const API_BASE = '/api/conversation';
 
 const TriageState = {
-  session: null,
+  conversationId: null,
+  messages: [],
+  profile: null,
+  status: 'idle', // idle, loading, active, error
 
-  start() {
-    this.session = {
-      id: crypto.randomUUID(),
-      status: 'active',
-      profile: null,
-      messages: [],
-      card: {
-        anchor: null,
-        locked: [],
-        todos: [],
-        insight: null,
-        openQuestion: null,
-        warnings: []
-      },
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    return this.session;
+  // Initialize - check for existing conversation
+  async init() {
+    // Don't auto-load on init - wait for user to open chat
   },
 
-  addUserMessage(content) {
-    if (!this.session) return null;
-    const message = {
+  // Get headers for API calls
+  async getHeaders() {
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-Session-Id': Session.getId()
+    };
+
+    // Add auth token if logged in
+    const token = await AuthUI.getAccessToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    return headers;
+  },
+
+  // Start or resume conversation
+  async start(profileText = null) {
+    this.status = 'loading';
+    this.profile = profileText;
+
+    try {
+      const headers = await this.getHeaders();
+
+      const response = await fetch(API_BASE, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          sessionId: Session.getId(),
+          profileText: profileText
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create conversation');
+      }
+
+      const data = await response.json();
+      this.conversationId = data.conversationId;
+
+      // If existing conversation, load messages
+      if (!data.isNew) {
+        await this.loadMessages();
+      } else {
+        this.messages = [];
+      }
+
+      this.status = 'active';
+      return { conversationId: this.conversationId, isNew: data.isNew };
+
+    } catch (error) {
+      console.error('Failed to start conversation:', error);
+      this.status = 'error';
+      throw error;
+    }
+  },
+
+  // Load messages for current conversation
+  async loadMessages() {
+    if (!this.conversationId) return;
+
+    try {
+      const headers = await this.getHeaders();
+      delete headers['Content-Type']; // GET request doesn't need this
+
+      const response = await fetch(`${API_BASE}/${this.conversationId}`, {
+        headers
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to load messages');
+      }
+
+      const data = await response.json();
+      this.messages = data.messages || [];
+      this.profile = data.conversation.profile_text;
+
+    } catch (error) {
+      console.error('Failed to load messages:', error);
+      throw error;
+    }
+  },
+
+  // Send message and get AI response
+  async sendMessage(content) {
+    if (!this.conversationId) {
+      throw new Error('No active conversation');
+    }
+
+    // Optimistically add user message
+    const userMessage = {
       role: 'user',
       content,
-      timestamp: new Date()
+      created_at: new Date().toISOString()
     };
-    this.session.messages.push(message);
-    this.session.updatedAt = new Date();
-    return message;
+    this.messages.push(userMessage);
+
+    try {
+      const headers = await this.getHeaders();
+
+      const response = await fetch(`${API_BASE}/${this.conversationId}/message`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ content })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send message');
+      }
+
+      const data = await response.json();
+
+      // Add assistant message
+      const assistantMessage = {
+        role: 'assistant',
+        content: data.reply,
+        phase: data.phase,
+        created_at: new Date().toISOString()
+      };
+      this.messages.push(assistantMessage);
+
+      return assistantMessage;
+
+    } catch (error) {
+      // Remove optimistic message on error
+      this.messages.pop();
+      console.error('Failed to send message:', error);
+      throw error;
+    }
   },
 
-  addAssistantMessage(content, card) {
-    if (!this.session) return null;
-    const message = {
-      role: 'assistant',
-      content,
-      card,
-      timestamp: new Date()
-    };
-    this.session.messages.push(message);
-    if (card) this.session.card = card;
-    this.session.updatedAt = new Date();
-    return message;
+  // Clear and start new conversation
+  async newConversation(profileText = null) {
+    Session.regenerate();
+    this.conversationId = null;
+    this.messages = [];
+    this.profile = profileText;
+    this.status = 'idle';
+
+    return this.start(profileText);
   },
 
-  getCard() {
-    return this.session?.card || null;
-  },
-
+  // Getters
   getMessages() {
-    return this.session?.messages || [];
-  },
-
-  resolve() {
-    if (this.session) this.session.status = 'resolved';
-  },
-
-  clear() {
-    this.session = null;
-  },
-
-  isActive() {
-    return this.session?.status === 'active';
-  },
-
-  setProfile(profileText) {
-    if (!this.session) this.start();
-    this.session.profile = profileText;
-    this.session.updatedAt = new Date();
+    return this.messages;
   },
 
   getProfile() {
-    return this.session?.profile || null;
+    return this.profile;
   },
 
-  hasProfile() {
-    return !!(this.session?.profile);
+  isActive() {
+    return this.status === 'active';
+  },
+
+  isLoading() {
+    return this.status === 'loading';
+  },
+
+  // Claim conversations after login
+  async claimConversations() {
+    const token = await AuthUI.getAccessToken();
+    if (!token) return;
+
+    try {
+      await fetch(`${API_BASE}/claim`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'X-Session-Id': Session.getId()
+        }
+      });
+    } catch (error) {
+      console.error('Failed to claim conversations:', error);
+    }
   }
 };
 
