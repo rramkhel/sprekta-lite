@@ -70,6 +70,23 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
+    // Fetch user's profile if they're logged in
+    let profileText = conversation.profile_text; // Fallback to pasted text
+
+    if (conversation.user_id) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', conversation.user_id)
+        .single();
+
+      if (profile) {
+        // Convert structured profile to text
+        const { profileToText } = await import('../../../lib/profile-utils.js');
+        profileText = profileToText(profile);
+      }
+    }
+
     // Fetch existing messages for context
     const { data: existingMessages } = await supabase
       .from('messages')
@@ -103,7 +120,7 @@ export default async function handler(req, res) {
     });
 
     // Build system prompt
-    const systemPrompt = buildSystemPrompt(conversation.profile_text);
+    const systemPrompt = buildSystemPrompt(profileText);
 
     // Call Claude
     const response = await anthropic.messages.create({

@@ -1,3 +1,51 @@
+
+⏺ Sprint 7.1 created the Profile Database & API foundation. Here's what we built:
+
+  Database Schema
+
+  - Created profiles table with structured data:
+    - name - user's name
+    - patterns - array of preferences (e.g., "Morning person", "Need buffer time")
+    - red_flags - array of things they tend to mess up (e.g., "Forgets to eat when busy")
+    - key_people - array of important people with relationships
+    - priorities - ordered list of what matters most
+    - notes - free-form text (backward compatible)
+  - Added profile_id and title columns to conversations table
+  - Set up Row Level Security (RLS) policies so users only see their own profile
+
+  API Endpoint
+
+  Created /api/profile with:
+  - GET - Fetch user's profile
+  - POST - Create new profile
+  - PUT - Update existing profile
+
+  All endpoints require authentication (Bearer token).
+
+  Profile Utilities
+
+  Created lib/profile-utils.js with:
+  - profileToText() - Converts structured profile to readable text for AI context
+  - textToProfile() - Parses pasted text into structured format (best effort)
+
+  Integration
+
+  Updated /api/conversation/[id]/message.js to:
+  - Fetch user's stored profile from database
+  - Convert it to text using profileToText()
+  - Include it in the AI system prompt
+
+  Result
+
+  Now when logged-in users chat, the AI automatically has access to their structured profile data for personalized
+  planning advice!
+
+
+
+--------
+
+
+
 # Sprint 7.1: Profile Database & API
 
 ## Goal

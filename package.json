@@ -1,6 +1,7 @@
 {
   "name": "sprekta-lite",
   "version": "0.1.0",
+  "type": "module",
   "description": "AI-powered calendar with quick capture",
   "scripts": {
     "setup-db": "node scripts/setup-database.js",
