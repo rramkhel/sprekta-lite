@@ -108,6 +108,17 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Failed to save message' });
     }
 
+    // After saving user message, check if this is the first message
+    if (!existingMessages || existingMessages.length === 0) {
+      // Generate title from first message
+      const title = generateTitle(content);
+
+      await supabase
+        .from('conversations')
+        .update({ title })
+        .eq('id', id);
+    }
+
     // Build conversation history for Claude
     const conversationHistory = (existingMessages || []).map(msg => ({
       role: msg.role,
@@ -296,4 +307,25 @@ ${profile}`;
   }
 
   return prompt;
+}
+
+// Add this helper function at the bottom of the file (outside the handler)
+function generateTitle(content) {
+  // Simple extraction: first 50 chars, clean up
+  let title = content
+    .replace(/\n/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .substring(0, 50);
+
+  // Try to break at word boundary
+  if (title.length === 50) {
+    const lastSpace = title.lastIndexOf(' ');
+    if (lastSpace > 30) {
+      title = title.substring(0, lastSpace);
+    }
+    title += '...';
+  }
+
+  return title;
 }

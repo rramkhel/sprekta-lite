@@ -14,6 +14,9 @@
     <!-- Profile Container -->
     <div id="profile-container" class="hidden"></div>
 
+    <!-- History Container -->
+    <div id="history-container" class="hidden"></div>
+
     <!-- Planning Chat Side Panel -->
     <div id="chat-panel" class="chat-panel hidden">
         <div class="chat-panel-header">
@@ -235,6 +238,7 @@
         import AuthUI from './js/auth-ui.js';
         import ChatUI from './js/triage-ui.js';
         import ProfileUI from './js/profile-ui.js';
+        import HistoryUI from './js/history-ui.js';
         import TriageState from './js/triage-state.js';
 
         // Initialize auth
@@ -263,6 +267,7 @@
         // Initialize UI
         ChatUI.init();
         ProfileUI.init('profile-container');
+        HistoryUI.init('history-container');
 
         // Wire up buttons
         document.getElementById('plan-mode-btn')?.addEventListener('click', () => {
@@ -272,6 +277,9 @@
         document.getElementById('profile-btn')?.addEventListener('click', () => {
             ProfileUI.open();
         });
+
+        // Make HistoryUI available globally for triage-ui.js
+        window.HistoryUI = HistoryUI;
     </script>
     <script src="/app.js"></script>
 </body>

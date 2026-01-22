@@ -156,6 +156,22 @@ const TriageState = {
     return this.start(profileText);
   },
 
+  // Resume an existing conversation
+  async resumeConversation(conversationId) {
+    this.status = 'loading';
+    this.conversationId = conversationId;
+
+    try {
+      await this.loadMessages();
+      this.status = 'active';
+      return { conversationId: this.conversationId };
+    } catch (error) {
+      console.error('Failed to resume conversation:', error);
+      this.status = 'error';
+      throw error;
+    }
+  },
+
   // Getters
   getMessages() {
     return this.messages;

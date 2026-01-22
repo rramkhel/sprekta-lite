@@ -28,8 +28,14 @@ const ChatUI = {
 
     try {
       // Start or resume conversation
-      await TriageState.start();
+      const data = await TriageState.start();
       this.render();
+
+      // If logged in, no profile, and new conversation, suggest profile
+      const { default: AuthUI } = await import('./auth-ui.js');
+      if (AuthUI.isLoggedIn() && !TriageState.getProfile() && data.isNew) {
+        this.showProfileSuggestion();
+      }
     } catch (error) {
       this.renderError('Failed to load conversation');
     }
@@ -66,7 +72,16 @@ const ChatUI = {
 
     this.panel.innerHTML = `
       <div class="chat-panel-header">
-        <h3>Planning ${hasProfile ? '<span class="chat-profile-badge">✓</span>' : ''}</h3>
+        <h3>Planning</h3>
+        <div class="chat-header-actions">
+          ${hasProfile ? `
+            <span class="profile-badge" title="Using your profile">✓ Profile</span>
+          ` : `
+            <button class="chat-add-profile" title="Add profile for better help">+ Profile</button>
+          `}
+          <button class="chat-history" title="Past conversations">☰</button>
+          <button class="chat-new" title="New conversation">+ New</button>
+        </div>
         <button id="chat-panel-close" class="chat-panel-close">×</button>
       </div>
 
@@ -159,6 +174,26 @@ const ChatUI = {
       this.close();
     });
 
+    // Add profile button
+    this.panel.querySelector('.chat-add-profile')?.addEventListener('click', async () => {
+      const { default: ProfileUI } = await import('./profile-ui.js');
+      ProfileUI.open();
+    });
+
+    // History button
+    this.panel.querySelector('.chat-history')?.addEventListener('click', async () => {
+      const { default: HistoryUI } = await import('./history-ui.js');
+      HistoryUI.open();
+    });
+
+    // New conversation button
+    this.panel.querySelector('.chat-new')?.addEventListener('click', async () => {
+      if (confirm('Start a new conversation? Current conversation will be saved.')) {
+        await TriageState.newConversation();
+        this.render();
+      }
+    });
+
     // Send button
     document.getElementById('chat-send')?.addEventListener('click', () => {
       this.handleSend();
@@ -231,6 +266,29 @@ const ChatUI = {
   // ============================================
   // UTILITIES
   // ============================================
+
+  showProfileSuggestion() {
+    const messagesContainer = document.getElementById('chat-messages');
+    if (!messagesContainer) return;
+
+    messagesContainer.insertAdjacentHTML('beforeend', `
+      <div class="chat-profile-suggestion">
+        <p>💡 <strong>Tip:</strong> Set up your profile for personalized planning help.</p>
+        <button class="suggestion-setup-btn">Set Up Profile</button>
+        <button class="suggestion-dismiss-btn">Maybe later</button>
+      </div>
+    `);
+
+    messagesContainer.querySelector('.suggestion-setup-btn')?.addEventListener('click', async () => {
+      const { default: ProfileUI } = await import('./profile-ui.js');
+      ProfileUI.open();
+      messagesContainer.querySelector('.chat-profile-suggestion')?.remove();
+    });
+
+    messagesContainer.querySelector('.suggestion-dismiss-btn')?.addEventListener('click', () => {
+      messagesContainer.querySelector('.chat-profile-suggestion')?.remove();
+    });
+  },
 
   escapeHtml(text) {
     if (!text) return '';
