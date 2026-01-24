@@ -1,6 +1,6 @@
 # Sprekta - AI Calendar Application Overview
 
-**Version:** 0.8.0
+**Version:** 0.8.5
 **Status:** MVP in Development
 **Repository:** https://github.com/rramkhel/sprekta-lite
 
@@ -62,7 +62,17 @@ Sprekta is an AI-powered calendar assistant that helps users organize their time
 - **Profile Tab**: All profile fields in structured form
 - **Toast Notifications**: Success/error feedback for user actions
 
-#### 7. **Developer Tools**
+#### 7. **Triage System** (Milestone 8.5)
+- **Triage Panel**: Right-side panel organizing events into actionable buckets
+- **Smart Buckets**: Today, This Week, Later (collapsible), Undetermined
+- **Resolve Flow**: Click [◉] on undetermined events to resolve via AI chat
+- **Natural Language Resolution**: "Tuesday at 3pm" → structured date/time
+- **Auto-Refresh**: Triage panel updates when calendar events change
+- **Text-First Design**: Minimal, typography-focused UI with weights over colors
+- **Event Flagging**: `needs_triage` flag for incomplete events
+- **Contextual Prompts**: AI asks specifically what's missing (date, time, or both)
+
+#### 8. **Developer Tools**
 - **Dev Panel**: Inspect AI responses, view action logs
 - **Response Inspector**: Debug JSON responses from AI
 - **Action Log**: Track user actions and API calls
@@ -84,8 +94,10 @@ Sprekta is an AI-powered calendar assistant that helps users organize their time
 - `js/auth-state.js` - Authentication state management
 - `js/auth-ui.js` - Sign in/up modals, user dropdown
 - `js/settings-ui.js` - Unified settings page (Account + Profile tabs)
-- `js/triage-ui.js` - Chat interface for AI planning
+- `js/triage-ui.js` - Chat interface for AI planning and event resolution
 - `js/triage-state.js` - Conversation state, API calls
+- `js/triage-panel.js` - Triage panel UI and event bucket rendering
+- `js/triage-data.js` - Event organization into time buckets
 - `js/profile-ui.js` - Profile modal (legacy, now in Settings)
 - `js/history-ui.js` - Conversation history modal
 - `js/session.js` - Anonymous session tracking
@@ -105,8 +117,9 @@ Sprekta is an AI-powered calendar assistant that helps users organize their time
 | `/api/parse` | POST | Parse natural language to structured event data |
 | `/api/events` | GET | Fetch all events |
 | `/api/events` | POST | Create new event |
-| `/api/events/[id]` | PUT | Update event |
-| `/api/events/[id]` | DELETE | Delete event |
+| `/api/events` | PUT/PATCH | Update event (full or partial) |
+| `/api/events` | DELETE | Delete event |
+| `/api/resolve` | POST | AI-powered event resolution (extract date/time) |
 | `/api/triage` | POST | AI conversation endpoint |
 | `/api/conversation` | POST | Start/resume conversation |
 | `/api/conversation/[id]` | GET | Load conversation messages |
@@ -129,10 +142,13 @@ events (
   title TEXT,
   date TEXT,
   time TEXT,
+  end_time TEXT,
   notes TEXT,
+  needs_triage BOOLEAN DEFAULT FALSE,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   session_id TEXT,
-  created_at TIMESTAMP
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
 )
 
 -- Conversations
@@ -283,6 +299,12 @@ export default async function handler(req, res) {
 - **M6**: Conversation mode (Triage system)
 - **M7**: User profiles + conversation history
 - **M8**: Authentication + account management + unified settings
+- **M8.5**: Simple Triage View
+  - Right-side triage panel with smart event buckets (Today, This Week, Later, Undetermined)
+  - AI-powered resolve flow for undetermined events
+  - Natural language date/time extraction
+  - Auto-refresh on calendar changes
+  - Text-first minimal design
 
 ### 🚧 In Progress / Planned
 
@@ -331,6 +353,19 @@ export default async function handler(req, res) {
 3. Later, uses AI planning for a meeting
 4. AI automatically adds 15-20min buffer before/after
 5. Warns: "Based on your profile, I'm adding extra travel time"
+
+### Flow 5: Triage & Resolve Undetermined Events
+
+1. User uses Quick Capture: "dentist next week"
+2. AI creates event with `needs_triage: true` (no specific date/time)
+3. Event appears in triage panel under "Undetermined" with subtext "when exactly?"
+4. User clicks [◉] resolve button
+5. Chat panel opens with prompt: "Let's figure out when to schedule 'dentist'..."
+6. User: "Tuesday at 3pm"
+7. AI extracts date (next Tuesday) and time ("15:00")
+8. Event updated, `needs_triage: false`
+9. Triage panel refreshes, event moves to "This Week"
+10. Calendar shows event on correct day/time
 
 ---
 
@@ -529,5 +564,5 @@ ANTHROPIC_API_KEY=sk-ant-api03-xxx
 ---
 
 **Last Updated**: 2026-01-24
-**Document Version**: 1.0
-**App Version**: 0.8.0 (Milestone 8 Complete)
+**Document Version**: 1.1
+**App Version**: 0.8.5 (Milestone 8.5 Complete - Simple Triage View)
