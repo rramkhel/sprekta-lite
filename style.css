@@ -1205,6 +1205,16 @@ body {
     color: #333;
 }
 
+.triage-empty p {
+  margin: 0;
+}
+
+.triage-empty-sub {
+  font-size: 13px;
+  margin-top: 4px !important;
+  color: var(--text-muted, #aaa);
+}
+
 .triage-hint {
     font-size: 14px;
 }
@@ -3743,6 +3753,12 @@ body {
   margin-bottom: 0;
 }
 
+/* Divider between sections */
+.triage-section + .triage-section {
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+}
+
 /* Section headers - muted, medium weight */
 .triage-section-header {
   font-size: 11px;
@@ -3762,18 +3778,25 @@ body {
 
 /* Individual items */
 .triage-item {
-  padding: 8px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 10px 0;
   border-bottom: 1px solid #f0f0f0;
   cursor: pointer;
-  transition: background 150ms ease;
-}
-
-.triage-item:hover {
-  background: #fafafa;
+  transition: background 0.15s;
+  margin: 0 -8px;
+  padding-left: 8px;
+  padding-right: 8px;
+  border-radius: 4px;
 }
 
 .triage-item:last-child {
   border-bottom: none;
+}
+
+.triage-item:hover {
+  background: rgba(0, 0, 0, 0.02);
 }
 
 /* Item meta (date/time) - light, muted */
@@ -3786,6 +3809,7 @@ body {
 }
 
 /* Item main text - regular weight */
+.triage-item-text,
 .triage-item-title {
   font-size: 14px;
   font-weight: 400;
@@ -3793,20 +3817,22 @@ body {
   line-height: 1.4;
 }
 
-/* Item subtext - light, muted */
+/* Item subtext - light, muted, smaller */
 .triage-item-subtext {
   font-size: 12px;
   font-weight: 400;
-  color: #888;
+  color: #999;
   margin-top: 2px;
+  font-style: italic;
 }
 
-/* Attention items - with resolve button */
-.triage-item-attention {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
+/* Undetermined items - slightly different */
+.triage-item-undetermined {
+  background: rgba(0, 0, 0, 0.01);
+}
+
+.triage-item-undetermined .triage-item-text {
+  color: #555;
 }
 
 .triage-item-content {
@@ -3860,6 +3886,17 @@ body {
 }
 
 .triage-toggle-icon.expanded {
+  transform: rotate(180deg);
+}
+
+.triage-chevron {
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted, #888);
+  transition: transform 0.2s ease;
+}
+
+.triage-chevron.expanded {
   transform: rotate(180deg);
 }
 

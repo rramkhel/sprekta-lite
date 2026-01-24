@@ -332,6 +332,11 @@ async function stopResize(e) {
 
             // Re-render
             renderDayView();
+
+            // Refresh triage if open
+            if (window.TriagePanel?.isOpen) {
+                window.TriagePanel.refresh();
+            }
         }
     }
 
@@ -460,6 +465,11 @@ async function handleDrop(e, targetDate) {
 
     // Re-render calendar
     renderCalendar();
+
+    // Refresh triage if open
+    if (window.TriagePanel?.isOpen) {
+        window.TriagePanel.refresh();
+    }
 }
 
 async function clearCalendar() {
@@ -481,6 +491,11 @@ async function clearCalendar() {
         events = [];
         localStorage.setItem('events', JSON.stringify(events));
         renderCalendar();
+
+        // Refresh triage if open
+        if (window.TriagePanel?.isOpen) {
+            window.TriagePanel.refresh();
+        }
     }
 }
 
@@ -572,6 +587,11 @@ async function processQuickCaptureResponse(originalText, response) {
             console.log('[Process Response] Events saved to localStorage:', events);
             renderCalendar();
             console.log('[Process Response] Calendar re-rendered');
+
+            // Refresh triage if open
+            if (window.TriagePanel?.isOpen) {
+                window.TriagePanel.refresh();
+            }
         } else {
             console.warn('[Process Response] No event items found. Items were:', response.items);
             alert('No events found. AI parsed as tasks/notes instead.');
@@ -819,6 +839,12 @@ async function saveEventChanges() {
 
         // Show feedback
         showToast('Event created');
+
+        // Refresh triage if open
+        if (window.TriagePanel?.isOpen) {
+            window.TriagePanel.refresh();
+        }
+
         return;
     }
 
@@ -870,6 +896,11 @@ async function saveEventChanges() {
 
     // Show feedback
     showToast('Event saved');
+
+    // Refresh triage if open
+    if (window.TriagePanel?.isOpen) {
+        window.TriagePanel.refresh();
+    }
 }
 
 // ============================================
@@ -930,6 +961,11 @@ async function executeDeleteEvent() {
 
     // Show feedback
     showToast('Event deleted');
+
+    // Refresh triage if open
+    if (window.TriagePanel?.isOpen) {
+        window.TriagePanel.refresh();
+    }
 }
 
 // ============================================

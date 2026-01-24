@@ -62,130 +62,151 @@ const TriagePanel = {
     if (!this.buckets || !this.content) return;
 
     const { today, thisWeek, later, undetermined } = this.buckets;
+    const sections = [];
 
-    this.content.innerHTML = `
-      ${this.renderToday(today)}
-      ${this.renderThisWeek(thisWeek)}
-      ${this.renderLater(later)}
-      ${this.renderUndetermined(undetermined)}
-    `;
+    // Today
+    if (today.length > 0) {
+      sections.push(this.renderSection('Today', today, 'today'));
+    }
 
-    this.bindEvents();
+    // This Week
+    if (thisWeek.length > 0) {
+      sections.push(this.renderSection('This Week', thisWeek, 'week'));
+    }
+
+    // Later (collapsible)
+    if (later.length > 0) {
+      sections.push(this.renderCollapsibleSection('Later', later, 'later'));
+    }
+
+    // Undetermined
+    if (undetermined.length > 0) {
+      sections.push(this.renderSection('Undetermined', undetermined, 'undetermined'));
+    }
+
+    // Empty state
+    if (sections.length === 0) {
+      this.content.innerHTML = `
+        <div class="triage-empty">
+          <p>Nothing to triage</p>
+          <p class="triage-empty-sub">All clear!</p>
+        </div>
+      `;
+      return;
+    }
+
+    this.content.innerHTML = sections.join('');
+    this.bindSectionEvents();
   },
 
   /**
-   * Render Today section
+   * Render a standard section
    */
-  renderToday(events) {
-    if (events.length === 0) return '';
-
+  renderSection(title, items, type) {
     return `
-      <section class="triage-section">
-        <h4 class="triage-section-header">Today</h4>
+      <section class="triage-section" data-section="${type}">
+        <h4 class="triage-section-header">${title}</h4>
         <div class="triage-list">
-          ${events.map(event => `
-            <div class="triage-item" data-event-id="${event.id}" onclick="openEventDetail(${event.id})">
-              <div class="triage-item-time">${this.formatTime(event.time)}</div>
-              <div class="triage-item-title">${this.escapeHtml(event.title)}</div>
-            </div>
-          `).join('')}
+          ${items.map(item => this.renderItem(item, type)).join('')}
         </div>
       </section>
     `;
   },
 
   /**
-   * Render This Week section
+   * Render a collapsible section
    */
-  renderThisWeek(events) {
-    if (events.length === 0) return '';
+  renderCollapsibleSection(title, items, type) {
+    const isExpanded = localStorage.getItem(`triage_${type}_expanded`) !== 'false';
 
     return `
-      <section class="triage-section">
-        <h4 class="triage-section-header">This Week</h4>
-        <div class="triage-list">
-          ${events.map(event => `
-            <div class="triage-item" data-event-id="${event.id}" onclick="openEventDetail(${event.id})">
-              <div class="triage-item-meta">${this.formatDayOfWeek(event.date)}</div>
-              <div class="triage-item-title">${this.escapeHtml(event.title)}</div>
-            </div>
-          `).join('')}
-        </div>
-      </section>
-    `;
-  },
-
-  /**
-   * Render Later section (collapsible)
-   */
-  renderLater(events) {
-    if (events.length === 0) return '';
-
-    return `
-      <section class="triage-section">
-        <button class="triage-section-toggle" data-toggle="later">
-          <span class="triage-section-header">Later (${events.length})</span>
-          <svg class="triage-toggle-icon ${this.laterExpanded ? 'expanded' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <section class="triage-section triage-section-collapsible" data-section="${type}">
+        <button class="triage-section-toggle" data-toggle="${type}">
+          <span class="triage-section-header">${title} (${items.length})</span>
+          <svg class="triage-chevron ${isExpanded ? 'expanded' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="6 9 12 15 18 9"/>
           </svg>
         </button>
-        <div class="triage-list triage-list-collapsible ${this.laterExpanded ? 'expanded' : ''}">
-          ${events.map(event => `
-            <div class="triage-item" data-event-id="${event.id}" onclick="openEventDetail(${event.id})">
-              <div class="triage-item-meta">${this.formatDate(event.date)}</div>
-              <div class="triage-item-title">${this.escapeHtml(event.title)}</div>
-            </div>
-          `).join('')}
+        <div class="triage-list triage-list-collapsible ${isExpanded ? 'expanded' : ''}">
+          ${items.map(item => this.renderItem(item, type)).join('')}
         </div>
       </section>
     `;
   },
 
   /**
-   * Render Undetermined section
+   * Render a single triage item
    */
-  renderUndetermined(events) {
-    if (events.length === 0) return '';
+  renderItem(item, sectionType) {
+    const isUndetermined = sectionType === 'undetermined';
+
+    // Format time/date based on section
+    let meta = '';
+    if (sectionType === 'today' && item.time) {
+      meta = this.formatTime(item.time);
+    } else if (sectionType === 'week' && item.date) {
+      meta = this.formatWeekday(item.date);
+    } else if (sectionType === 'later' && item.date) {
+      meta = this.formatShortDate(item.date);
+    }
+
+    // Subtext for undetermined items
+    let subtext = '';
+    if (isUndetermined) {
+      subtext = item.date ? 'what time?' : 'when exactly?';
+    }
 
     return `
-      <section class="triage-section triage-section-undetermined">
-        <h4 class="triage-section-header">Undetermined</h4>
-        <div class="triage-list">
-          ${events.map(event => `
-            <div class="triage-item triage-item-attention" data-event-id="${event.id}">
-              <div class="triage-item-content">
-                <div class="triage-item-title">${this.escapeHtml(event.title)}</div>
-                <div class="triage-item-subtext">when exactly?</div>
-              </div>
-              <button class="triage-resolve-btn" data-resolve-id="${event.id}" aria-label="Resolve">
-                <svg class="triage-resolve-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="12" cy="12" r="10"/>
-                  <path d="M12 8v4M12 16h.01"/>
-                </svg>
-              </button>
-            </div>
-          `).join('')}
+      <div class="triage-item ${isUndetermined ? 'triage-item-undetermined' : ''}" data-event-id="${item.id}">
+        <div class="triage-item-content">
+          ${meta ? `<div class="triage-item-meta">${meta}</div>` : ''}
+          <div class="triage-item-text">${this.escapeHtml(item.title)}</div>
+          ${subtext ? `<div class="triage-item-subtext">${subtext}</div>` : ''}
         </div>
-      </section>
+        ${isUndetermined ? `
+          <button class="triage-resolve-btn" data-resolve-id="${item.id}" aria-label="Resolve">
+            <svg class="triage-resolve-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <circle cx="12" cy="12" r="3" fill="currentColor"/>
+            </svg>
+          </button>
+        ` : ''}
+      </div>
     `;
   },
 
   /**
-   * Bind event handlers
+   * Bind section event handlers
    */
-  bindEvents() {
-    // Later section toggle
-    this.content?.querySelector('[data-toggle="later"]')?.addEventListener('click', () => {
-      this.laterExpanded = !this.laterExpanded;
-      this.render();
+  bindSectionEvents() {
+    // Collapsible toggles
+    this.content?.querySelectorAll('.triage-section-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const section = btn.dataset.toggle;
+        const list = btn.nextElementSibling;
+        const chevron = btn.querySelector('.triage-chevron');
+
+        const isExpanded = list.classList.toggle('expanded');
+        chevron.classList.toggle('expanded', isExpanded);
+        localStorage.setItem(`triage_${section}_expanded`, isExpanded);
+      });
     });
 
     // Resolve buttons
     this.content?.querySelectorAll('.triage-resolve-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const eventId = e.currentTarget.dataset.resolveId;
-        this.openResolveChat(eventId);
+        const eventId = btn.dataset.resolveId;
+        console.log('Resolve:', eventId); // Will wire up in Sprint 8.5.3
+      });
+    });
+
+    // Item click → could open event details
+    this.content?.querySelectorAll('.triage-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const eventId = item.dataset.eventId;
+        // Could open event modal or scroll to calendar
+        console.log('View event:', eventId);
       });
     });
   },
@@ -210,42 +231,28 @@ const TriagePanel = {
   /**
    * Format time (24h to 12h)
    */
-  formatTime(time) {
-    if (!time) return 'All day';
-
-    const [hours, minutes] = time.split(':').map(Number);
+  formatTime(time24) {
+    if (!time24) return '';
+    const [hours, minutes] = time24.split(':').map(Number);
     const period = hours >= 12 ? 'pm' : 'am';
     const hours12 = hours % 12 || 12;
-
     return `${hours12}${minutes > 0 ? ':' + minutes.toString().padStart(2, '0') : ''}${period}`;
   },
 
   /**
-   * Format day of week (e.g., "Wed")
+   * Format weekday (e.g., "Wed")
    */
-  formatDayOfWeek(dateStr) {
+  formatWeekday(dateStr) {
     if (!dateStr) return '';
-
     const date = new Date(dateStr);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    date.setHours(0, 0, 0, 0);
-
-    if (date.getTime() === today.getTime()) return 'Today';
-    if (date.getTime() === tomorrow.getTime()) return 'Tomorrow';
-
     return date.toLocaleDateString('en-US', { weekday: 'short' });
   },
 
   /**
-   * Format date (e.g., "Jan 24")
+   * Format short date (e.g., "Jan 24")
    */
-  formatDate(dateStr) {
+  formatShortDate(dateStr) {
     if (!dateStr) return '';
-
     const date = new Date(dateStr);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   },
@@ -260,5 +267,8 @@ const TriagePanel = {
     return div.innerHTML;
   }
 };
+
+// Expose for cross-module access
+window.TriagePanel = TriagePanel;
 
 export default TriagePanel;
