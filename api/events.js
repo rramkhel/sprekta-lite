@@ -36,6 +36,7 @@ export default async function handler(req, res) {
         notes: e.notes,
         raw: e.raw,
         aiResponse: e.ai_response,
+        needsTriage: e.needs_triage || false,
         created_at: e.created_at,
         updated_at: e.updated_at
       }));
@@ -73,7 +74,8 @@ export default async function handler(req, res) {
         end_time: event.endTime || null,
         notes: event.notes || null,
         raw: event.raw || null,
-        ai_response: event.aiResponse || null
+        ai_response: event.aiResponse || null,
+        needs_triage: event.needsTriage || false
       };
 
       // Insert into Supabase
@@ -96,6 +98,7 @@ export default async function handler(req, res) {
         notes: data[0].notes,
         raw: data[0].raw,
         aiResponse: data[0].ai_response,
+        needsTriage: data[0].needs_triage || false,
         created_at: data[0].created_at,
         updated_at: data[0].updated_at
       };
@@ -127,7 +130,8 @@ export default async function handler(req, res) {
         end_time: event.endTime || null,
         notes: event.notes || null,
         raw: event.raw || null,
-        ai_response: event.aiResponse || null
+        ai_response: event.aiResponse || null,
+        needs_triage: event.needsTriage !== undefined ? event.needsTriage : undefined
       };
 
       // Remove undefined/null values to avoid overwriting with nulls
@@ -157,6 +161,7 @@ export default async function handler(req, res) {
         notes: data[0].notes,
         raw: data[0].raw,
         aiResponse: data[0].ai_response,
+        needsTriage: data[0].needs_triage || false,
         created_at: data[0].created_at,
         updated_at: data[0].updated_at
       };

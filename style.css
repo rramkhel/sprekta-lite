@@ -3722,3 +3722,185 @@ body {
     font-size: 15px;
   }
 }
+
+/* ============================================
+   TRIAGE PANEL - TEXT-FIRST DESIGN
+   ============================================ */
+
+/* Content wrapper */
+#triage-content {
+  padding: 16px;
+  overflow-y: auto;
+  height: 100%;
+}
+
+/* Sections */
+.triage-section {
+  margin-bottom: 24px;
+}
+
+.triage-section:last-child {
+  margin-bottom: 0;
+}
+
+/* Section headers - muted, medium weight */
+.triage-section-header {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #888;
+  margin: 0 0 12px 0;
+}
+
+/* Lists */
+.triage-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Individual items */
+.triage-item {
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+
+.triage-item:hover {
+  background: #fafafa;
+}
+
+.triage-item:last-child {
+  border-bottom: none;
+}
+
+/* Item meta (date/time) - light, muted */
+.triage-item-meta,
+.triage-item-time {
+  font-size: 12px;
+  font-weight: 400;
+  color: #888;
+  margin-bottom: 2px;
+}
+
+/* Item main text - regular weight */
+.triage-item-title {
+  font-size: 14px;
+  font-weight: 400;
+  color: #333;
+  line-height: 1.4;
+}
+
+/* Item subtext - light, muted */
+.triage-item-subtext {
+  font-size: 12px;
+  font-weight: 400;
+  color: #888;
+  margin-top: 2px;
+}
+
+/* Attention items - with resolve button */
+.triage-item-attention {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.triage-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Resolve button - minimal, icon only */
+.triage-resolve-btn {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  opacity: 0.4;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+}
+
+.triage-resolve-btn:hover {
+  opacity: 1;
+}
+
+.triage-resolve-icon {
+  width: 18px;
+  height: 18px;
+  color: #666;
+}
+
+/* Collapsible section toggle */
+.triage-section-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+.triage-section-toggle:hover .triage-section-header {
+  color: #666;
+}
+
+.triage-toggle-icon {
+  width: 16px;
+  height: 16px;
+  color: #888;
+  transition: transform 0.2s;
+}
+
+.triage-toggle-icon.expanded {
+  transform: rotate(180deg);
+}
+
+/* Collapsible list */
+.triage-list-collapsible {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.triage-list-collapsible.expanded {
+  max-height: 500px;
+}
+
+/* Loading state */
+.triage-loading,
+.triage-error {
+  padding: 24px;
+  text-align: center;
+  color: #888;
+  font-size: 13px;
+}
+
+.triage-error {
+  color: #d32f2f;
+}
+
+/* Undetermined section styling */
+.triage-section-undetermined {
+  background: #fafafa;
+  margin: 0 -16px -16px -16px;
+  padding: 16px;
+  border-top: 1px solid #eee;
+}
+
+/* Section dividers */
+.triage-section + .triage-section::before {
+  content: '';
+  display: block;
+  height: 1px;
+  background: #eee;
+  margin-bottom: 24px;
+}
+

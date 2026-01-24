@@ -324,9 +324,13 @@
         import TriageState from './js/triage-state.js';
         import PanelManager from './js/panel-manager.js';
         import CompactCalendar from './js/compact-calendar.js';
+        import TriagePanel from './js/triage-panel.js';
 
         // Initialize panel manager first
         PanelManager.init();
+
+        // Initialize triage panel
+        TriagePanel.init();
 
         // Initialize auth
         await AuthState.init();

@@ -1,3 +1,26 @@
+  What was committed:
+
+  Commit: feat: compact calendar with Month/Week view toggle
+
+  Files changed (13 files):
+
+  - Modified: index.html, js/panel-manager.js, style.css
+  - New: js/compact-calendar.js, docs/compact-calendar-spec.md, and several documentation files
+  - Renamed: Sprint instruction docs (9.3-9.6) marked as "paused"
+
+  Key features added:
+
+  ✅ iOS-style compact calendar for 3-panel layout✅ Month view - full calendar grid with day cells and event dots✅ Week
+   view - 7-day hourly schedule with time-based event positioning✅ View toggle buttons in compact header✅ Smart
+  navigation (arrows navigate by month or week)✅ Events positioned at 40px/hour with calculated durations✅ Day
+  selection updates event list✅ Auto-switches to compact mode when 2+ panels open
+
+  Your working tree is clean and everything is synced with origin/main! 🚀
+
+
+---
+
+
 # Compact Calendar View Specification
 
 ## Overview

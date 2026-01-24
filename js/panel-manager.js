@@ -42,6 +42,11 @@ const PanelManager = {
     this.panels[panel] = true;
     this.update();
     this.saveState();
+
+    // Dispatch event for panel listeners
+    window.dispatchEvent(new CustomEvent('panel-opened', {
+      detail: { panel }
+    }));
   },
 
   close(panel) {
