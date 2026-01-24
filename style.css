@@ -3095,3 +3095,282 @@ body {
     font-size: 16px;
   }
 }
+
+/* ============================================
+   THREE-PANEL LAYOUT (Sprint 9.1)
+   ============================================ */
+
+/* App Header */
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  background: #fff;
+  border-bottom: 1px solid #e5e5e5;
+  height: 60px;
+}
+
+.header-left,
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-center {
+  flex: 1;
+  max-width: 500px;
+  margin: 0 20px;
+}
+
+.app-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #292524;
+}
+
+/* Panel toggle buttons */
+.panel-toggle {
+  background: none;
+  border: none;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #78716c;
+  transition: all 150ms ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.panel-toggle:hover {
+  background: #f5f5f4;
+  color: #292524;
+}
+
+.panel-toggle.active {
+  background: #e7e5e4;
+  color: #292524;
+}
+
+.panel-toggle i {
+  width: 20px;
+  height: 20px;
+}
+
+/* Three-Panel App Shell */
+.app-shell {
+  display: flex;
+  height: calc(100vh - 60px); /* Subtract header height */
+  overflow: hidden;
+}
+
+/* Panel base styles */
+.panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: width 0.3s ease, flex 0.3s ease;
+}
+
+.panel.hidden {
+  width: 0;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Left panel (Chat) */
+.panel-left {
+  width: 320px;
+  min-width: 320px;
+  max-width: 400px;
+  border-right: 1px solid #e5e5e5;
+  background: #fff;
+}
+
+/* Center panel (Calendar) - flexible */
+.panel-center {
+  flex: 1;
+  min-width: 300px;
+  background: #fff;
+}
+
+/* Right panel (Triage) */
+.panel-right {
+  width: 320px;
+  min-width: 320px;
+  max-width: 400px;
+  border-left: 1px solid #e5e5e5;
+  background: #fafafa;
+}
+
+/* Panel headers */
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e5e5e5;
+  background: #fafafa;
+}
+
+.panel-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.panel-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #999;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 150ms ease;
+}
+
+.panel-close:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+/* Calendar panel adjustments */
+.panel-center .calendar-view {
+  height: 100%;
+  padding: 20px;
+}
+
+/* Compact calendar mode (for narrow width) */
+.panel-center.calendar-compact .calendar-grid {
+  display: none;
+}
+
+.panel-center.calendar-compact .calendar-list {
+  display: block;
+}
+
+/* Vertical day list */
+.calendar-list {
+  display: none; /* Hidden by default */
+  padding: 16px 0;
+  overflow-y: auto;
+}
+
+.calendar-list-day {
+  padding: 12px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.calendar-list-day:last-child {
+  border-bottom: none;
+}
+
+.calendar-list-day-header {
+  font-size: 12px;
+  font-weight: 500;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.calendar-list-event {
+  padding: 8px 12px;
+  margin: 4px 0;
+  background: #f5f5f5;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.calendar-list-event:hover {
+  background: #e7e5e4;
+}
+
+.calendar-list-event-time {
+  font-size: 12px;
+  color: #666;
+  margin-right: 8px;
+}
+
+/* ============================================
+   MOBILE: THREE-PANEL LAYOUT
+   ============================================ */
+
+@media (max-width: 768px) {
+  .app-header {
+    padding: 8px 12px;
+    height: 50px;
+  }
+
+  .app-title {
+    font-size: 16px;
+  }
+
+  .header-center {
+    margin: 0 12px;
+  }
+
+  .app-shell {
+    flex-direction: column;
+    height: calc(100vh - 50px);
+  }
+
+  .panel-left,
+  .panel-right {
+    width: 100%;
+    max-width: none;
+    min-width: auto;
+    height: 50vh;
+    border-right: none;
+    border-left: none;
+    border-bottom: 1px solid #e5e5e5;
+  }
+
+  .panel-center {
+    flex: 1;
+    min-width: auto;
+    min-height: 200px;
+  }
+
+  /* On mobile, only show one side panel at a time */
+  .app-shell:not(.panel-left.hidden):not(.panel-right.hidden) .panel-left,
+  .app-shell:not(.panel-left.hidden):not(.panel-right.hidden) .panel-right {
+    height: 40vh;
+  }
+
+  .app-shell:not(.panel-left.hidden):not(.panel-right.hidden) .panel-center {
+    height: 20vh;
+    min-height: 150px;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Very small screens: panels take more space */
+  .panel-left:not(.hidden),
+  .panel-right:not(.hidden) {
+    height: 60vh;
+  }
+
+  .panel-center {
+    min-height: 150px;
+  }
+
+  .header-left gap,
+  .header-right gap {
+    gap: 8px;
+  }
+
+  .app-title {
+    font-size: 15px;
+  }
+}

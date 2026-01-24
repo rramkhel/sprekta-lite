@@ -20,65 +20,96 @@
     <!-- History Container -->
     <div id="history-container" class="hidden"></div>
 
-    <!-- Planning Chat Side Panel -->
-    <div id="chat-panel" class="chat-panel hidden">
-        <div class="chat-panel-header">
-            <h3>Planning</h3>
-            <button id="chat-panel-close" class="chat-panel-close">×</button>
+    <!-- App Header -->
+    <header class="app-header">
+        <div class="header-left">
+            <button id="toggle-chat" class="panel-toggle" aria-label="Toggle chat">
+                <i data-lucide="message-square"></i>
+            </button>
+            <h1 class="app-title">Sprekta</h1>
         </div>
-        <div class="chat-panel-messages" id="chat-messages">
-            <!-- Messages render here -->
+        <div class="header-center">
+            <!-- Quick capture will stay here -->
         </div>
-        <div class="chat-panel-input">
-            <textarea
-                id="chat-input"
-                placeholder="What's on your mind?"
-                rows="2"
-            ></textarea>
-            <button id="chat-send" class="chat-send-btn">Send</button>
+        <div class="header-right">
+            <button id="toggle-triage" class="panel-toggle" aria-label="Toggle triage">
+                <i data-lucide="inbox"></i>
+            </button>
+            <button id="profile-btn" class="profile-btn">
+                <i data-lucide="user"></i>
+            </button>
+            <!-- Auth will render here -->
+            <div id="auth-header"></div>
         </div>
-    </div>
+    </header>
 
-    <!-- App Main (wraps calendar for resize) -->
-    <div id="app-main" class="app-main">
-        <!-- Calendar View -->
-        <div class="calendar-view app-container">
-        <div class="calendar-container">
-            <div class="calendar-header">
-                <div class="calendar-nav">
-                    <button class="nav-btn" onclick="changeMonth(-1)">
-                        <i data-lucide="chevron-left"></i>
-                    </button>
-                    <div class="month-year" id="monthYear"></div>
-                    <button class="nav-btn" onclick="changeMonth(1)">
-                        <i data-lucide="chevron-right"></i>
-                    </button>
-                </div>
-                <div class="header-actions">
-                    <div class="view-toggle">
-                        <button class="view-toggle-btn active" id="monthViewBtn" onclick="switchView('month')">
-                            <i data-lucide="calendar"></i>
-                            Month
-                        </button>
-                        <button class="view-toggle-btn" id="dayViewBtn" onclick="switchView('day')">
-                            <i data-lucide="clock"></i>
-                            Day
-                        </button>
+    <!-- Three-Panel App Shell -->
+    <div id="app-shell" class="app-shell">
+        <!-- Left: Chat Panel -->
+        <div id="chat-panel" class="panel panel-left hidden">
+            <div class="panel-header">
+                <h3>Chat</h3>
+                <button class="panel-close" data-panel="chat">×</button>
+            </div>
+            <div class="chat-panel-messages" id="chat-messages">
+                <!-- Messages render here -->
+            </div>
+            <div class="chat-panel-input">
+                <textarea
+                    id="chat-input"
+                    placeholder="What's on your mind?"
+                    rows="2"
+                ></textarea>
+                <button id="chat-send" class="chat-send-btn">Send</button>
+            </div>
+        </div>
+
+        <!-- Center: Calendar (always visible) -->
+        <div id="calendar-panel" class="panel panel-center">
+            <div class="calendar-view">
+                <div class="calendar-container">
+                    <div class="calendar-header">
+                        <div class="calendar-nav">
+                            <button class="nav-btn" onclick="changeMonth(-1)">
+                                <i data-lucide="chevron-left"></i>
+                            </button>
+                            <div class="month-year" id="monthYear"></div>
+                            <button class="nav-btn" onclick="changeMonth(1)">
+                                <i data-lucide="chevron-right"></i>
+                            </button>
+                        </div>
+                        <div class="header-actions">
+                            <div class="view-toggle">
+                                <button class="view-toggle-btn active" id="monthViewBtn" onclick="switchView('month')">
+                                    <i data-lucide="calendar"></i>
+                                    Month
+                                </button>
+                                <button class="view-toggle-btn" id="dayViewBtn" onclick="switchView('day')">
+                                    <i data-lucide="clock"></i>
+                                    Day
+                                </button>
+                            </div>
+                            <button class="clear-btn" onclick="clearCalendar()">
+                                <i data-lucide="trash-2"></i>
+                                Clear All
+                            </button>
+                        </div>
                     </div>
-                    <button id="profile-btn" class="profile-btn">
-                        <i data-lucide="user"></i>
-                        Profile
-                    </button>
-                    <button class="clear-btn" onclick="clearCalendar()">
-                        <i data-lucide="trash-2"></i>
-                        Clear All
-                    </button>
-                    <!-- Auth will render here -->
-                    <div id="auth-header"></div>
+                    <div class="calendar-grid" id="calendarGrid"></div>
+                    <div class="day-view-grid" id="dayViewGrid" style="display: none;"></div>
                 </div>
             </div>
-            <div class="calendar-grid" id="calendarGrid"></div>
-            <div class="day-view-grid" id="dayViewGrid" style="display: none;"></div>
+        </div>
+
+        <!-- Right: Triage Panel -->
+        <div id="triage-panel" class="panel panel-right hidden">
+            <div class="panel-header">
+                <h3>Triage</h3>
+                <button class="panel-close" data-panel="triage">×</button>
+            </div>
+            <div id="triage-content">
+                <!-- Triage sections render here -->
+            </div>
         </div>
     </div>
 
@@ -246,8 +277,12 @@
         import SettingsUI from './js/settings-ui.js';
         import HistoryUI from './js/history-ui.js';
         import TriageState from './js/triage-state.js';
+        import PanelManager from './js/panel-manager.js';
 
-        // Initialize auth first
+        // Initialize panel manager first
+        PanelManager.init();
+
+        // Initialize auth
         await AuthState.init();
         AuthUI.init('auth-modal', 'auth-header');
 
@@ -278,7 +313,10 @@
 
         // Wire up buttons
         document.getElementById('plan-mode-btn')?.addEventListener('click', () => {
-            ChatUI.toggle();
+            PanelManager.open('chat');
+            if (PanelManager.isOpen('chat')) {
+                ChatUI.focus?.(); // Focus input when opening
+            }
         });
 
         document.getElementById('profile-btn')?.addEventListener('click', () => {
@@ -288,6 +326,7 @@
         // Make modules available globally
         window.HistoryUI = HistoryUI;
         window.SettingsUI = SettingsUI;
+        window.PanelManager = PanelManager;
     </script>
     <script src="/app.js"></script>
 </body>
