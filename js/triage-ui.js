@@ -32,8 +32,8 @@ const ChatUI = {
       this.render();
 
       // If logged in, no profile, and new conversation, suggest profile
-      const { default: AuthUI } = await import('./auth-ui.js');
-      if (AuthUI.isLoggedIn() && !TriageState.getProfile() && data.isNew) {
+      const { default: AuthState } = await import('./auth-state.js');
+      if (AuthState.isLoggedIn() && !TriageState.getProfile() && data.isNew) {
         this.showProfileSuggestion();
       }
     } catch (error) {

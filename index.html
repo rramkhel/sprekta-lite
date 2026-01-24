@@ -11,8 +11,11 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
-    <!-- Profile Container -->
-    <div id="profile-container" class="hidden"></div>
+    <!-- Auth Modal -->
+    <div id="auth-modal" class="hidden"></div>
+
+    <!-- Settings Container -->
+    <div id="settings-container" class="hidden"></div>
 
     <!-- History Container -->
     <div id="history-container" class="hidden"></div>
@@ -70,6 +73,8 @@
                         <i data-lucide="trash-2"></i>
                         Clear All
                     </button>
+                    <!-- Auth will render here -->
+                    <div id="auth-header"></div>
                 </div>
             </div>
             <div class="calendar-grid" id="calendarGrid"></div>
@@ -235,18 +240,20 @@
         window.devPanelModule = devPanel;
     </script>
     <script type="module">
+        import AuthState from './js/auth-state.js';
         import AuthUI from './js/auth-ui.js';
         import ChatUI from './js/triage-ui.js';
-        import ProfileUI from './js/profile-ui.js';
+        import SettingsUI from './js/settings-ui.js';
         import HistoryUI from './js/history-ui.js';
         import TriageState from './js/triage-state.js';
 
-        // Initialize auth
-        AuthUI.init();
+        // Initialize auth first
+        await AuthState.init();
+        AuthUI.init('auth-modal', 'auth-header');
 
         // Listen for auth changes
-        AuthUI.onAuthChange = async (event, session) => {
-            console.log('Auth event:', event, session?.user?.email);
+        AuthState.onAuthChange(async (event, user, previousUser) => {
+            console.log('Auth event:', event, user?.email);
 
             if (event === 'SIGNED_IN') {
                 // Claim anonymous conversations
@@ -262,11 +269,11 @@
                     ChatUI.close();
                 }
             }
-        };
+        });
 
         // Initialize UI
         ChatUI.init();
-        ProfileUI.init('profile-container');
+        SettingsUI.init('settings-container');
         HistoryUI.init('history-container');
 
         // Wire up buttons
@@ -275,11 +282,12 @@
         });
 
         document.getElementById('profile-btn')?.addEventListener('click', () => {
-            ProfileUI.open();
+            SettingsUI.open('profile');
         });
 
-        // Make HistoryUI available globally for triage-ui.js
+        // Make modules available globally
         window.HistoryUI = HistoryUI;
+        window.SettingsUI = SettingsUI;
     </script>
     <script src="/app.js"></script>
 </body>

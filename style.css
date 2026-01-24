@@ -2448,3 +2448,650 @@ body {
     flex: 1;
   }
 }
+
+/* ============================================
+   AUTHENTICATION (Sprint 8.1)
+   ============================================ */
+
+/* AUTH - HEADER */
+.auth-signin-btn {
+  padding: 8px 16px;
+  background: #6366f1;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.auth-signin-btn:hover {
+  background: #5558e3;
+}
+
+/* User Menu */
+.auth-user-menu {
+  position: relative;
+}
+
+.auth-user-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.auth-user-trigger:hover {
+  background: #f5f5f5;
+}
+
+.auth-avatar {
+  width: 26px;
+  height: 26px;
+  background: #6366f1;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.auth-email {
+  font-size: 14px;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auth-caret {
+  font-size: 10px;
+  color: #666;
+}
+
+.auth-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 160px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.auth-dropdown.hidden {
+  display: none;
+}
+
+.auth-dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.auth-dropdown-item:hover {
+  background: #f5f5f5;
+}
+
+.auth-dropdown-signout {
+  color: #dc2626;
+}
+
+.auth-dropdown-divider {
+  height: 1px;
+  background: #e0e0e0;
+  margin: 4px 0;
+}
+
+/* AUTH - MODAL */
+#auth-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#auth-modal.hidden {
+  display: none;
+}
+
+.auth-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+}
+
+.auth-modal {
+  position: relative;
+  background: #fff;
+  border-radius: 12px;
+  padding: 32px;
+  width: 100%;
+  max-width: 380px;
+  margin: 20px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+  overflow: hidden;
+}
+
+.auth-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #666;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.auth-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.auth-header h2 {
+  margin: 0 0 6px;
+  font-size: 22px;
+}
+
+.auth-header p {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.auth-field label {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.auth-field input {
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 16px;
+}
+
+.auth-field input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+}
+
+.auth-hint {
+  font-size: 12px;
+  color: #666;
+}
+
+.auth-submit {
+  padding: 12px;
+  background: #6366f1;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.auth-submit:hover:not(:disabled) {
+  background: #5558e3;
+}
+
+.auth-submit:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.auth-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.auth-links {
+  text-align: center;
+  margin-top: 12px;
+}
+
+.auth-links a,
+.auth-footer a {
+  color: #6366f1;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.auth-links a:hover,
+.auth-footer a:hover {
+  text-decoration: underline;
+}
+
+.auth-footer {
+  text-align: center;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #e5e5e5;
+  font-size: 14px;
+  color: #666;
+}
+
+.auth-success {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.auth-success-icon {
+  width: 56px;
+  height: 56px;
+  background: #dcfce7;
+  color: #16a34a;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  margin: 0 auto 16px;
+}
+
+.auth-success h2 {
+  margin: 0 0 8px;
+}
+
+.auth-success p {
+  color: #666;
+  margin: 0 0 20px;
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  .auth-modal {
+    margin: 0;
+    max-width: 100%;
+    min-height: 100vh;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .auth-email {
+    display: none;
+  }
+}
+
+/* ============================================
+   ACCOUNT MODAL (Sprint 8.2)
+   ============================================ */
+
+.auth-account-modal {
+  max-width: 420px;
+}
+
+.account-section {
+  padding: 20px 0;
+  border-bottom: 1px solid var(--border-color, #e5e5e5);
+}
+
+.account-section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.account-section h3 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.account-field {
+  margin-bottom: 12px;
+}
+
+.account-field label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary, #666);
+  margin-bottom: 4px;
+}
+
+.account-value {
+  font-size: 15px;
+}
+
+.auth-submit-secondary {
+  background: transparent;
+  color: var(--accent, #6366f1);
+  border: 1px solid var(--accent, #6366f1);
+}
+
+.auth-submit-secondary:hover {
+  background: var(--accent-light, #eef2ff);
+}
+
+.account-danger {
+  background: #fef2f2;
+  margin: 20px -32px -32px;
+  padding: 20px 32px 32px;
+}
+
+.account-danger h3 {
+  color: var(--danger, #dc2626);
+}
+
+.account-danger p {
+  font-size: 14px;
+  color: var(--text-secondary, #666);
+  margin: 0 0 12px;
+}
+
+.auth-submit-danger {
+  background: var(--danger, #dc2626);
+}
+
+.auth-submit-danger:hover {
+  background: #b91c1c;
+}
+
+/* ============================================
+   TOAST (Sprint 8.2)
+   ============================================ */
+
+.auth-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  z-index: 3000;
+  animation: toast-slide 0.3s ease;
+}
+
+@keyframes toast-slide {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.auth-toast-success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.auth-toast-error {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.auth-toast-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.auth-toast-close:hover {
+  opacity: 1;
+}
+
+/* Auth Loading Spinner */
+.auth-loading {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #e0e0e0;
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: auth-spin 0.8s linear infinite;
+}
+
+@keyframes auth-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============================================
+   SETTINGS PAGE (Unified Account + Profile)
+   ============================================ */
+
+#settings-container {
+  position: fixed;
+  inset: 0;
+  background: #fff;
+  z-index: 1000;
+}
+
+#settings-container.hidden {
+  display: none;
+}
+
+.settings-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.settings-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.settings-back {
+  background: none;
+  border: none;
+  font-size: 15px;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 6px;
+  color: #333;
+  transition: all 0.15s ease;
+}
+
+.settings-back:hover {
+  background: #f0f0f0;
+}
+
+/* Tabs */
+.settings-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 12px 20px;
+  border-bottom: 1px solid #e5e5e5;
+  background: #fafafa;
+}
+
+.settings-tab {
+  padding: 8px 20px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.settings-tab:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.settings-tab.active {
+  background: white;
+  color: #6366f1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Content Area */
+.settings-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 32px 20px;
+}
+
+/* Sections */
+.settings-section {
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.settings-section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.settings-section h3 {
+  margin: 0 0 16px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.settings-section p {
+  margin: 0 0 16px;
+  color: #666;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Account Fields */
+.settings-field {
+  margin-bottom: 16px;
+}
+
+.settings-field label {
+  display: block;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #666;
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.settings-value {
+  font-size: 15px;
+  color: #292524;
+}
+
+/* Forms */
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.settings-hint {
+  font-size: 13px;
+  color: #666;
+  line-height: 1.4;
+}
+
+/* Danger Zone */
+.settings-danger {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 32px;
+}
+
+.settings-danger h3 {
+  color: #dc2626;
+  margin: 0 0 8px;
+}
+
+.settings-danger p {
+  color: #666;
+  margin: 0 0 16px;
+}
+
+/* Mobile Responsive */
+@media (max-width: 640px) {
+  .settings-page {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .settings-header {
+    padding: 12px 16px;
+  }
+
+  .settings-header h2 {
+    font-size: 18px;
+  }
+
+  .settings-tabs {
+    padding: 8px 16px;
+  }
+
+  .settings-tab {
+    padding: 6px 16px;
+    font-size: 13px;
+  }
+
+  .settings-content {
+    padding: 24px 16px;
+  }
+
+  .settings-section {
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+  }
+
+  /* Prevent zoom on inputs for iOS */
+  .settings-form input,
+  .settings-form textarea {
+    font-size: 16px;
+  }
+}

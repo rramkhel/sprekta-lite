@@ -1,4 +1,4 @@
-import AuthUI from './auth-ui.js';
+import AuthState from './auth-state.js';
 
 const API_BASE = '/api/profile';
 
@@ -13,7 +13,7 @@ const ProfileUI = {
   },
 
   async open() {
-    if (!AuthUI.isLoggedIn()) {
+    if (!AuthState.isLoggedIn()) {
       alert('Please sign in to manage your profile');
       return;
     }
@@ -32,7 +32,7 @@ const ProfileUI = {
 
   async loadProfile() {
     try {
-      const token = await AuthUI.getAccessToken();
+      const token = await AuthState.getAccessToken();
 
       const response = await fetch(API_BASE, {
         headers: {
@@ -53,7 +53,7 @@ const ProfileUI = {
 
   async saveProfile(profileData) {
     try {
-      const token = await AuthUI.getAccessToken();
+      const token = await AuthState.getAccessToken();
       const method = this.profile ? 'PUT' : 'POST';
 
       const response = await fetch(API_BASE, {

@@ -1,5 +1,5 @@
 import Session from './session.js';
-import AuthUI from './auth-ui.js';
+import AuthState from './auth-state.js';
 
 const API_BASE = '/api/conversation';
 
@@ -22,7 +22,7 @@ const TriageState = {
     };
 
     // Add auth token if logged in
-    const token = await AuthUI.getAccessToken();
+    const token = await AuthState.getAccessToken();
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
@@ -191,7 +191,7 @@ const TriageState = {
 
   // Claim conversations after login
   async claimConversations() {
-    const token = await AuthUI.getAccessToken();
+    const token = await AuthState.getAccessToken();
     if (!token) return;
 
     try {

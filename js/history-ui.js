@@ -1,4 +1,4 @@
-import AuthUI from './auth-ui.js';
+import AuthState from './auth-state.js';
 import TriageState from './triage-state.js';
 
 const API_BASE = '/api/conversations';
@@ -13,7 +13,7 @@ const HistoryUI = {
   },
 
   async open() {
-    if (!AuthUI.isLoggedIn()) {
+    if (!AuthState.isLoggedIn()) {
       alert('Please sign in to view conversation history');
       return;
     }
@@ -32,7 +32,7 @@ const HistoryUI = {
 
   async loadConversations() {
     try {
-      const token = await AuthUI.getAccessToken();
+      const token = await AuthState.getAccessToken();
 
       const response = await fetch(API_BASE, {
         headers: {
@@ -53,7 +53,7 @@ const HistoryUI = {
 
   async archiveConversation(id) {
     try {
-      const token = await AuthUI.getAccessToken();
+      const token = await AuthState.getAccessToken();
 
       const response = await fetch(`/api/conversation/${id}/archive`, {
         method: 'POST',
