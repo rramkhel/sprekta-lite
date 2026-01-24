@@ -78,14 +78,16 @@ const PanelManager = {
   },
 
   adaptCalendar(panelCount) {
-    const calendarPanel = document.getElementById('calendar-panel');
-
     if (panelCount >= 2) {
       // Switch to compact mode
-      calendarPanel?.classList.add('calendar-compact');
+      if (window.enterCompactMode) {
+        window.enterCompactMode();
+      }
     } else {
-      // Standard mode
-      calendarPanel?.classList.remove('calendar-compact');
+      // Switch to standard mode
+      if (window.exitCompactMode) {
+        window.exitCompactMode();
+      }
     }
 
     // Dispatch event for calendar component to handle
