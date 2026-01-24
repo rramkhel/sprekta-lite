@@ -3941,3 +3941,271 @@ body {
   margin-bottom: 24px;
 }
 
+
+/* ============================================
+   TRIAGE UI STYLES (Milestone 8.6)
+   ============================================ */
+
+.quick-capture-triage-mode,
+.quick-capture-preview-mode {
+    padding: 20px;
+}
+
+.quick-capture-triage-mode.hidden,
+.quick-capture-preview-mode.hidden,
+.quick-capture-input-mode.hidden {
+    display: none;
+}
+
+.triage-header {
+    margin-bottom: 20px;
+}
+
+.triage-header h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0 0 4px 0;
+}
+
+.triage-date,
+.triage-time {
+    color: #666;
+    font-size: 14px;
+}
+
+.triage-original-text {
+    font-style: italic;
+    color: #666;
+    font-size: 16px;
+}
+
+.triage-question {
+    margin-bottom: 16px;
+}
+
+.triage-question p {
+    font-size: 15px;
+    color: #333;
+    margin: 0;
+}
+
+.triage-time-suggestions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.time-suggestion {
+    padding: 10px 16px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.15s ease;
+}
+
+.time-suggestion:hover {
+    border-color: #007AFF;
+    background: #F0F7FF;
+}
+
+.time-suggestion.selected {
+    border-color: #007AFF;
+    background: #007AFF;
+    color: white;
+}
+
+.triage-custom-time {
+    margin-bottom: 20px;
+}
+
+.triage-custom-time label {
+    display: block;
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 6px;
+}
+
+.triage-custom-time input[type="time"],
+.triage-date-picker input[type="date"] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 16px;
+}
+
+.triage-type-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.type-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    background: #fff;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s ease;
+}
+
+.type-option:hover {
+    border-color: #007AFF;
+    background: #F0F7FF;
+}
+
+.type-icon {
+    font-size: 24px;
+}
+
+.type-label {
+    font-size: 15px;
+    font-weight: 500;
+    color: #333;
+}
+
+.type-desc {
+    font-size: 13px;
+    color: #666;
+    margin-left: auto;
+}
+
+.triage-date-picker {
+    margin-bottom: 20px;
+}
+
+.triage-actions,
+.preview-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid #eee;
+}
+
+.preview-header {
+    margin-bottom: 16px;
+}
+
+.preview-header h3 {
+    font-size: 16px;
+    font-weight: 500;
+    color: #666;
+    margin: 0;
+}
+
+.preview-event-card {
+    background: #F8F9FA;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+.preview-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.preview-datetime {
+    color: #666;
+    font-size: 14px;
+}
+
+.btn-primary {
+    padding: 10px 20px;
+    background: #007AFF;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.btn-primary:hover {
+    background: #0056CC;
+}
+
+.btn-secondary {
+    padding: 10px 20px;
+    background: #F0F0F0;
+    color: #333;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.btn-secondary:hover {
+    background: #E0E0E0;
+}
+
+/* Toast with Actions */
+.toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    z-index: 10000;
+    animation: toast-slide-up 0.3s ease;
+}
+
+@keyframes toast-slide-up {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+.toast-fade-out {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.toast-success { background: #34C759; }
+.toast-error { background: #FF3B30; }
+.toast-warning { background: #FF9500; }
+
+.toast-message { font-size: 14px; }
+
+.toast-actions {
+    display: flex;
+    gap: 8px;
+    margin-left: 8px;
+}
+
+.toast-action {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.toast-action:hover {
+    background: rgba(255,255,255,0.3);
+}

@@ -511,6 +511,8 @@ function openQuickCapture() {
 function closeQuickCapture() {
     document.getElementById('quickCaptureModal').classList.remove('open');
     document.getElementById('quick-capture-input').value = '';
+    resetTriage();
+    window._pendingEvents = null;
 }
 
 async function submitQuickCapture() {
@@ -554,51 +556,86 @@ async function submitQuickCapture() {
 }
 
 async function processQuickCaptureResponse(originalText, response) {
-    console.log('[Process Response] Original text:', originalText);
-    console.log('[Process Response] Full response:', response);
+    console.log('[Triage] Processing response:', response);
 
-    // Handle the actual API format: { items: [...] }
-    if (response.items && response.items.length > 0) {
-        console.log('[Process Response] Found', response.items.length, 'items');
+    // Handle legacy format (items array) for backwards compatibility
+    if (response.items && !response.action) {
+        return processLegacyResponse(originalText, response);
+    }
 
-        // Filter only items that are events (have event data)
-        const eventItems = response.items.filter(item => item.category === 'event' && item.event);
-        console.log('[Process Response] Found', eventItems.length, 'event items');
+    const { action, confidence, events: eventData, needsInfo, userMessage } = response;
 
-        eventItems.forEach((item, index) => {
-            const eventData = item.event;
-            const startTime = eventData.time || '09:00';
-            const newEvent = {
-                id: Date.now() + index,
-                title: eventData.title,
-                date: eventData.date,
-                time: startTime,
-                endTime: getDefaultEndTime(startTime),
-                raw: originalText,
-                aiResponse: item // store full AI response for debugging
-            };
-
-            console.log('[Process Response] Creating event:', newEvent);
-            events.push(newEvent);
-        });
-
-        if (eventItems.length > 0) {
-            await saveEvents();
-            console.log('[Process Response] Events saved to localStorage:', events);
-            renderCalendar();
-            console.log('[Process Response] Calendar re-rendered');
-
-            // Refresh triage if open
-            if (window.TriagePanel?.isOpen) {
-                window.TriagePanel.refresh();
+    switch (action) {
+        case 'create_event':
+            if (confidence === 'high') {
+                // Auto-create and show toast
+                await createEventsFromResponse(eventData);
+                closeQuickCapture();
+                showToast(
+                    eventData.length === 1
+                        ? `✓ Created: ${eventData[0].title}`
+                        : `✓ Created ${eventData.length} events`,
+                    'success',
+                    {
+                        actions: [
+                            { label: 'Undo', action: 'undo', data: eventData },
+                            { label: 'Edit', action: 'edit', data: eventData[0] }
+                        ]
+                    }
+                );
+            } else {
+                showEventPreview(eventData, originalText);
             }
-        } else {
-            console.warn('[Process Response] No event items found. Items were:', response.items);
-            alert('No events found. AI parsed as tasks/notes instead.');
-        }
+            break;
+
+        case 'ask_question':
+            showTriageQuestion(needsInfo, eventData, originalText);
+            break;
+
+        case 'create_task':
+            await createTaskFromResponse(eventData[0], originalText);
+            closeQuickCapture();
+            showToast(`✓ Task saved: ${eventData[0].title}`, 'success');
+            break;
+
+        case 'create_note':
+            await createNoteFromResponse(originalText);
+            closeQuickCapture();
+            showToast('✓ Saved as note', 'success');
+            break;
+
+        default:
+            console.warn('[Triage] Unknown action:', action);
+            // Fallback: try to create event anyway
+            if (eventData && eventData.length > 0) {
+                showEventPreview(eventData, originalText);
+            } else {
+                showToast('Could not parse input', 'error');
+            }
+    }
+}
+
+async function processLegacyResponse(originalText, response) {
+    console.log('[Triage] Processing legacy format');
+
+    const eventItems = response.items.filter(item =>
+        item.category === 'event' && item.event
+    );
+
+    if (eventItems.length > 0) {
+        const events = eventItems.map(item => ({
+            title: item.event.title,
+            date: item.event.date,
+            time: item.event.time,
+            originalText: item.originalText,
+            confidence: item.confidence
+        }));
+
+        await createEventsFromResponse(events);
+        closeQuickCapture();
+        showToast(`✓ Created ${events.length} event(s)`, 'success');
     } else {
-        console.warn('[Process Response] No items in response!', response);
-        alert('AI returned no items.');
+        showToast('No events found', 'warning');
     }
 }
 
@@ -972,30 +1009,70 @@ async function executeDeleteEvent() {
 // TOAST NOTIFICATIONS
 // ============================================
 
-function showToast(message) {
-    // Check if toast container exists, create if not
-    let toastContainer = document.getElementById('toastContainer');
-    if (!toastContainer) {
-        toastContainer = document.createElement('div');
-        toastContainer.id = 'toastContainer';
-        toastContainer.className = 'toast-container';
-        document.body.appendChild(toastContainer);
+function showToast(message, type = 'info', options = {}) {
+    const existingToast = document.querySelector('.toast');
+    if (existingToast) existingToast.remove();
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+
+    let html = `<span class="toast-message">${message}</span>`;
+
+    if (options.actions && options.actions.length > 0) {
+        html += '<div class="toast-actions">';
+        options.actions.forEach(action => {
+            html += `<button class="toast-action" data-action="${action.action}">${action.label}</button>`;
+        });
+        html += '</div>';
     }
 
-    // Create toast element
-    const toast = document.createElement('div');
-    toast.className = 'toast';
-    toast.textContent = message;
-    toastContainer.appendChild(toast);
+    toast.innerHTML = html;
+    document.body.appendChild(toast);
 
-    // Trigger animation
-    setTimeout(() => toast.classList.add('show'), 10);
+    if (options.actions) {
+        toast.querySelectorAll('.toast-action').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const actionName = btn.dataset.action;
+                const action = options.actions.find(a => a.action === actionName);
+                if (action && action.data) {
+                    handleToastAction(actionName, action.data);
+                }
+                toast.remove();
+            });
+        });
+    }
 
-    // Remove after delay
+    const duration = options.actions ? 8000 : 4000;
     setTimeout(() => {
-        toast.classList.remove('show');
+        toast.classList.add('toast-fade-out');
         setTimeout(() => toast.remove(), 300);
-    }, 3000);
+    }, duration);
+}
+
+async function handleToastAction(action, data) {
+    switch (action) {
+        case 'undo':
+            if (Array.isArray(data)) {
+                for (const eventData of data) {
+                    const idx = events.findIndex(e =>
+                        e.title === eventData.title && e.date === eventData.date
+                    );
+                    if (idx > -1) events.splice(idx, 1);
+                }
+                await saveEvents();
+                renderCalendar();
+                showToast('Undone', 'info');
+            }
+            break;
+        case 'edit':
+            if (data && data.title) {
+                const event = events.find(e =>
+                    e.title === data.title && e.date === data.date
+                );
+                if (event) openEventDetail(event.id);
+            }
+            break;
+    }
 }
 
 // ============================================
@@ -1098,3 +1175,285 @@ window.clearEvents = function() {
     renderCalendar();
     console.log('[Debug] All events cleared');
 };
+
+// ============================================
+// TRIAGE HELPERS (Milestone 8.6)
+// ============================================
+
+async function createEventsFromResponse(eventDataArray) {
+    for (const eventData of eventDataArray) {
+        const startTime = eventData.time || '09:00';
+        const newEvent = {
+            id: Date.now() + Math.random(),
+            title: eventData.title,
+            date: eventData.date,
+            time: startTime,
+            endTime: getDefaultEndTime(startTime),
+            raw: eventData.originalText,
+            aiResponse: eventData
+        };
+        events.push(newEvent);
+    }
+    await saveEvents();
+    renderCalendar();
+}
+
+async function createTaskFromResponse(taskData, originalText) {
+    const newEvent = {
+        id: Date.now(),
+        title: taskData.title,
+        date: taskData.date || new Date().toISOString().split('T')[0],
+        time: null,
+        allDay: true,
+        isTask: true,
+        raw: originalText
+    };
+    events.push(newEvent);
+    await saveEvents();
+    renderCalendar();
+}
+
+async function createNoteFromResponse(text) {
+    const notes = JSON.parse(localStorage.getItem('notes') || '[]');
+    notes.push({
+        id: Date.now(),
+        text: text,
+        createdAt: new Date().toISOString()
+    });
+    localStorage.setItem('notes', JSON.stringify(notes));
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// ============================================
+// TRIAGE UI (Milestone 8.6)
+// ============================================
+
+function showTriageQuestion(needsInfo, events, originalText) {
+    const inputMode = document.getElementById('quickCaptureInput');
+    const triageMode = document.getElementById('quickCaptureTriage');
+
+    inputMode.classList.add('hidden');
+    triageMode.classList.remove('hidden');
+
+    const event = events && events[0] ? events[0] : { title: originalText };
+
+    let html = '';
+    switch (needsInfo.field) {
+        case 'time':
+            html = renderTimeTriageUI(event, needsInfo, originalText);
+            break;
+        case 'date':
+            html = renderDateTriageUI(event, needsInfo, originalText);
+            break;
+        case 'type':
+            html = renderTypeTriageUI(originalText, needsInfo);
+            break;
+        default:
+            html = renderTypeTriageUI(originalText, needsInfo);
+    }
+
+    triageMode.innerHTML = html;
+    bindTriageEvents(needsInfo.field, event, originalText);
+}
+
+function renderTimeTriageUI(event, needsInfo, originalText) {
+    const suggestions = needsInfo.suggestions || ['09:00', '12:00', '15:00', '18:00'];
+    const formattedDate = formatDateLong(event.date);
+
+    return `
+        <div class="triage-header">
+            <h3>📅 ${escapeHtml(event.title)}</h3>
+            <p class="triage-date">${formattedDate}</p>
+        </div>
+        <div class="triage-question">
+            <p>${needsInfo.question || 'What time?'}</p>
+        </div>
+        <div class="triage-time-suggestions">
+            ${suggestions.map(time => `
+                <button class="time-suggestion" data-time="${time}">
+                    ${formatTime(time)}
+                </button>
+            `).join('')}
+        </div>
+        <div class="triage-custom-time">
+            <label>Or pick a time:</label>
+            <input type="time" id="triageCustomTime" value="12:00">
+        </div>
+        <div class="triage-actions">
+            <button class="btn-secondary" onclick="triageAsTask('${escapeHtml(event.title)}', '${event.date}', '${escapeHtml(originalText)}')">
+                Save as Task
+            </button>
+            <button class="btn-primary" id="triageConfirmBtn">
+                Create Event
+            </button>
+        </div>
+    `;
+}
+
+function renderDateTriageUI(event, needsInfo, originalText) {
+    const today = new Date().toISOString().split('T')[0];
+    return `
+        <div class="triage-header">
+            <h3>📅 ${escapeHtml(event.title)}</h3>
+            ${event.time ? `<p class="triage-time">at ${formatTime(event.time)}</p>` : ''}
+        </div>
+        <div class="triage-question">
+            <p>${needsInfo.question || 'What date?'}</p>
+        </div>
+        <div class="triage-date-picker">
+            <input type="date" id="triageDatePicker" value="${today}" min="${today}">
+        </div>
+        <div class="triage-actions">
+            <button class="btn-secondary" onclick="resetTriage()">Back</button>
+            <button class="btn-primary" id="triageConfirmBtn">Create Event</button>
+        </div>
+    `;
+}
+
+function renderTypeTriageUI(originalText, needsInfo) {
+    return `
+        <div class="triage-header">
+            <p class="triage-original-text">"${escapeHtml(originalText)}"</p>
+        </div>
+        <div class="triage-question">
+            <p>${needsInfo.question || 'What would you like to do?'}</p>
+        </div>
+        <div class="triage-type-options">
+            <button class="type-option" data-type="calendar">
+                <span class="type-icon">📅</span>
+                <span class="type-label">Add to calendar</span>
+                <span class="type-desc">Set a date & time</span>
+            </button>
+            <button class="type-option" data-type="task">
+                <span class="type-icon">✓</span>
+                <span class="type-label">Save as task</span>
+                <span class="type-desc">Add to to-do list</span>
+            </button>
+            <button class="type-option" data-type="note">
+                <span class="type-icon">📝</span>
+                <span class="type-label">Save as note</span>
+                <span class="type-desc">Just remember it</span>
+            </button>
+        </div>
+    `;
+}
+
+function bindTriageEvents(field, event, originalText) {
+    const triageMode = document.getElementById('quickCaptureTriage');
+
+    // Time suggestions
+    triageMode.querySelectorAll('.time-suggestion').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const time = btn.dataset.time;
+            document.getElementById('triageCustomTime').value = time;
+            triageMode.querySelectorAll('.time-suggestion').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+        });
+    });
+
+    // Type options
+    triageMode.querySelectorAll('.type-option').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            await handleTypeSelection(btn.dataset.type, originalText);
+        });
+    });
+
+    // Confirm button
+    const confirmBtn = document.getElementById('triageConfirmBtn');
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', async () => {
+            await handleTriageConfirm(field, event, originalText);
+        });
+    }
+}
+
+async function handleTriageConfirm(field, event, originalText) {
+    let finalEvent = { ...event };
+
+    if (field === 'time') {
+        finalEvent.time = document.getElementById('triageCustomTime').value;
+    } else if (field === 'date') {
+        finalEvent.date = document.getElementById('triageDatePicker').value;
+    }
+
+    finalEvent.originalText = originalText;
+    await createEventsFromResponse([finalEvent]);
+    closeQuickCapture();
+    showToast(`✓ Created: ${finalEvent.title}`, 'success');
+}
+
+async function handleTypeSelection(type, originalText) {
+    switch (type) {
+        case 'calendar':
+            showTriageQuestion(
+                { field: 'date', question: 'When should this be?' },
+                [{ title: originalText }],
+                originalText
+            );
+            break;
+        case 'task':
+            await createTaskFromResponse({ title: originalText }, originalText);
+            closeQuickCapture();
+            showToast('✓ Task saved', 'success');
+            break;
+        case 'note':
+            await createNoteFromResponse(originalText);
+            closeQuickCapture();
+            showToast('✓ Saved as note', 'success');
+            break;
+    }
+}
+
+async function triageAsTask(title, date, originalText) {
+    await createTaskFromResponse({ title, date }, originalText);
+    closeQuickCapture();
+    showToast(`✓ Task saved: ${title}`, 'success');
+}
+
+function resetTriage() {
+    document.getElementById('quickCaptureInput').classList.remove('hidden');
+    document.getElementById('quickCaptureTriage').classList.add('hidden');
+    document.getElementById('quickCapturePreview').classList.add('hidden');
+}
+
+function showEventPreview(events, originalText) {
+    const inputMode = document.getElementById('quickCaptureInput');
+    const previewMode = document.getElementById('quickCapturePreview');
+
+    inputMode.classList.add('hidden');
+    previewMode.classList.remove('hidden');
+
+    const event = events[0];
+    previewMode.innerHTML = `
+        <div class="preview-header">
+            <h3>Create this event?</h3>
+        </div>
+        <div class="preview-event-card">
+            <div class="preview-title">${escapeHtml(event.title)}</div>
+            <div class="preview-datetime">
+                <span class="preview-date">${formatDateLong(event.date)}</span>
+                ${event.time ? `<span class="preview-time">at ${formatTime(event.time)}</span>` : ''}
+            </div>
+        </div>
+        <div class="preview-actions">
+            <button class="btn-secondary" onclick="resetTriage()">Edit</button>
+            <button class="btn-primary" onclick="confirmEventPreview()">Create Event</button>
+        </div>
+    `;
+
+    window._pendingEvents = events;
+}
+
+async function confirmEventPreview() {
+    if (window._pendingEvents) {
+        await createEventsFromResponse(window._pendingEvents);
+        closeQuickCapture();
+        showToast(`✓ Created: ${window._pendingEvents[0].title}`, 'success');
+        window._pendingEvents = null;
+    }
+}
