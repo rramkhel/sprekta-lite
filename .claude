@@ -20,6 +20,34 @@ npm run setup-db
 # DO NOT use direct connection (db.*.supabase.co) - fails on macOS/Vercel due to IPv6
 ```
 
+## Running Database Migrations
+
+**When database schema changes are needed (new columns, indexes, etc.):**
+
+### Method 1: Using psql (Preferred)
+```bash
+# Run a migration file
+psql "$DATABASE_URL" -f supabase/migrations/003_add_needs_triage.sql
+
+# Verify migration
+psql "$DATABASE_URL" -c "\d events"
+```
+
+### Method 2: Supabase Dashboard (Manual)
+1. Go to https://supabase.com/dashboard
+2. Select project → SQL Editor → New Query
+3. Copy migration SQL from `supabase/migrations/XXX_*.sql`
+4. Paste and click "Run"
+
+### Migration File Location
+All migrations are in `supabase/migrations/`:
+- `001_conversations.sql` - Conversations table
+- `002_profiles.sql` - User profiles
+- `003_add_needs_triage.sql` - Triage flag for events
+- `add_notes_column.sql` - Notes column for events
+
+**Important:** Migrations use `IF NOT EXISTS` and are idempotent (safe to run multiple times)
+
 ## Testing API Endpoints
 
 ```bash

@@ -164,6 +164,39 @@ SUPABASE_SERVICE_ROLE_KEY=ey...        # Private key (NEVER expose!)
 4. Test locally with `npx vercel dev --yes`
 5. Commit and push to deploy
 
+### Run database migrations
+When schema changes are needed (new tables, columns, indexes):
+
+**Method 1: Using psql (Command Line)**
+```bash
+# Run a migration file
+psql "$DATABASE_URL" -f supabase/migrations/003_add_needs_triage.sql
+
+# Verify the migration worked
+psql "$DATABASE_URL" -c "\d events"
+```
+
+**Method 2: Supabase Dashboard (Web UI)**
+1. Go to https://supabase.com/dashboard
+2. Select your project
+3. Click "SQL Editor" → "New Query"
+4. Copy SQL from migration file in `supabase/migrations/`
+5. Paste and click "Run"
+
+**Migration Files Location:**
+- All migrations are in `supabase/migrations/`
+- Use `IF NOT EXISTS` to make them idempotent
+- Numbered sequentially: `001_`, `002_`, `003_`, etc.
+
+**Example Migration:**
+```sql
+-- Add new column
+ALTER TABLE events ADD COLUMN IF NOT EXISTS needs_triage BOOLEAN DEFAULT FALSE;
+
+-- Add index
+CREATE INDEX IF NOT EXISTS idx_events_needs_triage ON events(needs_triage);
+```
+
 ### Debug an issue
 1. Open browser DevTools (F12 or Cmd+Option+I)
 2. Check Console tab for errors
