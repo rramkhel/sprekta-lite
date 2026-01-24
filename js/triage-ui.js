@@ -3,6 +3,7 @@ import TriageState from './triage-state.js';
 const ChatUI = {
   panel: null,
   appMain: null,
+  resolveContext: null, // Stores context when resolving an event
 
   init() {
     this.panel = document.getElementById('chat-panel');
@@ -12,6 +13,11 @@ const ChatUI = {
       console.error('Chat panel not found');
       return;
     }
+
+    // Listen for resolve requests from triage
+    window.addEventListener('open-resolve-chat', (e) => {
+      this.openWithContext(e.detail);
+    });
 
     // Initial render (empty/loading state)
     this.renderClosed();
@@ -215,19 +221,24 @@ const ChatUI = {
 
     input.value = '';
 
-    // Re-render with optimistic user message
-    this.render();
+    // Add user message to UI
+    this.addMessage('user', content);
 
-    // Show typing indicator
-    this.showTyping();
+    // Check if we're in resolve mode
+    if (this.resolveContext?.mode === 'resolve') {
+      await this.handleResolveResponse(content);
+    } else {
+      // Normal chat flow
+      this.showTyping();
 
-    try {
-      await TriageState.sendMessage(content);
-      this.hideTyping();
-      this.render();
-    } catch (error) {
-      this.hideTyping();
-      this.showError('Failed to send message. Please try again.');
+      try {
+        await TriageState.sendMessage(content);
+        this.hideTyping();
+        this.render();
+      } catch (error) {
+        this.hideTyping();
+        this.showError('Failed to send message. Please try again.');
+      }
     }
   },
 
@@ -304,6 +315,196 @@ const ChatUI = {
       input.value = content;
       this.handleSend();
     }
+  },
+
+  // ============================================
+  // RESOLVE FLOW
+  // ============================================
+
+  /**
+   * Open chat with pre-loaded context for resolving an event
+   */
+  openWithContext(context) {
+    const { eventId, eventTitle, prompt, event } = context;
+
+    // Store context for when user responds
+    this.resolveContext = {
+      eventId,
+      event,
+      mode: 'resolve'
+    };
+
+    // Ensure panel is visible
+    this.panel.classList.remove('hidden');
+    this.panel.classList.add('open');
+    this.appMain?.classList.add('chat-open');
+
+    // Clear previous conversation for resolve flow
+    this.renderResolveMode(prompt);
+
+    // Focus the input
+    this.focusInput();
+  },
+
+  /**
+   * Render resolve mode with initial prompt
+   */
+  renderResolveMode(prompt) {
+    this.panel.innerHTML = `
+      <div class="chat-panel-header">
+        <h3>Resolve Event</h3>
+        <button id="chat-panel-close" class="chat-panel-close">×</button>
+      </div>
+
+      <div class="chat-panel-messages" id="chat-messages">
+        <div class="chat-message chat-message-assistant">
+          ${this.formatContent(prompt)}
+        </div>
+      </div>
+
+      <div class="chat-panel-input">
+        <textarea
+          id="chat-input"
+          placeholder="Tell me when..."
+          rows="2"
+        ></textarea>
+        <button id="chat-send" class="chat-send-btn">Send</button>
+      </div>
+    `;
+
+    this.bindEvents();
+    this.scrollToBottom();
+  },
+
+  /**
+   * Add a message to the chat
+   */
+  addMessage(role, content) {
+    const container = document.getElementById('chat-messages');
+    if (!container) return;
+
+    container.insertAdjacentHTML('beforeend', `
+      <div class="chat-message chat-message-${role}">
+        ${this.formatContent(content)}
+      </div>
+    `);
+    this.scrollToBottom();
+  },
+
+  /**
+   * Clear all messages
+   */
+  clearMessages() {
+    const container = document.getElementById('chat-messages');
+    if (container) {
+      container.innerHTML = '';
+    }
+  },
+
+  /**
+   * Focus the input field
+   */
+  focusInput() {
+    const input = document.getElementById('chat-input');
+    if (input) {
+      setTimeout(() => input.focus(), 100);
+    }
+  },
+
+  /**
+   * Handle user response in resolve mode
+   */
+  async handleResolveResponse(text) {
+    const { eventId, event } = this.resolveContext;
+
+    this.showTyping();
+
+    try {
+      // Send to resolve endpoint
+      const response = await fetch('/api/resolve', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...await this.getAuthHeaders()
+        },
+        body: JSON.stringify({
+          event_id: eventId,
+          current_event: event,
+          user_message: text
+        })
+      });
+
+      if (!response.ok) throw new Error('Resolve API failed');
+
+      const result = await response.json();
+
+      this.hideTyping();
+
+      // AI response
+      this.addMessage('assistant', result.reply);
+
+      // If resolved, update the event
+      if (result.resolved && result.updates) {
+        await this.applyEventUpdates(eventId, result.updates);
+
+        // Clear resolve mode
+        this.resolveContext = null;
+
+        // Refresh triage
+        if (window.TriagePanel?.isOpen) {
+          window.TriagePanel.refresh();
+        }
+
+        // Show confirmation
+        this.addMessage('assistant', '✓ Updated! The event is now on your calendar.');
+      }
+
+    } catch (error) {
+      this.hideTyping();
+      this.addMessage('assistant', 'Sorry, something went wrong. Can you try again?');
+      console.error('Resolve error:', error);
+    }
+  },
+
+  /**
+   * Apply updates to an event
+   */
+  async applyEventUpdates(eventId, updates) {
+    const response = await fetch('/api/events', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...await this.getAuthHeaders()
+      },
+      body: JSON.stringify({
+        id: eventId,
+        ...updates,
+        needsTriage: false // Clear the flag
+      })
+    });
+
+    if (!response.ok) throw new Error('Failed to update event');
+
+    // Also refresh the calendar if it's visible
+    if (typeof renderCalendar === 'function') {
+      renderCalendar();
+    }
+  },
+
+  /**
+   * Get auth headers for API requests
+   */
+  async getAuthHeaders() {
+    try {
+      const { default: AuthState } = await import('./auth-state.js');
+      const token = AuthState.getToken();
+      if (token) {
+        return { 'Authorization': `Bearer ${token}` };
+      }
+    } catch (e) {
+      // Auth not available or not needed
+    }
+    return {};
   }
 };
 

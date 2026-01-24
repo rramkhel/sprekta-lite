@@ -113,8 +113,8 @@ export default async function handler(req, res) {
     }
   }
 
-  // PUT - Update event
-  if (req.method === 'PUT') {
+  // PUT/PATCH - Update event
+  if (req.method === 'PUT' || req.method === 'PATCH') {
     try {
       const event = req.body;
 

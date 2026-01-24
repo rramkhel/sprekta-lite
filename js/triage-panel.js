@@ -196,8 +196,8 @@ const TriagePanel = {
     this.content?.querySelectorAll('.triage-resolve-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const eventId = btn.dataset.resolveId;
-        console.log('Resolve:', eventId); // Will wire up in Sprint 8.5.3
+        const eventId = parseInt(btn.dataset.resolveId);
+        this.openResolveChat(eventId);
       });
     });
 
@@ -215,17 +215,66 @@ const TriagePanel = {
    * Open chat to resolve an undetermined event
    */
   openResolveChat(eventId) {
-    const event = this.buckets.undetermined.find(e => e.id === eventId);
-    if (!event) return;
+    // Find event across all buckets (not just undetermined)
+    const allEvents = [
+      ...this.buckets.today,
+      ...this.buckets.thisWeek,
+      ...this.buckets.later,
+      ...this.buckets.undetermined
+    ];
+
+    const event = allEvents.find(e => e.id === eventId);
+    if (!event) {
+      console.error('Event not found:', eventId);
+      return;
+    }
+
+    // Build context prompt
+    const prompt = this.buildResolvePrompt(event);
+
+    // Dispatch event that ChatUI will pick up
+    window.dispatchEvent(new CustomEvent('open-resolve-chat', {
+      detail: {
+        eventId: event.id,
+        eventTitle: event.title,
+        prompt: prompt,
+        event: event
+      }
+    }));
 
     // Open chat panel
     if (window.PanelManager) {
       window.PanelManager.open('chat');
     }
+  },
 
-    // TODO: Pre-populate chat with context about this event
-    // This will be implemented when we build the full resolve flow
-    console.log('Resolve event:', event);
+  /**
+   * Build the AI prompt for resolving this event
+   */
+  buildResolvePrompt(event) {
+    const hasDate = !!event.date;
+    const hasTime = !!event.time;
+
+    if (!hasDate && !hasTime) {
+      return `Let's figure out when to schedule "${event.title}".\n\nDo you have a specific day in mind? And what time works?`;
+    }
+
+    if (hasDate && !hasTime) {
+      const dateStr = new Date(event.date).toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric'
+      });
+      return `"${event.title}" is set for ${dateStr}, but doesn't have a time yet.\n\nWhat time should I put this down for?`;
+    }
+
+    // Has time but no date (rare)
+    if (!hasDate && hasTime) {
+      return `"${event.title}" is set for ${this.formatTime(event.time)}, but doesn't have a date.\n\nWhat day should this be?`;
+    }
+
+    // Both exist but flagged for triage (some other issue)
+    return `Let's make sure "${event.title}" is set up correctly.\n\nCurrently it's ${event.date} at ${event.time}. Does that look right?`;
   },
 
   /**
