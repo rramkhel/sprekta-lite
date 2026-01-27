@@ -10,6 +10,76 @@ let draggedEventId = null;
 let isDragging = false;
 let currentView = 'month'; // 'month' or 'day'
 
+// Layout state (Milestone 8.7)
+let calendarLayoutMode = 'full'; // 'full' | 'compact' | 'ultra-compact'
+let selectedDate = new Date();
+
+// ============================================
+// LAYOUT DETECTION
+// ============================================
+
+function detectLayoutMode() {
+    const container = document.getElementById('app-main');
+    if (!container) return 'full';
+
+    const width = container.offsetWidth;
+
+    if (width > 800) return 'full';
+    if (width > 500) return 'compact';
+    return 'ultra-compact';
+}
+
+function updateLayoutMode() {
+    const newMode = detectLayoutMode();
+    if (newMode !== calendarLayoutMode) {
+        console.log(`[Layout] Switching: ${calendarLayoutMode} → ${newMode}`);
+        calendarLayoutMode = newMode;
+
+        // Update container class for CSS
+        const container = document.querySelector('.calendar-container');
+        if (container) {
+            container.classList.remove('layout-full', 'layout-compact', 'layout-ultra-compact');
+            container.classList.add(`layout-${newMode}`);
+        }
+
+        // Update header visibility
+        updateHeaderForLayout();
+
+        renderCalendar();
+    }
+}
+
+function updateHeaderForLayout() {
+    const viewToggle = document.querySelector('.view-toggle');
+    const clearBtn = document.querySelector('.clear-btn');
+
+    if (!viewToggle) return;
+
+    if (calendarLayoutMode === 'ultra-compact') {
+        viewToggle.style.display = 'none';
+        if (clearBtn) clearBtn.style.display = 'none';
+    } else if (calendarLayoutMode === 'compact') {
+        viewToggle.style.display = 'flex';
+        if (clearBtn) clearBtn.style.display = 'none';
+    } else {
+        viewToggle.style.display = 'flex';
+        if (clearBtn) clearBtn.style.display = 'flex';
+    }
+}
+
+// Debounce utility
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
 // ============================================
 // INITIALIZATION
 // ============================================
@@ -18,6 +88,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadEvents();
     renderCalendar();
     lucide.createIcons();
+
+    // Initial layout detection (Milestone 8.7)
+    updateLayoutMode();
+
+    // Resize listener with debounce (Milestone 8.7)
+    window.addEventListener('resize', debounce(updateLayoutMode, 100));
 
     // Close modals when clicking backdrop
     document.getElementById('eventDetailModal').addEventListener('click', (e) => {
@@ -38,6 +114,32 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ============================================
 
 function renderCalendar() {
+    // Handle day view
+    if (currentView === 'day' && calendarLayoutMode === 'full') {
+        renderDayView();
+        return;
+    }
+
+    // Branch based on layout mode
+    switch (calendarLayoutMode) {
+        case 'compact':
+            renderCompactMonthView();
+            break;
+        case 'ultra-compact':
+            renderUltraCompactView();
+            break;
+        default:
+            renderFullMonthView();
+    }
+
+    lucide.createIcons();
+}
+
+// ============================================
+// FULL MONTH VIEW (Standard 7-column grid)
+// ============================================
+
+function renderFullMonthView() {
     const firstDay = new Date(currentYear, currentMonth, 1).getDay();
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
     const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -87,7 +189,204 @@ function renderCalendar() {
     }
 
     document.getElementById('calendarGrid').innerHTML = html;
-    lucide.createIcons();
+}
+
+// ============================================
+// COMPACT MONTH VIEW
+// ============================================
+
+function renderCompactMonthView() {
+    const grid = document.getElementById('calendarGrid');
+    const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const today = new Date();
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'];
+
+    document.getElementById('monthYear').textContent = `${monthNames[currentMonth]} ${currentYear}`;
+
+    let html = '<div class="compact-calendar">';
+
+    // Mini month grid
+    html += '<div class="compact-month-grid">';
+    html += '<div class="compact-weekdays">';
+    ['S', 'M', 'T', 'W', 'T', 'F', 'S'].forEach(d => {
+        html += `<span class="compact-weekday">${d}</span>`;
+    });
+    html += '</div>';
+
+    html += '<div class="compact-days">';
+
+    // Empty cells for first week
+    for (let i = 0; i < firstDay; i++) {
+        html += '<span class="compact-day empty"></span>';
+    }
+
+    // Day numbers
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const dayEvents = events.filter(e => e.date === dateStr);
+        const isToday = day === today.getDate() &&
+                        currentMonth === today.getMonth() &&
+                        currentYear === today.getFullYear();
+        const isSelected = selectedDate &&
+                          day === selectedDate.getDate() &&
+                          currentMonth === selectedDate.getMonth() &&
+                          currentYear === selectedDate.getFullYear();
+
+        const classes = [
+            'compact-day',
+            isToday ? 'today' : '',
+            isSelected ? 'selected' : '',
+            dayEvents.length > 0 ? 'has-events' : ''
+        ].filter(Boolean).join(' ');
+
+        html += `
+            <span class="${classes}"
+                  data-date="${dateStr}"
+                  onclick="selectCompactDate('${dateStr}')">
+                ${day}
+                ${dayEvents.length > 0 ? '<span class="event-dot"></span>' : ''}
+            </span>
+        `;
+    }
+
+    html += '</div></div>';
+
+    // Agenda section
+    html += renderAgendaSection();
+
+    html += '</div>';
+
+    grid.innerHTML = html;
+}
+
+function selectCompactDate(dateStr) {
+    selectedDate = new Date(dateStr + 'T12:00:00');
+    renderCalendar();
+}
+
+function renderAgendaSection() {
+    const dateStr = selectedDate.toISOString().split('T')[0];
+    const dayEvents = events.filter(e => e.date === dateStr)
+                           .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+
+    const formattedDate = selectedDate.toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric'
+    });
+
+    let html = '<div class="compact-agenda">';
+    html += `<div class="agenda-header">${formattedDate}</div>`;
+    html += '<div class="agenda-events">';
+
+    if (dayEvents.length === 0) {
+        html += '<div class="agenda-empty">No events</div>';
+    } else {
+        dayEvents.forEach(event => {
+            html += `
+                <div class="agenda-event" onclick="openEventDetail(${event.id})">
+                    <div class="agenda-event-time">${event.time ? formatTime(event.time) : 'All day'}</div>
+                    <div class="agenda-event-title">${escapeHtml(event.title)}</div>
+                </div>
+            `;
+        });
+    }
+
+    html += '</div></div>';
+    return html;
+}
+
+// ============================================
+// ULTRA-COMPACT VIEW (Week Strip)
+// ============================================
+
+function renderUltraCompactView() {
+    const grid = document.getElementById('calendarGrid');
+
+    // Update month/year header
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'];
+    document.getElementById('monthYear').textContent = `${monthNames[currentMonth]} ${currentYear}`;
+
+    // Get the week containing selectedDate
+    const weekStart = getWeekStart(selectedDate);
+    const weekDays = [];
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(weekStart);
+        d.setDate(d.getDate() + i);
+        weekDays.push(d);
+    }
+
+    const today = new Date();
+
+    let html = '<div class="ultra-compact-calendar">';
+
+    // Week strip
+    html += '<div class="week-strip">';
+    weekDays.forEach(day => {
+        const dateStr = formatDateForStorage(day);
+        const dayEvents = events.filter(e => e.date === dateStr);
+        const isToday = day.toDateString() === today.toDateString();
+        const isSelected = day.toDateString() === selectedDate.toDateString();
+
+        const dayName = day.toLocaleDateString('en-US', { weekday: 'short' }).charAt(0);
+        const dayNum = day.getDate();
+
+        const classes = [
+            'week-strip-day',
+            isToday ? 'today' : '',
+            isSelected ? 'selected' : '',
+            dayEvents.length > 0 ? 'has-events' : ''
+        ].filter(Boolean).join(' ');
+
+        html += `
+            <div class="${classes}"
+                 data-date="${dateStr}"
+                 onclick="selectCompactDate('${dateStr}')">
+                <span class="week-strip-name">${dayName}</span>
+                <span class="week-strip-num">${dayNum}</span>
+                ${dayEvents.length > 0 ? '<span class="week-dot"></span>' : ''}
+            </div>
+        `;
+    });
+    html += '</div>';
+
+    // Navigation hint
+    html += `
+        <div class="week-nav-hint">
+            <button class="week-nav-btn" onclick="navigateWeek(-1)">‹</button>
+            <span>${selectedDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
+            <button class="week-nav-btn" onclick="navigateWeek(1)">›</button>
+        </div>
+    `;
+
+    // Day events (reuse agenda)
+    html += renderAgendaSection();
+
+    html += '</div>';
+
+    grid.innerHTML = html;
+}
+
+function getWeekStart(date) {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day;
+    return new Date(d.setDate(diff));
+}
+
+function navigateWeek(direction) {
+    selectedDate.setDate(selectedDate.getDate() + (direction * 7));
+    renderCalendar();
+}
+
+function formatDateForStorage(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 
 function isTodayDate(day) {
@@ -118,6 +417,12 @@ function changeMonth(direction) {
             currentMonth = 11;
             currentYear--;
         }
+
+        // Keep selectedDate in sync with current month (Milestone 8.7)
+        if (selectedDate.getMonth() !== currentMonth || selectedDate.getFullYear() !== currentYear) {
+            selectedDate = new Date(currentYear, currentMonth, 1);
+        }
+
         renderCalendar();
     } else {
         // Navigate days
@@ -1457,3 +1762,12 @@ async function confirmEventPreview() {
         window._pendingEvents = null;
     }
 }
+
+// ============================================
+// GLOBAL FUNCTIONS (Milestone 8.7)
+// ============================================
+
+// Make layout functions globally accessible
+window.updateLayoutMode = updateLayoutMode;
+window.selectCompactDate = selectCompactDate;
+window.navigateWeek = navigateWeek;

@@ -1,3 +1,88 @@
+```
+Perfect! I've successfully completed Sprint 8.5.3: Resolve Flow. Here's what was implemented:
+
+  Changes Made:
+
+  1. Enhanced js/triage-panel.js
+
+  - Updated resolve button handler to call openResolveChat() instead of just logging
+  - Added buildResolvePrompt() method that generates contextual AI prompts based on what's missing:
+    - No date/time: "Let's figure out when to schedule..."
+    - Has date, no time: "...is set for [date], but doesn't have a time yet"
+    - Has time, no date: "...is set for [time], but doesn't have a date"
+    - Has both: "Let's make sure ... is set up correctly"
+  - Improved openResolveChat() to:
+    - Find events across all buckets (not just undetermined)
+    - Build contextual prompt
+    - Dispatch custom event for ChatUI to handle
+    - Open chat panel
+
+  2. Enhanced js/triage-ui.js (ChatUI)
+
+  - Added resolve context tracking with resolveContext property
+  - Added event listener for 'open-resolve-chat' in init()
+  - New methods:
+    - openWithContext() - Opens chat with pre-loaded context
+    - renderResolveMode() - Renders resolve-specific UI
+    - addMessage() - Dynamically adds messages to chat
+    - handleResolveResponse() - Handles user response in resolve mode
+    - applyEventUpdates() - Updates event via API
+    - getAuthHeaders() - Gets auth headers for API requests
+    - clearMessages(), focusInput() - Helper utilities
+  - Updated handleSend() to check for resolve mode and route accordingly
+
+  3. Created /api/resolve.js
+
+  - New serverless endpoint using Claude Haiku
+  - Accepts: event_id, current_event, user_message
+  - Uses AI to extract date/time from natural language
+  - Returns structured JSON:
+    - reply - Conversational response
+    - resolved - Boolean indicating if enough info was provided
+    - updates - Object with date/time in structured format
+  - Handles edge cases like ambiguous input
+
+  4. Updated /api/events.js
+
+  - Added PATCH method support for partial updates (in addition to existing PUT)
+  - Allows updating individual fields without overwriting others
+
+  How It Works:
+
+  User Flow:
+  1. User clicks [◉] button on an undetermined event in triage panel
+  2. Chat panel opens with contextual prompt: "Let's figure out when to schedule 'dentist'..."
+  3. User types natural language: "Tuesday at 3pm"
+  4. AI extracts structured data (date: next Tuesday, time: "15:00")
+  5. Event is updated in database with needsTriage: false
+  6. Triage panel refreshes automatically
+  7. Success message: "✓ Updated! The event is now on your calendar."
+  8. Event moves from "Undetermined" to appropriate bucket
+
+  Features:
+  - ✅ Contextual AI prompts based on what's missing
+  - ✅ Natural language time parsing ("3pm" → "15:00", "Tuesday" → actual date)
+  - ✅ Iterative conversation if clarification needed
+  - ✅ Automatic triage refresh on resolution
+  - ✅ Typing indicator while AI responds
+  - ✅ Error handling with graceful fallbacks
+
+  Committed: e0d3b20 - "feat: resolve flow for undetermined events (Sprint 8.5.3)"
+  Pushed to GitHub: Successfully deployed
+
+  ---
+  🎉 Milestone 8.5 is now COMPLETE! All three sprints are done:
+  - ✅ Sprint 8.5.1: Triage Panel + Data
+  - ✅ Sprint 8.5.2: Triage UI
+  - ✅ Sprint 8.5.3: Resolve Flow
+
+  The triage system is fully functional with AI-powered event resolution!
+```
+
+
+---
+
+
 # Sprint 8.5.3: Resolve Flow
 
 ## Sprint Goal

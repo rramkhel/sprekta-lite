@@ -4209,3 +4209,323 @@ body {
 .toast-action:hover {
     background: rgba(255,255,255,0.3);
 }
+
+/* ============================================
+   COMPACT CALENDAR VIEWS (Milestone 8.7)
+   ============================================ */
+
+/* Hide regular grid in compact modes */
+.layout-compact .calendar-grid,
+.layout-ultra-compact .calendar-grid {
+    display: block; /* Override grid display */
+}
+
+/* ----------------------------------------
+   COMPACT MODE (500-800px)
+   ---------------------------------------- */
+
+.compact-calendar {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 140px);
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #e7e5e4;
+}
+
+/* Mini Month Grid */
+.compact-month-grid {
+    padding: 16px;
+    border-bottom: 1px solid #e7e5e4;
+    flex-shrink: 0;
+}
+
+.compact-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    margin-bottom: 8px;
+}
+
+.compact-weekday {
+    text-align: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: #78716c;
+    text-transform: uppercase;
+}
+
+.compact-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+}
+
+.compact-day {
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 500;
+    color: #292524;
+    cursor: pointer;
+    border-radius: 50%;
+    position: relative;
+    transition: all 0.15s ease;
+}
+
+.compact-day:hover {
+    background: #f5f5f4;
+}
+
+.compact-day.empty {
+    visibility: hidden;
+}
+
+.compact-day.today {
+    color: #6366f1;
+    font-weight: 700;
+}
+
+.compact-day.selected {
+    background: #6366f1;
+    color: white;
+}
+
+.compact-day.selected.today {
+    background: #6366f1;
+    color: white;
+}
+
+.event-dot {
+    position: absolute;
+    bottom: 2px;
+    width: 4px;
+    height: 4px;
+    background: #6366f1;
+    border-radius: 50%;
+}
+
+.compact-day.selected .event-dot {
+    background: white;
+}
+
+/* Agenda Section */
+.compact-agenda {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.agenda-header {
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #292524;
+    background: #fafaf9;
+    border-bottom: 1px solid #e7e5e4;
+    flex-shrink: 0;
+}
+
+.agenda-events {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+}
+
+.agenda-empty {
+    padding: 24px 16px;
+    text-align: center;
+    color: #78716c;
+    font-size: 14px;
+}
+
+.agenda-event {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    background: #f5f5f4;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.agenda-event:hover {
+    background: #eeeeed;
+}
+
+.agenda-event:last-child {
+    margin-bottom: 0;
+}
+
+.agenda-event-time {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6366f1;
+    min-width: 65px;
+    flex-shrink: 0;
+}
+
+.agenda-event-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: #292524;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ----------------------------------------
+   ULTRA-COMPACT MODE (< 500px)
+   ---------------------------------------- */
+
+.ultra-compact-calendar {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 140px);
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #e7e5e4;
+}
+
+/* Week Strip */
+.week-strip {
+    display: flex;
+    justify-content: space-around;
+    padding: 12px 4px;
+    background: #fafaf9;
+    border-bottom: 1px solid #e7e5e4;
+    flex-shrink: 0;
+}
+
+.week-strip-day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 6px;
+    min-width: 36px;
+    border-radius: 12px;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.15s ease;
+}
+
+.week-strip-day:hover {
+    background: #f0f0f0;
+}
+
+.week-strip-day.selected {
+    background: #6366f1;
+}
+
+.week-strip-day.today .week-strip-num {
+    color: #6366f1;
+    font-weight: 700;
+}
+
+.week-strip-day.selected .week-strip-name,
+.week-strip-day.selected .week-strip-num {
+    color: white;
+}
+
+.week-strip-day.selected.today .week-strip-num {
+    color: white;
+}
+
+.week-strip-name {
+    font-size: 10px;
+    font-weight: 500;
+    color: #78716c;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.week-strip-num {
+    font-size: 15px;
+    font-weight: 600;
+    color: #292524;
+}
+
+.week-dot {
+    position: absolute;
+    bottom: 4px;
+    width: 4px;
+    height: 4px;
+    background: #6366f1;
+    border-radius: 50%;
+}
+
+.week-strip-day.selected .week-dot {
+    background: white;
+}
+
+/* Week Navigation */
+.week-nav-hint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #78716c;
+    border-bottom: 1px solid #e7e5e4;
+    flex-shrink: 0;
+}
+
+.week-nav-btn {
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: #78716c;
+    cursor: pointer;
+    padding: 4px 12px;
+    border-radius: 6px;
+    transition: all 0.15s ease;
+}
+
+.week-nav-btn:hover {
+    color: #6366f1;
+    background: #f5f5f4;
+}
+
+/* Ultra-compact uses same agenda styles */
+.ultra-compact-calendar .compact-agenda {
+    flex: 1;
+}
+
+/* ----------------------------------------
+   HEADER ADJUSTMENTS FOR COMPACT
+   ---------------------------------------- */
+
+.layout-compact .calendar-header,
+.layout-ultra-compact .calendar-header {
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.layout-compact .header-actions,
+.layout-ultra-compact .header-actions {
+    gap: 8px;
+}
+
+.layout-ultra-compact .month-year {
+    font-size: 16px;
+    min-width: auto;
+}
+
+.layout-ultra-compact .calendar-nav {
+    gap: 8px;
+}
+
+.layout-ultra-compact .nav-btn {
+    width: 28px;
+    height: 28px;
+}
