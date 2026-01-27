@@ -4,6 +4,7 @@ const ChatUI = {
   panel: null,
   appMain: null,
   resolveContext: null, // Stores context when resolving an event
+  eventsBound: false, // Track if event listeners are already attached
 
   init() {
     this.panel = document.getElementById('chat-panel');
@@ -19,15 +20,21 @@ const ChatUI = {
       this.openWithContext(e.detail);
     });
 
+    // Bind events once on the fixed HTML structure
+    this.bindEvents();
+
     // Initial render (empty/loading state)
     this.renderClosed();
   },
 
   async open() {
-    // Show panel
-    this.panel.classList.remove('hidden');
-    this.panel.classList.add('open');
-    this.appMain?.classList.add('chat-open');
+    // Open via PanelManager
+    if (window.PanelManager) {
+      window.PanelManager.open('chat');
+    } else {
+      // Fallback
+      this.panel.classList.remove('hidden');
+    }
 
     // Show loading state
     this.renderLoading();
@@ -48,12 +55,17 @@ const ChatUI = {
   },
 
   close() {
-    this.panel.classList.remove('open');
-    this.appMain?.classList.remove('chat-open');
+    // Close via PanelManager
+    if (window.PanelManager) {
+      window.PanelManager.close('chat');
+    } else {
+      // Fallback
+      this.panel.classList.add('hidden');
+    }
   },
 
   toggle() {
-    if (this.panel.classList.contains('open')) {
+    if (this.isOpen()) {
       this.close();
     } else {
       this.open();
@@ -61,7 +73,11 @@ const ChatUI = {
   },
 
   isOpen() {
-    return this.panel.classList.contains('open');
+    if (window.PanelManager) {
+      return window.PanelManager.isOpen('chat');
+    }
+    // Fallback
+    return !this.panel.classList.contains('hidden');
   },
 
   // ============================================
@@ -76,73 +92,62 @@ const ChatUI = {
     const messages = TriageState.getMessages();
     const hasProfile = !!TriageState.getProfile();
 
-    this.panel.innerHTML = `
-      <div class="chat-panel-header">
-        <h3>Planning</h3>
-        <div class="chat-header-actions">
-          ${hasProfile ? `
-            <span class="profile-badge" title="Using your profile">✓ Profile</span>
-          ` : `
-            <button class="chat-add-profile" title="Add profile for better help">+ Profile</button>
-          `}
-          <button class="chat-history" title="Past conversations">☰</button>
-          <button class="chat-new" title="New conversation">+ New</button>
-        </div>
-        <button id="chat-panel-close" class="chat-panel-close">×</button>
-      </div>
+    // Update messages container only (panel structure is fixed in HTML)
+    const messagesContainer = document.getElementById('chat-messages');
+    if (messagesContainer) {
+      messagesContainer.innerHTML = this.renderMessages(messages);
+    }
 
-      <div class="chat-panel-messages" id="chat-messages">
-        ${this.renderMessages(messages)}
-      </div>
+    // Update header title if we want to show "Planning" vs "Chat"
+    const headerTitle = this.panel.querySelector('.panel-header h3');
+    if (headerTitle) {
+      headerTitle.textContent = 'Planning';
+    }
 
-      <div class="chat-panel-input">
-        <textarea
-          id="chat-input"
-          placeholder="What's on your mind?"
-          rows="2"
-        ></textarea>
-        <button id="chat-send" class="chat-send-btn">Send</button>
-      </div>
-    `;
+    // Add profile badge/actions if needed (optional enhancement for later)
+    // For now, keep it simple with just messages
 
-    this.bindEvents();
     this.scrollToBottom();
   },
 
   renderLoading() {
-    this.panel.innerHTML = `
-      <div class="chat-panel-header">
-        <h3>Planning</h3>
-        <button id="chat-panel-close" class="chat-panel-close">×</button>
-      </div>
-
-      <div class="chat-loading">
-        <div class="typing-indicator">
-          <span></span><span></span><span></span>
+    const messagesContainer = document.getElementById('chat-messages');
+    if (messagesContainer) {
+      messagesContainer.innerHTML = `
+        <div class="chat-loading">
+          <div class="typing-indicator">
+            <span></span><span></span><span></span>
+          </div>
+          <p>Loading conversation...</p>
         </div>
-        <p>Loading conversation...</p>
-      </div>
-    `;
+      `;
+    }
 
-    // Bind close button even in loading state
-    document.getElementById('chat-panel-close')?.addEventListener('click', () => this.close());
+    // Update header title
+    const headerTitle = this.panel.querySelector('.panel-header h3');
+    if (headerTitle) {
+      headerTitle.textContent = 'Planning';
+    }
   },
 
   renderError(message) {
-    this.panel.innerHTML = `
-      <div class="chat-panel-header">
-        <h3>Planning</h3>
-        <button id="chat-panel-close" class="chat-panel-close">×</button>
-      </div>
+    const messagesContainer = document.getElementById('chat-messages');
+    if (messagesContainer) {
+      messagesContainer.innerHTML = `
+        <div class="chat-error">
+          <p>${message}</p>
+          <button class="chat-retry">Try again</button>
+        </div>
+      `;
+    }
 
-      <div class="chat-error">
-        <p>${message}</p>
-        <button class="chat-retry">Try again</button>
-      </div>
-    `;
+    // Update header title
+    const headerTitle = this.panel.querySelector('.panel-header h3');
+    if (headerTitle) {
+      headerTitle.textContent = 'Planning';
+    }
 
-    document.getElementById('chat-panel-close')?.addEventListener('click', () => this.close());
-    this.panel.querySelector('.chat-retry')?.addEventListener('click', () => this.open());
+    messagesContainer?.querySelector('.chat-retry')?.addEventListener('click', () => this.open());
   },
 
   renderMessages(messages) {
@@ -175,39 +180,22 @@ const ChatUI = {
   // ============================================
 
   bindEvents() {
-    // Close button
-    document.getElementById('chat-panel-close')?.addEventListener('click', () => {
-      this.close();
-    });
+    // Only bind once
+    if (this.eventsBound) return;
+    this.eventsBound = true;
 
-    // Add profile button
-    this.panel.querySelector('.chat-add-profile')?.addEventListener('click', async () => {
-      const { default: ProfileUI } = await import('./profile-ui.js');
-      ProfileUI.open();
-    });
+    // Close button is handled by PanelManager (.panel-close[data-panel="chat"])
 
-    // History button
-    this.panel.querySelector('.chat-history')?.addEventListener('click', async () => {
-      const { default: HistoryUI } = await import('./history-ui.js');
-      HistoryUI.open();
-    });
-
-    // New conversation button
-    this.panel.querySelector('.chat-new')?.addEventListener('click', async () => {
-      if (confirm('Start a new conversation? Current conversation will be saved.')) {
-        await TriageState.newConversation();
-        this.render();
+    // Send button - use event delegation from panel
+    this.panel.addEventListener('click', (e) => {
+      if (e.target.id === 'chat-send' || e.target.closest('#chat-send')) {
+        this.handleSend();
       }
     });
 
-    // Send button
-    document.getElementById('chat-send')?.addEventListener('click', () => {
-      this.handleSend();
-    });
-
-    // Enter to send (shift+enter for newline)
-    document.getElementById('chat-input')?.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
+    // Enter to send (shift+enter for newline) - use event delegation
+    this.panel.addEventListener('keydown', (e) => {
+      if (e.target.id === 'chat-input' && e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         this.handleSend();
       }
@@ -317,6 +305,11 @@ const ChatUI = {
     }
   },
 
+  // Focus the input field (called from button handler)
+  focus() {
+    this.focusInput();
+  },
+
   // ============================================
   // RESOLVE FLOW
   // ============================================
@@ -334,10 +327,13 @@ const ChatUI = {
       mode: 'resolve'
     };
 
-    // Ensure panel is visible
-    this.panel.classList.remove('hidden');
-    this.panel.classList.add('open');
-    this.appMain?.classList.add('chat-open');
+    // Open via PanelManager
+    if (window.PanelManager) {
+      window.PanelManager.open('chat');
+    } else {
+      // Fallback
+      this.panel.classList.remove('hidden');
+    }
 
     // Clear previous conversation for resolve flow
     this.renderResolveMode(prompt);
@@ -350,29 +346,28 @@ const ChatUI = {
    * Render resolve mode with initial prompt
    */
   renderResolveMode(prompt) {
-    this.panel.innerHTML = `
-      <div class="chat-panel-header">
-        <h3>Resolve Event</h3>
-        <button id="chat-panel-close" class="chat-panel-close">×</button>
-      </div>
+    // Update header title
+    const headerTitle = this.panel.querySelector('.panel-header h3');
+    if (headerTitle) {
+      headerTitle.textContent = 'Resolve Event';
+    }
 
-      <div class="chat-panel-messages" id="chat-messages">
+    // Update messages
+    const messagesContainer = document.getElementById('chat-messages');
+    if (messagesContainer) {
+      messagesContainer.innerHTML = `
         <div class="chat-message chat-message-assistant">
           ${this.formatContent(prompt)}
         </div>
-      </div>
+      `;
+    }
 
-      <div class="chat-panel-input">
-        <textarea
-          id="chat-input"
-          placeholder="Tell me when..."
-          rows="2"
-        ></textarea>
-        <button id="chat-send" class="chat-send-btn">Send</button>
-      </div>
-    `;
+    // Update input placeholder
+    const input = document.getElementById('chat-input');
+    if (input) {
+      input.placeholder = 'Tell me when...';
+    }
 
-    this.bindEvents();
     this.scrollToBottom();
   },
 
