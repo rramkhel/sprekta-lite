@@ -24,6 +24,7 @@ body {
     flex-direction: column;
     height: 100vh;
     padding: 20px;
+    overflow: hidden; /* Prevent double scrollbars */
 }
 
 .calendar-container {
@@ -3266,6 +3267,13 @@ body {
   display: flex;
   flex-direction: column;
   max-width: none; /* Remove max-width constraint */
+}
+
+/* Enable scrolling for calendar content */
+.calendar-content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .panel-center .calendar-grid,
