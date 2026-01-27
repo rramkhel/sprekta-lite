@@ -1,539 +1,375 @@
 /**
- * Compact Calendar (iOS-style)
- *
- * Handles the compact calendar view with day selection and event list.
+ * Unified Calendar System
+ * Single source of truth for Month/Week/Day views
  */
 
+// ============================================
+// STATE
+// ============================================
+
+let currentView = 'month'; // 'month' | 'week' | 'day'
 let selectedDate = new Date();
-let currentCompactView = 'month'; // 'month' or 'week'
-let currentWeekStart = null; // Track current week start date
+let viewingMonth = new Date().getMonth();
+let viewingYear = new Date().getFullYear();
 
-// Enter compact mode
-export function enterCompactMode() {
-  const calendarView = document.querySelector('.calendar-view');
-  if (!calendarView) return;
+// ============================================
+// INITIALIZATION
+// ============================================
 
-  calendarView.classList.add('compact');
+export function initCalendar() {
+  // Set up navigation
+  document.getElementById('navPrev')?.addEventListener('click', () => navigate(-1));
+  document.getElementById('navNext')?.addEventListener('click', () => navigate(1));
 
-  // Ensure currentYear and currentMonth are set
-  if (!window.currentYear || window.currentMonth === undefined) {
-    const now = new Date();
-    window.currentYear = now.getFullYear();
-    window.currentMonth = now.getMonth();
-  }
-
-  // Select today by default
-  selectedDate = new Date();
-
-  // Reset to month view when entering compact mode
-  currentCompactView = 'month';
-  calendarView.classList.remove('week-mode');
-
-  renderCompactCalendar();
-  renderDayEvents(selectedDate);
-
-  // Re-initialize Lucide icons for new compact elements
-  if (window.lucide) {
-    window.lucide.createIcons();
-  }
-}
-
-// Exit compact mode
-export function exitCompactMode() {
-  const calendarView = document.querySelector('.calendar-view');
-  if (!calendarView) return;
-
-  calendarView.classList.remove('compact');
-
-  // Re-render standard calendar
-  if (window.renderCalendar) {
-    window.renderCalendar();
-  }
-}
-
-// Change month/week in compact mode
-window.changeMonthCompact = function(direction) {
-  if (currentCompactView === 'week') {
-    // Navigate by week
-    changeWeek(direction);
-  } else {
-    // Navigate by month
-    if (!window.currentYear || !window.currentMonth === undefined) return;
-
-    window.currentMonth += direction;
-    if (window.currentMonth > 11) {
-      window.currentMonth = 0;
-      window.currentYear++;
-    } else if (window.currentMonth < 0) {
-      window.currentMonth = 11;
-      window.currentYear--;
-    }
-
-    renderCompactCalendar();
-  }
-};
-
-// Select a day
-window.selectDay = function(dateStr) {
-  selectedDate = new Date(dateStr + 'T12:00:00'); // Add time to avoid timezone issues
-
-  // Update selected state in grid
-  document.querySelectorAll('.day-cell-compact').forEach(cell => {
-    cell.classList.remove('selected');
+  // Set up view toggle
+  document.querySelectorAll('.view-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchView(btn.dataset.view));
   });
-  const selectedCell = document.querySelector(`[data-date="${dateStr}"]`);
-  if (selectedCell) {
-    selectedCell.classList.add('selected');
+
+  // Initial render
+  render();
+}
+
+// ============================================
+// NAVIGATION
+// ============================================
+
+function navigate(direction) {
+  if (currentView === 'month') {
+    viewingMonth += direction;
+    if (viewingMonth > 11) { viewingMonth = 0; viewingYear++; }
+    if (viewingMonth < 0) { viewingMonth = 11; viewingYear--; }
+  } else if (currentView === 'week') {
+    selectedDate.setDate(selectedDate.getDate() + (direction * 7));
+    viewingMonth = selectedDate.getMonth();
+    viewingYear = selectedDate.getFullYear();
+  } else if (currentView === 'day') {
+    selectedDate.setDate(selectedDate.getDate() + direction);
+    viewingMonth = selectedDate.getMonth();
+    viewingYear = selectedDate.getFullYear();
+  }
+  render();
+}
+
+function switchView(view) {
+  currentView = view;
+
+  // Update toggle buttons
+  document.querySelectorAll('.view-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.view === view);
+  });
+
+  render();
+}
+
+// ============================================
+// MAIN RENDER
+// ============================================
+
+function render() {
+  updateTitle();
+
+  const content = document.getElementById('calendarContent');
+  const eventsList = document.getElementById('calendarEvents');
+
+  if (!content) return;
+
+  // Show/hide events panel
+  if (eventsList) {
+    eventsList.style.display = currentView === 'month' ? 'flex' : 'none';
   }
 
-  // Update events list
-  renderDayEvents(selectedDate);
-};
+  switch (currentView) {
+    case 'month':
+      content.innerHTML = renderMonthGrid();
+      renderEventsList();
+      break;
+    case 'week':
+      content.innerHTML = renderWeekView();
+      break;
+    case 'day':
+      content.innerHTML = renderDayView();
+      break;
+  }
 
-// Render compact calendar grid
-function renderCompactCalendar() {
-  const grid = document.getElementById('calendarGridCompact');
-  const header = document.getElementById('monthYearCompact');
-  if (!grid || !header) return;
+  // Re-init icons
+  if (window.lucide) lucide.createIcons();
+}
 
-  const year = window.currentYear;
-  const month = window.currentMonth;
+function updateTitle() {
+  const title = document.getElementById('calendarTitle');
+  if (!title) return;
 
-  // Update header
-  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-                      'July', 'August', 'September', 'October', 'November', 'December'];
-  header.textContent = `${monthNames[month]} ${year}`;
+  const months = ['January','February','March','April','May','June',
+                  'July','August','September','October','November','December'];
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
-  // Clear existing
-  grid.innerHTML = '';
+  if (currentView === 'month') {
+    title.textContent = `${months[viewingMonth]} ${viewingYear}`;
+  } else if (currentView === 'week') {
+    const weekStart = getWeekStart(selectedDate);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+
+    if (weekStart.getMonth() === weekEnd.getMonth()) {
+      title.textContent = `${months[weekStart.getMonth()]} ${weekStart.getDate()} - ${weekEnd.getDate()}, ${weekStart.getFullYear()}`;
+    } else {
+      title.textContent = `${months[weekStart.getMonth()].slice(0,3)} ${weekStart.getDate()} - ${months[weekEnd.getMonth()].slice(0,3)} ${weekEnd.getDate()}, ${weekEnd.getFullYear()}`;
+    }
+  } else if (currentView === 'day') {
+    title.textContent = `${days[selectedDate.getDay()]}, ${months[selectedDate.getMonth()]} ${selectedDate.getDate()}`;
+  }
+}
+
+// ============================================
+// MONTH VIEW
+// ============================================
+
+function renderMonthGrid() {
+  const firstDay = new Date(viewingYear, viewingMonth, 1).getDay();
+  const daysInMonth = new Date(viewingYear, viewingMonth + 1, 0).getDate();
+  const today = new Date();
+
+  let html = '<div class="month-grid">';
 
   // Day headers
-  ['S', 'M', 'T', 'W', 'T', 'F', 'S'].forEach(day => {
-    const headerEl = document.createElement('div');
-    headerEl.className = 'day-header-compact';
-    headerEl.textContent = day;
-    grid.appendChild(headerEl);
+  ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d => {
+    html += `<div class="month-header">${d}</div>`;
   });
 
-  // Generate month days
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
-  const prevMonthDays = new Date(year, month, 0).getDate();
-  const startDay = firstDay.getDay();
-
-  // Previous month days
-  for (let i = startDay - 1; i >= 0; i--) {
-    const day = prevMonthDays - i;
-    const cell = createCompactDayCell(year, month - 1, day, 'other-month');
-    grid.appendChild(cell);
+  // Empty cells
+  for (let i = 0; i < firstDay; i++) {
+    html += '<div class="month-day empty"></div>';
   }
 
-  // Current month days
-  for (let day = 1; day <= lastDay.getDate(); day++) {
-    const cell = createCompactDayCell(year, month, day);
-    grid.appendChild(cell);
+  // Days
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = formatDate(viewingYear, viewingMonth, day);
+    const dayEvents = getEventsForDate(dateStr);
+    const isToday = day === today.getDate() &&
+                    viewingMonth === today.getMonth() &&
+                    viewingYear === today.getFullYear();
+    const isSelected = day === selectedDate.getDate() &&
+                       viewingMonth === selectedDate.getMonth() &&
+                       viewingYear === selectedDate.getFullYear();
+
+    const classes = ['month-day', isToday ? 'today' : '', isSelected ? 'selected' : ''].filter(Boolean).join(' ');
+
+    html += `
+      <div class="${classes}" data-date="${dateStr}" onclick="selectDate('${dateStr}')">
+        <span class="day-number">${day}</span>
+        ${dayEvents.length ? `<div class="event-dots">${dayEvents.slice(0,3).map(() => '<span class="dot"></span>').join('')}</div>` : ''}
+      </div>
+    `;
   }
 
-  // Next month days
-  const totalCells = startDay + lastDay.getDate();
-  const remainingCells = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
-  for (let day = 1; day <= remainingCells; day++) {
-    const cell = createCompactDayCell(year, month + 1, day, 'other-month');
-    grid.appendChild(cell);
-  }
+  html += '</div>';
+  return html;
 }
 
-// Create a compact day cell
-function createCompactDayCell(year, month, day, extraClass = '') {
-  const date = new Date(year, month, day);
-  const dateStr = date.toISOString().split('T')[0];
+function renderEventsList() {
+  const container = document.getElementById('calendarEvents');
+  if (!container) return;
 
-  const cell = document.createElement('div');
-  cell.className = `day-cell-compact ${extraClass}`;
-  cell.dataset.date = dateStr;
-  cell.onclick = () => window.selectDay(dateStr);
+  const dateStr = formatDate(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+  const dayEvents = getEventsForDate(dateStr).sort((a,b) => (a.time || '').localeCompare(b.time || ''));
 
-  // Check if today
+  const dateLabel = formatDateLabel(selectedDate);
+
+  let html = `<div class="events-header">${dateLabel}</div>`;
+  html += '<div class="events-list">';
+
+  if (dayEvents.length === 0) {
+    html += '<div class="events-empty">No events</div>';
+  } else {
+    dayEvents.forEach(event => {
+      html += `
+        <div class="event-row" onclick="openEventDetail(${event.id})">
+          <div class="event-time">${event.time ? formatTime(event.time) : 'All day'}</div>
+          <div class="event-title">${escapeHtml(event.title)}</div>
+        </div>
+      `;
+    });
+  }
+
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+// ============================================
+// WEEK VIEW
+// ============================================
+
+function renderWeekView() {
+  const weekStart = getWeekStart(selectedDate);
   const today = new Date();
-  if (date.toDateString() === today.toDateString()) {
-    cell.classList.add('today');
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + i);
+    days.push(d);
   }
 
-  // Check if selected
-  if (date.toDateString() === selectedDate.toDateString()) {
-    cell.classList.add('selected');
+  let html = '<div class="week-grid">';
+
+  // Time column
+  html += '<div class="week-times">';
+  for (let h = 0; h < 24; h++) {
+    html += `<div class="hour-label">${h === 0 ? '12 AM' : h < 12 ? h + ' AM' : h === 12 ? '12 PM' : (h-12) + ' PM'}</div>`;
   }
+  html += '</div>';
 
-  // Day number
-  const number = document.createElement('div');
-  number.className = 'day-number-compact';
-  number.textContent = day;
-  cell.appendChild(number);
+  // Day columns
+  days.forEach(day => {
+    const dateStr = formatDate(day.getFullYear(), day.getMonth(), day.getDate());
+    const dayEvents = getEventsForDate(dateStr);
+    const isToday = day.toDateString() === today.toDateString();
 
-  // Event dots
-  const events = getEventsForDate(dateStr);
-  if (events.length > 0) {
-    const dots = document.createElement('div');
-    dots.className = 'day-dots-compact';
+    html += `<div class="week-day ${isToday ? 'today' : ''}">`;
+    html += `<div class="week-day-header" onclick="selectDate('${dateStr}'); switchView('day');">`;
+    html += `<span class="week-day-name">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][day.getDay()]}</span>`;
+    html += `<span class="week-day-num">${day.getDate()}</span>`;
+    html += '</div>';
+    html += '<div class="week-day-events">';
 
-    // Show max 3 dots
-    events.slice(0, 3).forEach(event => {
-      const dot = document.createElement('span');
-      dot.className = 'event-dot';
-      dot.style.background = '#6366f1'; // Could use event color
-      dots.appendChild(dot);
+    // Hour slots
+    for (let h = 0; h < 24; h++) {
+      html += `<div class="hour-slot"></div>`;
+    }
+
+    // Events positioned absolutely
+    dayEvents.forEach(event => {
+      if (!event.time) return;
+      const [hours, mins] = event.time.split(':').map(Number);
+      const top = hours * 40 + (mins / 60) * 40;
+      const duration = event.endTime ? calculateDuration(event.time, event.endTime) : 60;
+      const height = (duration / 60) * 40;
+
+      html += `
+        <div class="week-event" style="top:${top}px;height:${Math.max(height,20)}px" onclick="openEventDetail(${event.id})">
+          ${escapeHtml(event.title)}
+        </div>
+      `;
     });
 
-    cell.appendChild(dots);
-  }
-
-  return cell;
-}
-
-// Get events for a specific date
-function getEventsForDate(dateStr) {
-  if (!window.events) return [];
-  return window.events.filter(event => event.date === dateStr);
-}
-
-// Render day events list
-function renderDayEvents(date) {
-  const header = document.getElementById('selectedDayHeader');
-  const list = document.getElementById('dayEventsList');
-  if (!header || !list) return;
-
-  // Update header
-  header.textContent = formatDayHeader(date);
-
-  // Get events for date
-  const dateStr = date.toISOString().split('T')[0];
-  const events = getEventsForDate(dateStr);
-
-  // Clear list
-  list.innerHTML = '';
-
-  if (events.length === 0) {
-    // Empty state
-    const empty = document.createElement('div');
-    empty.className = 'day-events-empty';
-    empty.textContent = 'No events scheduled';
-    list.appendChild(empty);
-    return;
-  }
-
-  // Sort by time
-  events.sort((a, b) => {
-    const timeA = a.start_time || '00:00';
-    const timeB = b.start_time || '00:00';
-    return timeA.localeCompare(timeB);
+    html += '</div></div>';
   });
 
-  // Render event rows
-  events.forEach(event => {
-    const row = document.createElement('div');
-    row.className = 'day-event-row';
-    row.dataset.eventId = event.id;
-    row.onclick = () => {
-      if (window.openEventDetail) {
-        window.openEventDetail(event.id);
-      }
-    };
-
-    // Icon (could be based on category)
-    const icon = document.createElement('span');
-    icon.className = 'event-icon';
-    icon.textContent = getEventIcon(event);
-    row.appendChild(icon);
-
-    // Time
-    const time = document.createElement('div');
-    time.className = 'event-time-compact';
-    time.textContent = formatCompactTime(event.start_time);
-    row.appendChild(time);
-
-    // Title
-    const title = document.createElement('div');
-    title.className = 'event-title-compact';
-    title.textContent = event.title;
-    row.appendChild(title);
-
-    list.appendChild(row);
-  });
+  html += '</div>';
+  return html;
 }
 
-// Format day header with natural language
-function formatDayHeader(date) {
+// ============================================
+// DAY VIEW
+// ============================================
+
+function renderDayView() {
+  const dateStr = formatDate(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+  const dayEvents = getEventsForDate(dateStr);
+
+  let html = '<div class="day-grid">';
+
+  // Time column
+  html += '<div class="day-times">';
+  for (let h = 0; h < 24; h++) {
+    html += `<div class="hour-label">${h === 0 ? '12 AM' : h < 12 ? h + ' AM' : h === 12 ? '12 PM' : (h-12) + ' PM'}</div>`;
+  }
+  html += '</div>';
+
+  // Events column
+  html += '<div class="day-events-column">';
+
+  // Hour slots
+  for (let h = 0; h < 24; h++) {
+    html += `<div class="hour-slot"></div>`;
+  }
+
+  // Events
+  dayEvents.forEach(event => {
+    if (!event.time) return;
+    const [hours, mins] = event.time.split(':').map(Number);
+    const top = hours * 60 + mins;
+    const duration = event.endTime ? calculateDuration(event.time, event.endTime) : 60;
+
+    html += `
+      <div class="day-event" style="top:${top}px;height:${Math.max(duration,30)}px" onclick="openEventDetail(${event.id})">
+        <div class="day-event-time">${formatTime(event.time)}${event.endTime ? ' - ' + formatTime(event.endTime) : ''}</div>
+        <div class="day-event-title">${escapeHtml(event.title)}</div>
+      </div>
+    `;
+  });
+
+  html += '</div></div>';
+  return html;
+}
+
+// ============================================
+// HELPERS
+// ============================================
+
+function getWeekStart(date) {
+  const d = new Date(date);
+  d.setDate(d.getDate() - d.getDay());
+  return d;
+}
+
+function formatDate(year, month, day) {
+  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function formatDateLabel(date) {
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const compareDate = new Date(date);
-  compareDate.setHours(0, 0, 0, 0);
+  today.setHours(0,0,0,0);
+  const compare = new Date(date);
+  compare.setHours(0,0,0,0);
+
+  if (compare.getTime() === today.getTime()) return 'Today';
 
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
+  if (compare.getTime() === tomorrow.getTime()) return 'Tomorrow';
 
-  if (compareDate.getTime() === today.getTime()) {
-    return 'Today, ' + date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  } else if (compareDate.getTime() === tomorrow.getTime()) {
-    return 'Tomorrow, ' + date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  } else {
-    return date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
-  }
+  return date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
 }
 
-// Format time for compact display
-function formatCompactTime(timeStr) {
-  if (!timeStr) return '';
-  const [hours, minutes] = timeStr.split(':');
-  const h = parseInt(hours);
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const h12 = h % 12 || 12;
-  return `${h12}:${minutes} ${ampm}`;
+function formatTime(time) {
+  if (!time) return '';
+  const [h, m] = time.split(':');
+  const hour = parseInt(h);
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  const h12 = hour % 12 || 12;
+  return `${h12}:${m} ${ampm}`;
 }
 
-// Get icon for event (placeholder)
-function getEventIcon(event) {
-  // Could be based on event category/type in the future
-  return '📅';
+function calculateDuration(start, end) {
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  return (eh * 60 + em) - (sh * 60 + sm);
 }
 
-// Switch between month and week views
-window.switchCompactView = function(viewType) {
-  currentCompactView = viewType;
+function getEventsForDate(dateStr) {
+  return (window.events || []).filter(e => e.date === dateStr);
+}
 
-  const calendarView = document.querySelector('.calendar-view');
-  const monthBtn = document.getElementById('compactMonthBtn');
-  const weekBtn = document.getElementById('compactWeekBtn');
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
 
-  if (viewType === 'week') {
-    calendarView?.classList.add('week-mode');
-    monthBtn?.classList.remove('active');
-    weekBtn?.classList.add('active');
+// ============================================
+// GLOBAL EXPORTS
+// ============================================
 
-    // Initialize week start to current week
-    if (!currentWeekStart) {
-      currentWeekStart = getWeekStart(new Date());
-    }
-
-    renderWeekView();
-  } else {
-    // Month view
-    calendarView?.classList.remove('week-mode');
-    weekBtn?.classList.remove('active');
-    monthBtn?.classList.add('active');
-
-    // Re-render the compact month calendar
-    renderCompactCalendar();
-    renderDayEvents(selectedDate);
-  }
+window.selectDate = function(dateStr) {
+  selectedDate = new Date(dateStr + 'T12:00:00');
+  viewingMonth = selectedDate.getMonth();
+  viewingYear = selectedDate.getFullYear();
+  render();
 };
 
-// Get the start of the week (Sunday) for a given date
-function getWeekStart(date) {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day;
-  return new Date(d.setDate(diff));
-}
+window.switchView = switchView;
+window.initCalendar = initCalendar;
+window.renderCalendar = render;
 
-// Navigate week view
-window.changeWeek = function(direction) {
-  if (!currentWeekStart) {
-    currentWeekStart = getWeekStart(new Date());
-  }
-
-  currentWeekStart.setDate(currentWeekStart.getDate() + (direction * 7));
-  renderWeekView();
-};
-
-// Render week view
-function renderWeekView() {
-  updateWeekHeader();
-  renderWeekTimes();
-  renderWeekDays();
-
-  // Re-initialize Lucide icons
-  if (window.lucide) {
-    window.lucide.createIcons();
-  }
-}
-
-// Update week view header with date range
-function updateWeekHeader() {
-  const header = document.getElementById('monthYearCompact');
-  if (!header || !currentWeekStart) return;
-
-  const weekEnd = new Date(currentWeekStart);
-  weekEnd.setDate(weekEnd.getDate() + 6);
-
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-  // Format: "Jan 14 - 20, 2024" or "Jan 28 - Feb 3, 2024"
-  const startMonth = monthNames[currentWeekStart.getMonth()];
-  const endMonth = monthNames[weekEnd.getMonth()];
-  const year = currentWeekStart.getFullYear();
-
-  let dateRange;
-  if (currentWeekStart.getMonth() === weekEnd.getMonth()) {
-    // Same month
-    dateRange = `${startMonth} ${currentWeekStart.getDate()} - ${weekEnd.getDate()}, ${year}`;
-  } else {
-    // Different months
-    dateRange = `${startMonth} ${currentWeekStart.getDate()} - ${endMonth} ${weekEnd.getDate()}, ${year}`;
-  }
-
-  header.textContent = dateRange;
-}
-
-// Render time labels (24 hours)
-function renderWeekTimes() {
-  const container = document.getElementById('weekViewTimes');
-  if (!container) return;
-
-  container.innerHTML = '';
-
-  // Create 24 hour labels
-  for (let hour = 0; hour < 24; hour++) {
-    const label = document.createElement('div');
-    label.className = 'week-time-label';
-
-    // Format hour (12 AM, 1 AM, etc.)
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const h12 = hour % 12 || 12;
-    label.textContent = `${h12} ${ampm}`;
-
-    container.appendChild(label);
-  }
-}
-
-// Render week days grid
-function renderWeekDays() {
-  const container = document.getElementById('weekViewDays');
-  if (!container) return;
-
-  if (!currentWeekStart) {
-    currentWeekStart = getWeekStart(new Date());
-  }
-
-  container.innerHTML = '';
-
-  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-  // Create 7 day columns
-  for (let i = 0; i < 7; i++) {
-    const dayDate = new Date(currentWeekStart);
-    dayDate.setDate(dayDate.getDate() + i);
-
-    const column = document.createElement('div');
-    column.className = 'week-day-column';
-
-    // Day header
-    const header = document.createElement('div');
-    header.className = 'week-day-header';
-
-    const dayName = document.createElement('div');
-    dayName.style.fontSize = '10px';
-    dayName.style.fontWeight = '600';
-    dayName.style.color = '#78716c';
-    dayName.textContent = dayNames[i];
-
-    const dayNum = document.createElement('div');
-    dayNum.style.fontSize = '14px';
-    dayNum.style.fontWeight = '600';
-    dayNum.style.marginTop = '2px';
-
-    // Check if today
-    const today = new Date();
-    if (dayDate.toDateString() === today.toDateString()) {
-      dayNum.style.color = '#ea580c';
-      dayNum.style.background = '#fed7aa';
-      dayNum.style.borderRadius = '50%';
-      dayNum.style.width = '24px';
-      dayNum.style.height = '24px';
-      dayNum.style.display = 'flex';
-      dayNum.style.alignItems = 'center';
-      dayNum.style.justifyContent = 'center';
-    } else {
-      dayNum.style.color = '#292524';
-    }
-
-    dayNum.textContent = dayDate.getDate();
-
-    header.appendChild(dayName);
-    header.appendChild(dayNum);
-    column.appendChild(header);
-
-    // Hour slots container
-    const slotsContainer = document.createElement('div');
-    slotsContainer.style.position = 'relative';
-
-    // Create 24 hour slots
-    for (let hour = 0; hour < 24; hour++) {
-      const slot = document.createElement('div');
-      slot.className = 'week-hour-slot';
-      slot.dataset.hour = hour;
-      slotsContainer.appendChild(slot);
-    }
-
-    // Add events for this day
-    const dateStr = dayDate.toISOString().split('T')[0];
-    const events = getEventsForDate(dateStr);
-
-    events.forEach(event => {
-      const eventBlock = createWeekEventBlock(event);
-      if (eventBlock) {
-        slotsContainer.appendChild(eventBlock);
-      }
-    });
-
-    column.appendChild(slotsContainer);
-    container.appendChild(column);
-  }
-}
-
-// Create event block for week view
-function createWeekEventBlock(event) {
-  if (!event.start_time) return null;
-
-  const block = document.createElement('div');
-  block.className = 'week-event-block';
-  block.dataset.eventId = event.id;
-  block.textContent = event.title;
-
-  // Calculate position based on time
-  const [hours, minutes] = event.start_time.split(':').map(Number);
-  const startMinutes = hours * 60 + minutes;
-
-  // Calculate duration (default 1 hour if no end time)
-  let durationMinutes = 60;
-  if (event.end_time) {
-    const [endHours, endMinutes] = event.end_time.split(':').map(Number);
-    const endTotalMinutes = endHours * 60 + endMinutes;
-    durationMinutes = endTotalMinutes - startMinutes;
-  }
-
-  // Position: 40px per hour
-  const topPosition = (startMinutes / 60) * 40;
-  const height = (durationMinutes / 60) * 40;
-
-  block.style.top = `${topPosition}px`;
-  block.style.height = `${Math.max(height, 20)}px`; // Minimum 20px height
-
-  // Click to open detail
-  block.onclick = () => {
-    if (window.openEventDetail) {
-      window.openEventDetail(event.id);
-    }
-  };
-
-  return block;
-}
-
-// Make functions available globally
-window.enterCompactMode = enterCompactMode;
-window.exitCompactMode = exitCompactMode;
-
-export default {
-  enterCompactMode,
-  exitCompactMode
-};
+export default { initCalendar };

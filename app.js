@@ -8,650 +8,39 @@ let currentDay = new Date().getDate();
 let events = [];
 let draggedEventId = null;
 let isDragging = false;
-let currentView = 'month'; // 'month' or 'day'
 
-// Layout state (Milestone 8.7)
-let calendarLayoutMode = 'full'; // 'full' | 'compact' | 'ultra-compact'
-let selectedDate = new Date();
-
-// ============================================
-// LAYOUT DETECTION
-// ============================================
-
-function detectLayoutMode() {
-    const container = document.getElementById('app-main');
-    if (!container) return 'full';
-
-    const width = container.offsetWidth;
-
-    if (width > 800) return 'full';
-    if (width > 500) return 'compact';
-    return 'ultra-compact';
-}
-
-function updateLayoutMode() {
-    const newMode = detectLayoutMode();
-    if (newMode !== calendarLayoutMode) {
-        console.log(`[Layout] Switching: ${calendarLayoutMode} → ${newMode}`);
-        calendarLayoutMode = newMode;
-
-        // Update container class for CSS
-        const container = document.querySelector('.calendar-container');
-        if (container) {
-            container.classList.remove('layout-full', 'layout-compact', 'layout-ultra-compact');
-            container.classList.add(`layout-${newMode}`);
-        }
-
-        // Update header visibility
-        updateHeaderForLayout();
-
-        renderCalendar();
-    }
-}
-
-function updateHeaderForLayout() {
-    const viewToggle = document.querySelector('.view-toggle');
-    const clearBtn = document.querySelector('.clear-btn');
-
-    if (!viewToggle) return;
-
-    if (calendarLayoutMode === 'ultra-compact') {
-        viewToggle.style.display = 'none';
-        if (clearBtn) clearBtn.style.display = 'none';
-    } else if (calendarLayoutMode === 'compact') {
-        viewToggle.style.display = 'flex';
-        if (clearBtn) clearBtn.style.display = 'none';
-    } else {
-        viewToggle.style.display = 'flex';
-        if (clearBtn) clearBtn.style.display = 'flex';
-    }
-}
-
-// Debounce utility
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
 
 // ============================================
 // INITIALIZATION
 // ============================================
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // Make events globally accessible
+    window.events = events;
+
     await loadEvents();
-    renderCalendar();
+
+    // Initialize unified calendar system
+    if (window.initCalendar) {
+        window.initCalendar();
+    }
+
     lucide.createIcons();
 
-    // Initial layout detection (Milestone 8.7)
-    updateLayoutMode();
-
-    // Resize listener with debounce (Milestone 8.7)
-    window.addEventListener('resize', debounce(updateLayoutMode, 100));
-
     // Close modals when clicking backdrop
-    document.getElementById('eventDetailModal').addEventListener('click', (e) => {
+    document.getElementById('eventDetailModal')?.addEventListener('click', (e) => {
         if (e.target.id === 'eventDetailModal') {
             closeEventDetail();
         }
     });
 
-    document.getElementById('deleteConfirmModal').addEventListener('click', (e) => {
+    document.getElementById('deleteConfirmModal')?.addEventListener('click', (e) => {
         if (e.target.id === 'deleteConfirmModal') {
             closeDeleteConfirm();
         }
     });
 });
 
-// ============================================
-// CALENDAR RENDERING
-// ============================================
-
-function renderCalendar() {
-    // Handle day view
-    if (currentView === 'day' && calendarLayoutMode === 'full') {
-        renderDayView();
-        return;
-    }
-
-    // Branch based on layout mode
-    switch (calendarLayoutMode) {
-        case 'compact':
-            renderCompactMonthView();
-            break;
-        case 'ultra-compact':
-            renderUltraCompactView();
-            break;
-        default:
-            renderFullMonthView();
-    }
-
-    lucide.createIcons();
-}
-
-// ============================================
-// FULL MONTH VIEW (Standard 7-column grid)
-// ============================================
-
-function renderFullMonthView() {
-    const firstDay = new Date(currentYear, currentMonth, 1).getDay();
-    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'];
-
-    document.getElementById('monthYear').textContent = `${monthNames[currentMonth]} ${currentYear}`;
-
-    let html = '';
-
-    // Day headers
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    dayNames.forEach(day => {
-        html += `<div class="day-header">${day}</div>`;
-    });
-
-    // Empty cells before first day
-    for (let i = 0; i < firstDay; i++) {
-        html += '<div class="day-cell other-month"></div>';
-    }
-
-    // Days of month
-    for (let day = 1; day <= daysInMonth; day++) {
-        const date = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        const dayEvents = events.filter(e => e.date === date);
-        const todayCheck = isTodayDate(day);
-
-        html += `
-            <div class="day-cell ${todayCheck ? 'today' : ''}"
-                 ondragover="handleDragOver(event)"
-                 ondragleave="handleDragLeave(event)"
-                 ondrop="handleDrop(event, '${date}')">
-                <div class="day-number">${day}</div>
-                <div class="day-events">
-                    ${dayEvents.map(event => `
-                        <div class="event-pill"
-                             draggable="true"
-                             ondragstart="handleDragStart(event, ${event.id})"
-                             ondragend="handleDragEnd(event)"
-                             onclick="openEventDetail(${event.id})">
-                            ${event.title}
-                            ${event.time ? ` ${formatTime(event.time)}` : ''}
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        `;
-    }
-
-    document.getElementById('calendarGrid').innerHTML = html;
-}
-
-// ============================================
-// COMPACT MONTH VIEW
-// ============================================
-
-function renderCompactMonthView() {
-    const grid = document.getElementById('calendarGrid');
-    const firstDay = new Date(currentYear, currentMonth, 1).getDay();
-    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-    const today = new Date();
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'];
-
-    document.getElementById('monthYear').textContent = `${monthNames[currentMonth]} ${currentYear}`;
-
-    let html = '<div class="compact-calendar">';
-
-    // Mini month grid
-    html += '<div class="compact-month-grid">';
-    html += '<div class="compact-weekdays">';
-    ['S', 'M', 'T', 'W', 'T', 'F', 'S'].forEach(d => {
-        html += `<span class="compact-weekday">${d}</span>`;
-    });
-    html += '</div>';
-
-    html += '<div class="compact-days">';
-
-    // Empty cells for first week
-    for (let i = 0; i < firstDay; i++) {
-        html += '<span class="compact-day empty"></span>';
-    }
-
-    // Day numbers
-    for (let day = 1; day <= daysInMonth; day++) {
-        const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        const dayEvents = events.filter(e => e.date === dateStr);
-        const isToday = day === today.getDate() &&
-                        currentMonth === today.getMonth() &&
-                        currentYear === today.getFullYear();
-        const isSelected = selectedDate &&
-                          day === selectedDate.getDate() &&
-                          currentMonth === selectedDate.getMonth() &&
-                          currentYear === selectedDate.getFullYear();
-
-        const classes = [
-            'compact-day',
-            isToday ? 'today' : '',
-            isSelected ? 'selected' : '',
-            dayEvents.length > 0 ? 'has-events' : ''
-        ].filter(Boolean).join(' ');
-
-        html += `
-            <span class="${classes}"
-                  data-date="${dateStr}"
-                  onclick="selectCompactDate('${dateStr}')">
-                ${day}
-                ${dayEvents.length > 0 ? '<span class="event-dot"></span>' : ''}
-            </span>
-        `;
-    }
-
-    html += '</div></div>';
-
-    // Agenda section
-    html += renderAgendaSection();
-
-    html += '</div>';
-
-    grid.innerHTML = html;
-}
-
-function selectCompactDate(dateStr) {
-    selectedDate = new Date(dateStr + 'T12:00:00');
-    renderCalendar();
-}
-
-function renderAgendaSection() {
-    const dateStr = selectedDate.toISOString().split('T')[0];
-    const dayEvents = events.filter(e => e.date === dateStr)
-                           .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
-
-    const formattedDate = selectedDate.toLocaleDateString('en-US', {
-        weekday: 'long',
-        month: 'long',
-        day: 'numeric'
-    });
-
-    let html = '<div class="compact-agenda">';
-    html += `<div class="agenda-header">${formattedDate}</div>`;
-    html += '<div class="agenda-events">';
-
-    if (dayEvents.length === 0) {
-        html += '<div class="agenda-empty">No events</div>';
-    } else {
-        dayEvents.forEach(event => {
-            html += `
-                <div class="agenda-event" onclick="openEventDetail(${event.id})">
-                    <div class="agenda-event-time">${event.time ? formatTime(event.time) : 'All day'}</div>
-                    <div class="agenda-event-title">${escapeHtml(event.title)}</div>
-                </div>
-            `;
-        });
-    }
-
-    html += '</div></div>';
-    return html;
-}
-
-// ============================================
-// ULTRA-COMPACT VIEW (Week Strip)
-// ============================================
-
-function renderUltraCompactView() {
-    const grid = document.getElementById('calendarGrid');
-
-    // Update month/year header
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'];
-    document.getElementById('monthYear').textContent = `${monthNames[currentMonth]} ${currentYear}`;
-
-    // Get the week containing selectedDate
-    const weekStart = getWeekStart(selectedDate);
-    const weekDays = [];
-    for (let i = 0; i < 7; i++) {
-        const d = new Date(weekStart);
-        d.setDate(d.getDate() + i);
-        weekDays.push(d);
-    }
-
-    const today = new Date();
-
-    let html = '<div class="ultra-compact-calendar">';
-
-    // Week strip
-    html += '<div class="week-strip">';
-    weekDays.forEach(day => {
-        const dateStr = formatDateForStorage(day);
-        const dayEvents = events.filter(e => e.date === dateStr);
-        const isToday = day.toDateString() === today.toDateString();
-        const isSelected = day.toDateString() === selectedDate.toDateString();
-
-        const dayName = day.toLocaleDateString('en-US', { weekday: 'short' }).charAt(0);
-        const dayNum = day.getDate();
-
-        const classes = [
-            'week-strip-day',
-            isToday ? 'today' : '',
-            isSelected ? 'selected' : '',
-            dayEvents.length > 0 ? 'has-events' : ''
-        ].filter(Boolean).join(' ');
-
-        html += `
-            <div class="${classes}"
-                 data-date="${dateStr}"
-                 onclick="selectCompactDate('${dateStr}')">
-                <span class="week-strip-name">${dayName}</span>
-                <span class="week-strip-num">${dayNum}</span>
-                ${dayEvents.length > 0 ? '<span class="week-dot"></span>' : ''}
-            </div>
-        `;
-    });
-    html += '</div>';
-
-    // Navigation hint
-    html += `
-        <div class="week-nav-hint">
-            <button class="week-nav-btn" onclick="navigateWeek(-1)">‹</button>
-            <span>${selectedDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
-            <button class="week-nav-btn" onclick="navigateWeek(1)">›</button>
-        </div>
-    `;
-
-    // Day events (reuse agenda)
-    html += renderAgendaSection();
-
-    html += '</div>';
-
-    grid.innerHTML = html;
-}
-
-function getWeekStart(date) {
-    const d = new Date(date);
-    const day = d.getDay();
-    const diff = d.getDate() - day;
-    return new Date(d.setDate(diff));
-}
-
-function navigateWeek(direction) {
-    selectedDate.setDate(selectedDate.getDate() + (direction * 7));
-    renderCalendar();
-}
-
-function formatDateForStorage(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-}
-
-function isTodayDate(day) {
-    const today = new Date();
-    return day === today.getDate() &&
-           currentMonth === today.getMonth() &&
-           currentYear === today.getFullYear();
-}
-
-function formatTime(time) {
-    if (!time) return '';
-    const [hours, minutes] = time.split(':');
-    const h = parseInt(hours);
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    const displayHour = h % 12 || 12;
-    return `${displayHour}:${minutes} ${ampm}`;
-}
-
-function changeMonth(direction) {
-    if (currentView === 'month') {
-        // Navigate months
-        currentMonth += direction;
-        if (currentMonth > 11) {
-            currentMonth = 0;
-            currentYear++;
-        }
-        if (currentMonth < 0) {
-            currentMonth = 11;
-            currentYear--;
-        }
-
-        // Keep selectedDate in sync with current month (Milestone 8.7)
-        if (selectedDate.getMonth() !== currentMonth || selectedDate.getFullYear() !== currentYear) {
-            selectedDate = new Date(currentYear, currentMonth, 1);
-        }
-
-        renderCalendar();
-    } else {
-        // Navigate days
-        currentDay += direction;
-
-        const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-
-        if (currentDay > daysInMonth) {
-            currentDay = 1;
-            currentMonth++;
-            if (currentMonth > 11) {
-                currentMonth = 0;
-                currentYear++;
-            }
-        }
-
-        if (currentDay < 1) {
-            currentMonth--;
-            if (currentMonth < 0) {
-                currentMonth = 11;
-                currentYear--;
-            }
-            currentDay = new Date(currentYear, currentMonth + 1, 0).getDate();
-        }
-
-        renderDayView();
-    }
-}
-
-// ============================================
-// VIEW SWITCHING
-// ============================================
-
-function switchView(view) {
-    currentView = view;
-
-    // Update button states
-    document.getElementById('monthViewBtn').classList.toggle('active', view === 'month');
-    document.getElementById('dayViewBtn').classList.toggle('active', view === 'day');
-
-    // Show/hide appropriate grid
-    if (view === 'month') {
-        document.getElementById('calendarGrid').style.display = 'grid';
-        document.getElementById('dayViewGrid').style.display = 'none';
-        renderCalendar();
-    } else {
-        document.getElementById('calendarGrid').style.display = 'none';
-        document.getElementById('dayViewGrid').style.display = 'block';
-        renderDayView();
-    }
-
-    lucide.createIcons();
-}
-
-// ============================================
-// DAY VIEW RENDERING
-// ============================================
-
-function renderDayView() {
-    const date = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`;
-    const dayEvents = events.filter(e => e.date === date);
-
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'];
-    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const dayOfWeek = new Date(currentYear, currentMonth, currentDay).getDay();
-
-    document.getElementById('monthYear').textContent =
-        `${dayNames[dayOfWeek]}, ${monthNames[currentMonth]} ${currentDay}, ${currentYear}`;
-
-    let html = '<div class="day-view-container">';
-
-    // Time labels column
-    html += '<div class="day-view-times">';
-    for (let hour = 6; hour < 22; hour++) {
-        const displayHour = hour % 12 || 12;
-        const ampm = hour < 12 ? 'AM' : 'PM';
-        html += `<div class="time-slot-label">${displayHour}:00 ${ampm}</div>`;
-    }
-    html += '</div>';
-
-    // Events column
-    html += '<div class="day-view-events">';
-
-    // Time slots (for clicking to create events)
-    for (let hour = 6; hour < 22; hour++) {
-        html += `<div class="time-slot" data-hour="${hour}"></div>`;
-    }
-
-    // Render events as positioned blocks
-    dayEvents.forEach(event => {
-        const startHour = event.time ? parseInt(event.time.split(':')[0]) : 9;
-        const startMinute = event.time ? parseInt(event.time.split(':')[1]) : 0;
-        const endHour = event.endTime ? parseInt(event.endTime.split(':')[0]) : startHour + 1;
-        const endMinute = event.endTime ? parseInt(event.endTime.split(':')[1]) : startMinute;
-
-        // Calculate position and height
-        const topPosition = ((startHour - 6) * 60) + (startMinute / 60 * 60);
-        const durationMinutes = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
-        const height = (durationMinutes / 60) * 60;
-
-        const endTimeFormatted = event.endTime ? formatTime(event.endTime) : '';
-
-        html += `
-            <div class="day-event-block"
-                 style="top: ${topPosition}px; height: ${height}px;"
-                 onclick="openEventDetail(${event.id})"
-                 data-event-id="${event.id}">
-                <div class="day-event-title">${event.title}</div>
-                <div class="day-event-time">${formatTime(event.time)}${endTimeFormatted ? ' - ' + endTimeFormatted : ''}</div>
-                <div class="resize-handle"
-                     onmousedown="startResize(event, ${event.id})"
-                     onclick="event.stopPropagation()"></div>
-            </div>
-        `;
-    });
-
-    html += '</div></div>';
-
-    document.getElementById('dayViewGrid').innerHTML = html;
-    lucide.createIcons();
-}
-
-// ============================================
-// EVENT RESIZE (DAY VIEW)
-// ============================================
-
-let resizingEventId = null;
-let resizeStartY = 0;
-let resizeStartHeight = 0;
-
-function startResize(e, eventId) {
-    e.preventDefault();
-    e.stopPropagation();
-
-    resizingEventId = eventId;
-    resizeStartY = e.clientY;
-
-    const eventBlock = e.target.closest('.day-event-block');
-    resizeStartHeight = eventBlock.offsetHeight;
-
-    // Add event listeners
-    document.addEventListener('mousemove', handleResize);
-    document.addEventListener('mouseup', stopResize);
-
-    eventBlock.classList.add('resizing');
-}
-
-function handleResize(e) {
-    if (!resizingEventId) return;
-
-    const eventBlock = document.querySelector(`[data-event-id="${resizingEventId}"]`);
-    if (!eventBlock) return;
-
-    const deltaY = e.clientY - resizeStartY;
-    const newHeight = Math.max(30, resizeStartHeight + deltaY); // Min 30px (30 minutes)
-
-    eventBlock.style.height = `${newHeight}px`;
-}
-
-async function stopResize(e) {
-    if (!resizingEventId) return;
-
-    const eventBlock = document.querySelector(`[data-event-id="${resizingEventId}"]`);
-    if (eventBlock) {
-        eventBlock.classList.remove('resizing');
-
-        // Calculate new end time based on height
-        const height = eventBlock.offsetHeight;
-        const durationMinutes = Math.round((height / 60) * 60); // Convert px to minutes
-
-        const event = events.find(ev => ev.id === resizingEventId);
-        if (event && event.time) {
-            const [startHour, startMinute] = event.time.split(':').map(Number);
-            const startTotalMinutes = startHour * 60 + startMinute;
-            const endTotalMinutes = startTotalMinutes + durationMinutes;
-
-            const endHour = Math.floor(endTotalMinutes / 60);
-            const endMinute = endTotalMinutes % 60;
-            const newEndTime = `${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}`;
-
-            // Update event
-            event.endTime = newEndTime;
-
-            // Save to Supabase
-            try {
-                const response = await fetch('/api/events', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(event)
-                });
-
-                if (!response.ok) {
-                    console.warn('Failed to save to Supabase, using localStorage only');
-                } else {
-                    console.log('[Storage] Event duration updated in Supabase');
-                }
-            } catch (error) {
-                console.error('[Storage] Supabase error:', error);
-            }
-
-            // Save to localStorage
-            localStorage.setItem('events', JSON.stringify(events));
-
-            // Log to dev panel
-            if (window.devPanelModule) {
-                window.devPanelModule.logAction(`Resized "${event.title}" to ${formatTime(event.time)} - ${formatTime(newEndTime)}`);
-            }
-
-            // Show feedback
-            showToast('Event duration updated');
-
-            // Re-render
-            renderDayView();
-
-            // Refresh triage if open
-            if (window.TriagePanel?.isOpen) {
-                window.TriagePanel.refresh();
-            }
-        }
-    }
-
-    // Clean up
-    document.removeEventListener('mousemove', handleResize);
-    document.removeEventListener('mouseup', stopResize);
-    resizingEventId = null;
-    resizeStartY = 0;
-    resizeStartHeight = 0;
-}
 
 // ============================================
 // DRAG AND DROP HANDLERS
@@ -769,7 +158,7 @@ async function handleDrop(e, targetDate) {
     showToast('Event moved');
 
     // Re-render calendar
-    renderCalendar();
+    if (window.renderCalendar) window.renderCalendar();
 
     // Refresh triage if open
     if (window.TriagePanel?.isOpen) {
@@ -795,7 +184,7 @@ async function clearCalendar() {
 
         events = [];
         localStorage.setItem('events', JSON.stringify(events));
-        renderCalendar();
+        if (window.renderCalendar) window.renderCalendar();
 
         // Refresh triage if open
         if (window.TriagePanel?.isOpen) {
@@ -1171,7 +560,7 @@ async function saveEventChanges() {
         localStorage.setItem('events', JSON.stringify(events));
 
         // Update UI
-        renderCalendar();
+        if (window.renderCalendar) window.renderCalendar();
         closeEventDetail();
 
         // Log to dev panel
@@ -1228,7 +617,7 @@ async function saveEventChanges() {
     localStorage.setItem('events', JSON.stringify(events));
 
     // Update UI
-    renderCalendar();
+    if (window.renderCalendar) window.renderCalendar();
     closeEventDetail();
 
     // Log to dev panel
@@ -1292,7 +681,7 @@ async function executeDeleteEvent() {
     localStorage.setItem('events', JSON.stringify(events));
 
     // Update UI
-    renderCalendar();
+    if (window.renderCalendar) window.renderCalendar();
     closeDeleteConfirm();
     closeEventDetail();
 
@@ -1365,7 +754,7 @@ async function handleToastAction(action, data) {
                     if (idx > -1) events.splice(idx, 1);
                 }
                 await saveEvents();
-                renderCalendar();
+                if (window.renderCalendar) window.renderCalendar();
                 showToast('Undone', 'info');
             }
             break;
@@ -1396,6 +785,7 @@ async function loadEvents() {
 
         const data = await response.json();
         events = data.events || [];
+        window.events = events; // Update global reference
 
         console.log('[Storage] Loaded', events.length, 'events from Supabase');
 
@@ -1409,8 +799,14 @@ async function loadEvents() {
         const stored = localStorage.getItem('events');
         if (stored) {
             events = JSON.parse(stored);
+            window.events = events; // Update global reference
             console.log('[Storage] Loaded', events.length, 'events from localStorage');
         }
+    }
+
+    // Render calendar after loading events
+    if (window.renderCalendar) {
+        window.renderCalendar();
     }
 }
 
@@ -1463,7 +859,7 @@ window.addTestEvent = function(title, date, time) {
     console.log('[Test] Adding test event:', testEvent);
     events.push(testEvent);
     saveEvents();
-    renderCalendar();
+    if (window.renderCalendar) window.renderCalendar();
     console.log('[Test] Event added. Total events:', events.length);
 };
 
@@ -1477,7 +873,7 @@ window.viewEvents = function() {
 window.clearEvents = function() {
     events = [];
     saveEvents();
-    renderCalendar();
+    if (window.renderCalendar) window.renderCalendar();
     console.log('[Debug] All events cleared');
 };
 
@@ -1500,7 +896,7 @@ async function createEventsFromResponse(eventDataArray) {
         events.push(newEvent);
     }
     await saveEvents();
-    renderCalendar();
+    if (window.renderCalendar) window.renderCalendar();
 }
 
 async function createTaskFromResponse(taskData, originalText) {
@@ -1515,7 +911,7 @@ async function createTaskFromResponse(taskData, originalText) {
     };
     events.push(newEvent);
     await saveEvents();
-    renderCalendar();
+    if (window.renderCalendar) window.renderCalendar();
 }
 
 async function createNoteFromResponse(text) {
@@ -1764,10 +1160,14 @@ async function confirmEventPreview() {
 }
 
 // ============================================
-// GLOBAL FUNCTIONS (Milestone 8.7)
+// HELPER FUNCTIONS
 // ============================================
 
-// Make layout functions globally accessible
-window.updateLayoutMode = updateLayoutMode;
-window.selectCompactDate = selectCompactDate;
-window.navigateWeek = navigateWeek;
+function formatTime(time) {
+    if (!time) return '';
+    const [hours, minutes] = time.split(':');
+    const h = parseInt(hours);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const displayHour = h % 12 || 12;
+    return `${displayHour}:${minutes} ${ampm}`;
+}

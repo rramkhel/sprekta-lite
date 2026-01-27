@@ -83,22 +83,8 @@ const PanelManager = {
   },
 
   adaptCalendar(panelCount) {
-    if (panelCount >= 2) {
-      // Switch to compact mode
-      if (window.enterCompactMode) {
-        window.enterCompactMode();
-      }
-    } else {
-      // Switch to standard mode
-      if (window.exitCompactMode) {
-        window.exitCompactMode();
-      }
-    }
-
-    // Dispatch event for calendar component to handle
-    window.dispatchEvent(new CustomEvent('calendar-layout-change', {
-      detail: { compact: panelCount >= 2 }
-    }));
+    // Calendar handles its own layout via CSS now
+    // No mode switching needed
   },
 
   saveState() {

@@ -66,83 +66,30 @@
 
         <!-- Center: Calendar (always visible) -->
         <div id="calendar-panel" class="panel panel-center">
-            <div class="calendar-view">
-                <div class="calendar-container">
-                    <!-- Standard Calendar Header -->
-                    <div class="calendar-header">
-                        <div class="calendar-nav">
-                            <button class="nav-btn" onclick="changeMonth(-1)">
-                                <i data-lucide="chevron-left"></i>
-                            </button>
-                            <div class="month-year" id="monthYear"></div>
-                            <button class="nav-btn" onclick="changeMonth(1)">
-                                <i data-lucide="chevron-right"></i>
-                            </button>
-                        </div>
-                        <div class="header-actions">
-                            <div class="view-toggle">
-                                <button class="view-toggle-btn active" id="monthViewBtn" onclick="switchView('month')">
-                                    <i data-lucide="calendar"></i>
-                                    Month
-                                </button>
-                                <button class="view-toggle-btn" id="dayViewBtn" onclick="switchView('day')">
-                                    <i data-lucide="clock"></i>
-                                    Day
-                                </button>
-                            </div>
-                            <button class="clear-btn" onclick="clearCalendar()">
-                                <i data-lucide="trash-2"></i>
-                                Clear All
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Standard Calendar Grid -->
-                    <div class="calendar-grid" id="calendarGrid"></div>
-                    <div class="day-view-grid" id="dayViewGrid" style="display: none;"></div>
-
-                    <!-- Compact Calendar Header (iOS-style) -->
-                    <div class="calendar-header-compact">
-                        <button class="nav-btn-compact" onclick="changeMonthCompact(-1)">
+            <div class="calendar-view" id="calendarView">
+                <!-- Header -->
+                <div class="calendar-header">
+                    <div class="calendar-nav">
+                        <button class="nav-btn" id="navPrev">
                             <i data-lucide="chevron-left"></i>
                         </button>
-                        <div class="compact-header-center">
-                            <div class="month-year-compact" id="monthYearCompact"></div>
-                            <div class="compact-view-toggle">
-                                <button class="compact-view-btn active" id="compactMonthBtn" onclick="switchCompactView('month')">
-                                    Month
-                                </button>
-                                <button class="compact-view-btn" id="compactWeekBtn" onclick="switchCompactView('week')">
-                                    Week
-                                </button>
-                            </div>
-                        </div>
-                        <button class="nav-btn-compact" onclick="changeMonthCompact(1)">
+                        <div class="calendar-title" id="calendarTitle"></div>
+                        <button class="nav-btn" id="navNext">
                             <i data-lucide="chevron-right"></i>
                         </button>
                     </div>
-
-                    <!-- Compact Calendar Grid (Month View) -->
-                    <div class="calendar-grid-compact" id="calendarGridCompact"></div>
-
-                    <!-- Compact Week View -->
-                    <div class="calendar-week-compact" id="calendarWeekCompact">
-                        <div class="week-view-container">
-                            <div class="week-view-times" id="weekViewTimes"></div>
-                            <div class="week-view-days" id="weekViewDays"></div>
-                        </div>
-                    </div>
-
-                    <!-- Selected Day Events -->
-                    <div class="calendar-day-events">
-                        <div class="day-events-header">
-                            <h3 id="selectedDayHeader">Today</h3>
-                        </div>
-                        <div class="day-events-list" id="dayEventsList">
-                            <div class="day-events-empty">No events scheduled</div>
-                        </div>
+                    <div class="view-toggle">
+                        <button class="view-btn active" data-view="month">Month</button>
+                        <button class="view-btn" data-view="week">Week</button>
+                        <button class="view-btn" data-view="day">Day</button>
                     </div>
                 </div>
+
+                <!-- Content area -->
+                <div class="calendar-content" id="calendarContent"></div>
+
+                <!-- Events list (month view only) -->
+                <div class="calendar-events" id="calendarEvents"></div>
             </div>
         </div>
 
