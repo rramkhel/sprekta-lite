@@ -7,7 +7,7 @@
 // STATE
 // ============================================
 
-let currentView = 'month'; // 'month' | 'week' | 'day'
+let currentView = 'week'; // 'month' | 'week' | 'day'
 let selectedDate = new Date();
 let viewingMonth = new Date().getMonth();
 let viewingYear = new Date().getFullYear();
@@ -24,6 +24,11 @@ export function initCalendar() {
   // Set up view toggle
   document.querySelectorAll('.view-btn').forEach(btn => {
     btn.addEventListener('click', () => switchView(btn.dataset.view));
+  });
+
+  // Set initial active button
+  document.querySelectorAll('.view-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.view === currentView);
   });
 
   // Initial render
