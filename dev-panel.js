@@ -61,11 +61,9 @@ function setupEventListeners() {
   // Profile toggle
   const profileToggle = document.getElementById('use-profile-toggle');
   if (profileToggle) {
-    // Load saved state
+    // Load saved state (default to true if no saved preference)
     const saved = localStorage.getItem('sprekta-use-profile');
-    if (saved !== null) {
-      profileToggle.checked = saved === 'true';
-    }
+    profileToggle.checked = saved !== null ? saved === 'true' : true;
     updateProfileStatus(profileToggle.checked);
 
     profileToggle.addEventListener('change', (e) => {
