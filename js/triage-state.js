@@ -135,6 +135,18 @@ const TriageState = {
       };
       this.messages.push(assistantMessage);
 
+      // If event was created, refresh calendar
+      if (data.eventCreated) {
+        // Trigger calendar refresh
+        if (window.renderCalendar && typeof window.renderCalendar === 'function') {
+          window.renderCalendar();
+        }
+        // Also dispatch event for any other listeners
+        window.dispatchEvent(new CustomEvent('eventsChanged', {
+          detail: { eventId: data.eventId, source: 'chat' }
+        }));
+      }
+
       return assistantMessage;
 
     } catch (error) {

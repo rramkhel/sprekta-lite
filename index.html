@@ -49,7 +49,12 @@
         <div id="chat-panel" class="panel panel-left hidden">
             <div class="panel-header">
                 <h3>Chat</h3>
-                <button class="panel-close" data-panel="chat">×</button>
+                <div class="panel-header-actions">
+                    <button id="chat-new" class="panel-action-btn" title="New conversation">
+                        <i data-lucide="plus-circle"></i>
+                    </button>
+                    <button class="panel-close" data-panel="chat">×</button>
+                </div>
             </div>
             <div class="chat-panel-messages" id="chat-messages">
                 <!-- Messages render here -->

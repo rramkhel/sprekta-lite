@@ -182,6 +182,71 @@ export default async function handler(req, res) {
       };
     }
 
+    // ============================================
+    // EVENT CREATION FROM CHAT
+    // ============================================
+
+    let createdEvent = null;
+
+    // Handle immediate commits - create event now
+    if (parsed.commit === 'immediate' && parsed.captured?.title) {
+      const { title, date, time, endTime, location, notes } = parsed.captured;
+
+      // Only create if we have at least a title and date
+      if (date) {
+        try {
+          // Generate unique ID (timestamp-based)
+          const eventId = Date.now();
+
+          // Combine location and notes into notes field
+          let combinedNotes = '';
+          if (location && notes) {
+            combinedNotes = `Location: ${location}\n${notes}`;
+          } else if (location) {
+            combinedNotes = `Location: ${location}`;
+          } else if (notes) {
+            combinedNotes = notes;
+          }
+
+          const { data: event, error: eventError } = await supabase
+            .from('events')
+            .insert({
+              id: eventId,
+              title: title,
+              date: date,
+              time: time || null,
+              end_time: endTime || null,
+              notes: combinedNotes || null,
+              conversation_id: id  // Link to this conversation
+            })
+            .select()
+            .single();
+
+          if (eventError) {
+            console.error('Failed to create event from chat:', eventError);
+          } else {
+            createdEvent = event;
+            console.log('Created event from chat:', event.id, event.title);
+          }
+        } catch (err) {
+          console.error('Event creation error:', err);
+        }
+      } else {
+        console.log('Skipping event creation - missing date:', parsed.captured);
+      }
+    }
+
+    // TODO (Sprint 11+): Handle other commit types
+    // if (parsed.commit === 'pending') {
+    //   // Store in conversation state, don't create yet
+    // }
+    // if (parsed.commit === 'update' && parsed.eventId) {
+    //   // Update existing event
+    // }
+    // if (parsed.commit === 'finalize') {
+    //   // Create all pending events
+    // }
+
     // Save assistant message
     const { error: assistantMsgError } = await supabase
       .from('messages')
@@ -206,7 +271,10 @@ export default async function handler(req, res) {
     return res.status(200).json({
       reply: parsed.reply,
       phase: parsed.phase || 'capture',
-      captured: parsed.captured || null
+      commit: parsed.commit || null,
+      captured: parsed.captured || null,
+      eventId: createdEvent?.id || null,
+      eventCreated: !!createdEvent
     });
 
   } catch (error) {
@@ -247,45 +315,49 @@ Examples:
 - "Captured Q1 report deadline for Friday."
 
 **Lines 2-4: Contextual Questions (2-3 max)**
-Based on what's MISSING or what the EVENT TYPE implies. Format as a short list.
+Based on what's MISSING or what the EVENT TYPE implies. Format as a short list with bullet points.
 
 Choose questions based on:
 - **Missing time?** → "What time works for this?"
+- **Missing date?** → "When is this happening?"
 - **Missing location?** → "Where is this happening?"
 - **Evening event + coming from work?** → "How are you getting there?"
 - **Event with others?** → "Anyone else joining?"
 - **Deadline/task?** → "How much time do you need for this?"
 - **Trip/travel?** → "Anything you need to prep beforehand?"
+- **Event that needs prep?** → "Should I block time before for prep/travel?"
 
 Don't ask about things they already told you.
 
 **Line 5: Open Close**
 A natural transition that invites more input without demanding it.
+
 Good examples:
 - "Or if there's more on your mind, I'm listening."
 - "What else is floating around?"
 - "Anything else competing for your attention?"
 - "I'm here if there's more."
 
-Bad examples (don't use):
-- "Tell me something else" (too robotic)
-- "What else do you need to plan?" (too formal)
-- "Is there anything else I can help with?" (too customer-service)
+Bad examples (avoid):
+- "Tell me something else" (robotic)
+- "What else do you need to plan?" (formal)
+- "Is there anything else I can help with?" (customer-service)
 
 ## HANDLING FOLLOW-UPS
 
 **If user answers a question:**
 - Acknowledge briefly ("Got it, driving.")
-- Update the event if needed
-- Offer 1-2 more relevant questions OR confirm the event is complete
+- Update the event if relevant
+- Offer 1-2 more relevant questions OR confirm complete
 - Keep it tight - 2-3 sentences max
+- Use commit: "update" if modifying the previous event
 
 **If user dumps another item instead of answering:**
 - That's fine! They're controlling the pace
 - Capture the new item
 - Confirm it
 - Offer new questions for THAT item
-- Don't nag about the previous questions
+- Don't nag about unanswered questions
 
 **If user dumps multiple items at once:**
 - Capture all of them
@@ -302,35 +374,48 @@ Got it - captured 3 things:
 Want to flesh any of these out, or keep going?
 """
 
+For multiple items, create events for items with enough info (at least title + date). Items missing critical info should be mentioned but not created yet.
+
 ## WHAT NOT TO DO
 
-❌ Don't analyze logistics unprompted ("Your window is between...")
-❌ Don't ask multiple questions in a row
+❌ Don't analyze logistics unprompted ("Your window is between leaving office and 6:15pm...")
+❌ Don't organize their thoughts into categories and structures
+❌ Don't ask multiple questions in a row without confirming first
 ❌ Don't interrogate - questions are offers
 ❌ Don't over-explain or be verbose
 ❌ Don't use formal/corporate language
 ❌ Don't repeat back everything they said in detail
+❌ Don't say "I've added" if you're not sure about date/time - say "Captured" instead
 
 ## OUTPUT FORMAT
 
-Respond with JSON:
+Respond with valid JSON only (no markdown code blocks):
 {
   "reply": "Your response text here",
   "phase": "capture|clarify|complete",
+  "commit": "immediate|pending|update|finalize|null",
   "captured": {
     "title": "Event title",
     "date": "YYYY-MM-DD or null",
-    "time": "HH:MM or null",
+    "time": "HH:MM (24-hour) or null",
+    "endTime": "HH:MM (24-hour) or null",
     "location": "Location or null",
-    "notes": "Any other details"
+    "notes": "Any additional details mentioned"
   }
 }
 
-The "captured" object helps the UI know what was added. Include it whenever you capture something new.
-Phases:
-- "capture" = Just captured something, offering questions
-- "clarify" = User is answering questions, refining
-- "complete" = User indicated they're done or event is fully fleshed out`;
+**COMMIT VALUES:**
+- "immediate" → Create the event now. Use for clear, complete-enough captures.
+- "pending" → Don't create yet. Use when user explicitly wants to plan/discuss before committing.
+- "update" → User refined a previous capture. Update that event.
+- "finalize" → Planning done, create all pending items.
+- null → Just chatting, no calendar action needed.
+
+**DEFAULT BEHAVIOR:** Use "immediate" for most captures. If user gives you a title and at least a date OR time, commit it. Better to create and refine than to hold everything in limbo.
+
+**CAPTURED OBJECT:** Include this whenever you identify event information, even if incomplete. Set null for missing fields - don't guess or make up times.
+
+**MULTIPLE ITEMS:** When user dumps multiple items, return captured for the FIRST item only. Mention the others in your reply and the system will handle subsequent messages.`;
 
   if (profile) {
     prompt += `
@@ -339,7 +424,7 @@ Phases:
 
 ## USER PROFILE
 
-Use this to personalize your questions. If they mention patterns (like always driving, or being bad at prep), use that context.
+Use this context to personalize. Reference their patterns, protect their priorities, anticipate based on what you know.
 
 ${profile}`;
   }

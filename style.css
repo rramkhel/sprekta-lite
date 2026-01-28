@@ -3237,6 +3237,35 @@ body {
   letter-spacing: 0.5px;
 }
 
+.panel-header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.panel-action-btn {
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 4px;
+  transition: all 150ms ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.panel-action-btn:hover {
+  background: #f0f0f0;
+  color: #6366f1;
+}
+
+.panel-action-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
 .panel-close {
   background: none;
   border: none;

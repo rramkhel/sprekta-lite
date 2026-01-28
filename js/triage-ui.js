@@ -191,6 +191,11 @@ const ChatUI = {
       if (e.target.id === 'chat-send' || e.target.closest('#chat-send')) {
         this.handleSend();
       }
+
+      // New chat button
+      if (e.target.id === 'chat-new' || e.target.closest('#chat-new')) {
+        this.handleNewChat();
+      }
     });
 
     // Enter to send (shift+enter for newline) - use event delegation
@@ -227,6 +232,28 @@ const ChatUI = {
         this.hideTyping();
         this.showError('Failed to send message. Please try again.');
       }
+    }
+  },
+
+  async handleNewChat() {
+    // Confirm with user if there are messages
+    const messages = TriageState.getMessages();
+    if (messages && messages.length > 0) {
+      if (!confirm('Start a new conversation? Your current conversation will be saved.')) {
+        return;
+      }
+    }
+
+    // Show loading
+    this.renderLoading();
+
+    try {
+      // Start new conversation
+      await TriageState.newConversation();
+      // Render empty state
+      this.render();
+    } catch (error) {
+      this.renderError('Failed to start new conversation');
     }
   },
 
