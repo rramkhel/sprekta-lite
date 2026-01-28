@@ -31,9 +31,11 @@ const TriageState = {
   },
 
   // Start or resume conversation
-  async start(profileText = null) {
+  async start(profileText = null, options = {}) {
     this.status = 'loading';
     this.profile = profileText;
+
+    const { forceNew = false } = options;
 
     try {
       const headers = await this.getHeaders();
@@ -43,7 +45,8 @@ const TriageState = {
         headers,
         body: JSON.stringify({
           sessionId: Session.getId(),
-          profileText: profileText
+          profileText: profileText,
+          forceNew: forceNew
         })
       });
 
@@ -159,13 +162,14 @@ const TriageState = {
 
   // Clear and start new conversation
   async newConversation(profileText = null) {
-    Session.regenerate();
+    // Clear local state
     this.conversationId = null;
     this.messages = [];
     this.profile = profileText;
     this.status = 'idle';
 
-    return this.start(profileText);
+    // Force new conversation (archives old one server-side)
+    return this.start(profileText, { forceNew: true });
   },
 
   // Resume an existing conversation

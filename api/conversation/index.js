@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { sessionId, profileText } = req.body;
+    const { sessionId, profileText, forceNew } = req.body;
     const authHeader = req.headers.authorization;
 
     let userId = null;
@@ -59,7 +59,19 @@ export default async function handler(req, res) {
 
     const { data: existing } = await query.maybeSingle();
 
-    if (existing) {
+    // If forcing new conversation and one exists, archive it
+    if (forceNew && existing) {
+      const { error: archiveError } = await supabase
+        .from('conversations')
+        .update({ status: 'resolved' })
+        .eq('id', existing.id);
+
+      if (archiveError) {
+        console.error('Failed to archive conversation:', archiveError);
+        // Continue anyway - create new conversation
+      }
+    } else if (existing && !forceNew) {
+      // Return existing conversation
       return res.status(200).json({
         conversationId: existing.id,
         isNew: false
