@@ -183,6 +183,7 @@ async function clearCalendar() {
         }
 
         events = [];
+        window.events = events; // Update global reference
         localStorage.setItem('events', JSON.stringify(events));
         if (window.renderCalendar) window.renderCalendar();
 
@@ -659,6 +660,7 @@ async function executeDeleteEvent() {
 
     // Remove from array
     events = events.filter(e => e.id !== currentEventId);
+    window.events = events; // Update global reference
 
     // Delete from Supabase
     try {
@@ -872,6 +874,7 @@ window.viewEvents = function() {
 // Clear all events (for debugging)
 window.clearEvents = function() {
     events = [];
+    window.events = events; // Update global reference
     saveEvents();
     if (window.renderCalendar) window.renderCalendar();
     console.log('[Debug] All events cleared');
