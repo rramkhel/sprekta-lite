@@ -117,10 +117,24 @@ const TriageState = {
     try {
       const headers = await this.getHeaders();
 
+      // Check if profile should be used (dev panel toggle)
+      let includeProfile = true;
+      try {
+        const devPanel = await import('../dev-panel.js');
+        if (devPanel.default?.shouldUseProfile) {
+          includeProfile = devPanel.default.shouldUseProfile();
+        }
+      } catch (e) {
+        // Dev panel not available, default to true
+      }
+
       const response = await fetch(`${API_BASE}/${this.conversationId}/message`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ content })
+        body: JSON.stringify({
+          content,
+          includeProfile
+        })
       });
 
       if (!response.ok) {

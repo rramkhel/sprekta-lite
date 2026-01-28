@@ -57,6 +57,22 @@ function setupEventListeners() {
   if (clearLogBtn) {
     clearLogBtn.addEventListener('click', clearActionLog);
   }
+
+  // Profile toggle
+  const profileToggle = document.getElementById('use-profile-toggle');
+  if (profileToggle) {
+    // Load saved state
+    const saved = localStorage.getItem('sprekta-use-profile');
+    if (saved !== null) {
+      profileToggle.checked = saved === 'true';
+    }
+    updateProfileStatus(profileToggle.checked);
+
+    profileToggle.addEventListener('change', (e) => {
+      localStorage.setItem('sprekta-use-profile', e.target.checked);
+      updateProfileStatus(e.target.checked);
+    });
+  }
 }
 
 // ============================================
@@ -190,6 +206,26 @@ function clearActionLog() {
 // ============================================
 
 /**
+ * Update profile status text
+ */
+function updateProfileStatus(enabled) {
+  const status = document.getElementById('profile-status');
+  if (status) {
+    status.textContent = enabled
+      ? 'Profile will be included in chat context'
+      : 'Profile disabled - chat will use generic responses';
+  }
+}
+
+/**
+ * Check if profile should be used
+ */
+export function shouldUseProfile() {
+  const toggle = document.getElementById('use-profile-toggle');
+  return toggle ? toggle.checked : true; // Default to true
+}
+
+/**
  * Get icon for action type
  */
 function getActionIcon(action) {
@@ -267,5 +303,6 @@ window.devPanel = {
 export default {
   initDevPanel,
   updateResponseInspector,
-  logAction
+  logAction,
+  shouldUseProfile
 };

@@ -603,6 +603,13 @@ body {
     left: 20px;
 }
 
+.dev-hint {
+    font-size: 11px;
+    color: #78716c;
+    margin-top: 8px;
+    margin-bottom: 0;
+}
+
 /* Select */
 .dev-select {
     width: 100%;

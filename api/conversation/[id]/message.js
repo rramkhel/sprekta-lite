@@ -22,7 +22,7 @@ export default async function handler(req, res) {
 
   try {
     const { id } = req.query;
-    const { content } = req.body;
+    const { content, includeProfile = true } = req.body;
     const sessionId = req.headers['x-session-id'];
     const authHeader = req.headers.authorization;
 
@@ -70,20 +70,24 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Fetch user's profile if they're logged in
-    let profileText = conversation.profile_text; // Fallback to pasted text
+    // Fetch user's profile if they're logged in AND profile is enabled
+    let profileText = null;
 
-    if (conversation.user_id) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', conversation.user_id)
-        .single();
+    if (includeProfile) {
+      profileText = conversation.profile_text; // Fallback to pasted text
 
-      if (profile) {
-        // Convert structured profile to text
-        const { profileToText } = await import('../../../lib/profile-utils.js');
-        profileText = profileToText(profile);
+      if (conversation.user_id) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', conversation.user_id)
+          .single();
+
+        if (profile) {
+          // Convert structured profile to text
+          const { profileToText } = await import('../../../lib/profile-utils.js');
+          profileText = profileToText(profile);
+        }
       }
     }
 
