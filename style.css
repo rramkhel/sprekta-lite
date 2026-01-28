@@ -4234,8 +4234,8 @@ body {
 }
 
 .week-allday-event {
-  background: #10b981;
-  color: white;
+  background: #a5b4fc;
+  color: #312e81;
   font-size: 11px;
   padding: 3px 6px;
   border-radius: 4px;
@@ -4247,11 +4247,15 @@ body {
 }
 
 .week-allday-event:hover {
-  background: #059669;
+  background: #818cf8;
+  color: white;
 }
 
 /* All-day events in day view */
 .day-allday-section {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   display: grid;
   grid-template-columns: 60px 1fr;
   background: #f5f5f4;
@@ -4276,8 +4280,8 @@ body {
 }
 
 .day-allday-event {
-  background: #10b981;
-  color: white;
+  background: #a5b4fc;
+  color: #312e81;
   font-size: 13px;
   padding: 8px 12px;
   border-radius: 6px;
@@ -4286,7 +4290,8 @@ body {
 }
 
 .day-allday-event:hover {
-  background: #059669;
+  background: #818cf8;
+  color: white;
 }
 
 /* Responsive */
