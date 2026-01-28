@@ -9,6 +9,83 @@
 import * as versionUI from './versioning/version-ui.js';
 
 // ============================================
+// CHAT TEST SCENARIOS
+// ============================================
+
+const CHAT_SCENARIOS = [
+  {
+    id: 'simple-event',
+    name: 'Simple Event',
+    category: 'Basic Capture',
+    input: 'dentist appointment tuesday at 2pm',
+    expected: 'Should capture with date and time, commit: immediate'
+  },
+  {
+    id: 'event-no-time',
+    name: 'Event Without Time',
+    category: 'Basic Capture',
+    input: 'need to call mom this week',
+    expected: 'Should capture title, ask about specific time'
+  },
+  {
+    id: 'event-relative-date',
+    name: 'Relative Date',
+    category: 'Basic Capture',
+    input: 'dinner with Alex tomorrow night',
+    expected: 'Should parse "tomorrow" correctly, might ask for time'
+  },
+  {
+    id: 'multi-item-dump',
+    name: 'Multi-Item Dump',
+    category: 'Advanced',
+    input: 'okay so I have dentist wed 2pm, pick up dry cleaning, and Q1 report due friday',
+    expected: 'Should capture first item, mention others in reply'
+  },
+  {
+    id: 'followup-time',
+    name: 'Follow-up: Add Time',
+    category: 'Conversation',
+    input: '3:30pm',
+    expected: 'Should update previous capture with time (requires prior message)'
+  },
+  {
+    id: 'followup-location',
+    name: 'Follow-up: Add Location',
+    category: 'Conversation',
+    input: 'at the coffee shop on main street',
+    expected: 'Should update previous capture with location'
+  },
+  {
+    id: 'vague-planning',
+    name: 'Vague Planning Request',
+    category: 'Planning',
+    input: 'I need to figure out this weekend',
+    expected: 'Should ask clarifying questions, not create event yet'
+  },
+  {
+    id: 'busy-week',
+    name: 'Overwhelm/Brain Dump',
+    category: 'Planning',
+    input: 'ugh I have so much going on - work deadline, kids birthday party, car needs oil change, and I promised to help my sister move',
+    expected: 'Should acknowledge, start capturing systematically'
+  },
+  {
+    id: 'casual-chat',
+    name: 'Casual Chat (No Event)',
+    category: 'Edge Cases',
+    input: 'hey how are you doing today?',
+    expected: 'Should respond conversationally, no event capture'
+  },
+  {
+    id: 'ambiguous',
+    name: 'Ambiguous Input',
+    category: 'Edge Cases',
+    input: 'sarah thing',
+    expected: 'Should ask for clarification, not guess'
+  }
+];
+
+// ============================================
 // STATE MANAGEMENT
 // ============================================
 
@@ -16,7 +93,8 @@ let devPanelState = {
   isOpen: false,
   lastResponse: null,
   actionLog: [],
-  selectedScenario: null
+  selectedScenario: null,
+  selectedChatScenario: null
 };
 
 // ============================================
@@ -29,6 +107,9 @@ let devPanelState = {
 export function initDevPanel() {
   // Set up event listeners
   setupEventListeners();
+
+  // Render chat scenarios
+  renderChatScenarios();
 
   // Initialize version UI
   versionUI.init();
@@ -285,6 +366,119 @@ function showToast(message) {
     toast.classList.remove('show');
     setTimeout(() => toast.remove(), 300);
   }, 2000);
+}
+
+// ============================================
+// CHAT SCENARIOS
+// ============================================
+
+/**
+ * Render chat scenarios dropdown
+ */
+function renderChatScenarios() {
+  const container = document.getElementById('chat-scenarios-container');
+  if (!container) return;
+
+  // Group by category
+  const categories = {};
+  CHAT_SCENARIOS.forEach(s => {
+    if (!categories[s.category]) categories[s.category] = [];
+    categories[s.category].push(s);
+  });
+
+  let optionsHtml = '<option value="">Select a scenario...</option>';
+
+  Object.entries(categories).forEach(([category, scenarios]) => {
+    optionsHtml += `<optgroup label="${category}">`;
+    scenarios.forEach(s => {
+      optionsHtml += `<option value="${s.id}">${s.name}</option>`;
+    });
+    optionsHtml += '</optgroup>';
+  });
+
+  container.innerHTML = `
+    <select id="chat-scenario-select" class="dev-select">
+      ${optionsHtml}
+    </select>
+    <div id="chat-scenario-preview" class="scenario-preview hidden">
+      <div class="preview-input"></div>
+      <div class="preview-expected"></div>
+    </div>
+    <div class="scenario-actions">
+      <button id="load-chat-scenario" class="dev-btn" disabled>Load into Chat</button>
+      <button id="send-chat-scenario" class="dev-btn dev-btn-primary" disabled>Send to Chat</button>
+    </div>
+  `;
+
+  // Bind events
+  const select = document.getElementById('chat-scenario-select');
+  const loadBtn = document.getElementById('load-chat-scenario');
+  const sendBtn = document.getElementById('send-chat-scenario');
+  const preview = document.getElementById('chat-scenario-preview');
+
+  select?.addEventListener('change', (e) => {
+    const scenario = CHAT_SCENARIOS.find(s => s.id === e.target.value);
+
+    if (scenario) {
+      preview.classList.remove('hidden');
+      preview.querySelector('.preview-input').textContent = `"${scenario.input}"`;
+      preview.querySelector('.preview-expected').textContent = scenario.expected;
+      loadBtn.disabled = false;
+      sendBtn.disabled = false;
+      devPanelState.selectedChatScenario = scenario;
+    } else {
+      preview.classList.add('hidden');
+      loadBtn.disabled = true;
+      sendBtn.disabled = true;
+      devPanelState.selectedChatScenario = null;
+    }
+  });
+
+  loadBtn?.addEventListener('click', () => loadChatScenario(false));
+  sendBtn?.addEventListener('click', () => loadChatScenario(true));
+}
+
+/**
+ * Load scenario into chat (optionally auto-send)
+ */
+async function loadChatScenario(autoSend = false) {
+  const scenario = devPanelState.selectedChatScenario;
+  if (!scenario) return;
+
+  // Open chat panel
+  if (window.PanelManager) {
+    window.PanelManager.open('chat');
+  }
+
+  // Wait for panel to open
+  await new Promise(resolve => setTimeout(resolve, 100));
+
+  // Find chat input
+  const input = document.getElementById('chat-input');
+  if (!input) {
+    console.error('Chat input not found');
+    return;
+  }
+
+  // Fill input
+  input.value = scenario.input;
+  input.focus();
+
+  // Log action
+  logAction(`Loaded scenario: ${scenario.name}`);
+
+  // Auto-send if requested
+  if (autoSend) {
+    // Trigger send (find and click send button)
+    const sendBtn = document.getElementById('chat-send');
+    if (sendBtn) {
+      sendBtn.click();
+    } else {
+      // Fallback: dispatch Enter key
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    }
+    logAction(`Sent scenario: ${scenario.name}`);
+  }
 }
 
 // ============================================

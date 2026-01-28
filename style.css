@@ -625,21 +625,21 @@ body {
 
 /* Buttons */
 .dev-btn {
-    width: 100%;
-    padding: 8px 16px;
-    background: #6366f1;
-    color: white;
-    border: none;
+    padding: 8px 12px;
+    border: 1px solid #d6d3d1;
     border-radius: 6px;
-    font-family: 'Inter', sans-serif;
-    font-size: 13px;
+    background: white;
+    font-size: 12px;
     font-weight: 500;
     cursor: pointer;
     transition: all 150ms ease;
+    font-family: 'Inter', sans-serif;
+    color: #292524;
 }
 
 .dev-btn:hover {
-    background: #4f46e5;
+    background: #f5f5f4;
+    border-color: #a8a29e;
 }
 
 .dev-btn-small {
@@ -686,6 +686,67 @@ body {
 
 .scenario-preview-content .preview-expected {
     color: #292524;
+}
+
+.scenario-preview .preview-input {
+    color: #292524;
+    font-style: italic;
+    margin-bottom: 8px;
+    word-break: break-word;
+}
+
+.scenario-preview .preview-expected {
+    color: #78716c;
+    font-size: 11px;
+}
+
+/* Chat Scenario Styles */
+.scenario-preview.hidden {
+    display: none;
+}
+
+.scenario-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.dev-btn:hover:not(:disabled) {
+    background: #f5f5f4;
+    border-color: #a8a29e;
+}
+
+.dev-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.dev-btn-primary {
+    background: #6366f1;
+    border-color: #6366f1;
+    color: white;
+}
+
+.dev-btn-primary:hover:not(:disabled) {
+    background: #4f46e5;
+    border-color: #4f46e5;
+}
+
+.dev-select:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.dev-select optgroup {
+    font-weight: 600;
+    color: #57534e;
+}
+
+.dev-select option {
+    font-weight: normal;
+    color: #292524;
+    padding: 4px;
 }
 
 /* Response Inspector */
