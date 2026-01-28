@@ -228,6 +228,8 @@ function renderWeekView() {
   days.forEach(day => {
     const dateStr = formatDate(day.getFullYear(), day.getMonth(), day.getDate());
     const dayEvents = getEventsForDate(dateStr);
+    const allDayEvents = dayEvents.filter(e => !e.time);
+    const timedEvents = dayEvents.filter(e => e.time);
     const isToday = day.toDateString() === today.toDateString();
 
     html += `<div class="week-day ${isToday ? 'today' : ''}">`;
@@ -235,6 +237,20 @@ function renderWeekView() {
     html += `<span class="week-day-name">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][day.getDay()]}</span>`;
     html += `<span class="week-day-num">${day.getDate()}</span>`;
     html += '</div>';
+
+    // All-day events section
+    if (allDayEvents.length > 0) {
+      html += '<div class="week-day-allday">';
+      allDayEvents.forEach(event => {
+        html += `
+          <div class="week-allday-event" onclick="openEventDetail(${event.id})">
+            ${escapeHtml(event.title)}
+          </div>
+        `;
+      });
+      html += '</div>';
+    }
+
     html += '<div class="week-day-events">';
 
     // Hour slots
@@ -242,9 +258,8 @@ function renderWeekView() {
       html += `<div class="hour-slot"></div>`;
     }
 
-    // Events positioned absolutely
-    dayEvents.forEach(event => {
-      if (!event.time) return;
+    // Timed events positioned absolutely
+    timedEvents.forEach(event => {
       const [hours, mins] = event.time.split(':').map(Number);
       const top = hours * 40 + (mins / 60) * 40;
       const duration = event.endTime ? calculateDuration(event.time, event.endTime) : 60;
@@ -271,8 +286,25 @@ function renderWeekView() {
 function renderDayView() {
   const dateStr = formatDate(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
   const dayEvents = getEventsForDate(dateStr);
+  const allDayEvents = dayEvents.filter(e => !e.time);
+  const timedEvents = dayEvents.filter(e => e.time);
 
   let html = '<div class="day-grid">';
+
+  // All-day events section (if any)
+  if (allDayEvents.length > 0) {
+    html += '<div class="day-allday-section">';
+    html += '<div class="day-allday-label">All day</div>';
+    html += '<div class="day-allday-events">';
+    allDayEvents.forEach(event => {
+      html += `
+        <div class="day-allday-event" onclick="openEventDetail(${event.id})">
+          ${escapeHtml(event.title)}
+        </div>
+      `;
+    });
+    html += '</div></div>';
+  }
 
   // Time column
   html += '<div class="day-times">';
@@ -289,9 +321,8 @@ function renderDayView() {
     html += `<div class="hour-slot"></div>`;
   }
 
-  // Events
-  dayEvents.forEach(event => {
-    if (!event.time) return;
+  // Timed events
+  timedEvents.forEach(event => {
     const [hours, mins] = event.time.split(':').map(Number);
     const top = hours * 60 + mins;
     const duration = event.endTime ? calculateDuration(event.time, event.endTime) : 60;
