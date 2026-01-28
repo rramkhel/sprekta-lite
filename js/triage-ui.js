@@ -5,6 +5,7 @@ const ChatUI = {
   appMain: null,
   resolveContext: null, // Stores context when resolving an event
   eventsBound: false, // Track if event listeners are already attached
+  conversationLoaded: false, // Track if conversation is already loaded
 
   init() {
     this.panel = document.getElementById('chat-panel');
@@ -20,11 +21,23 @@ const ChatUI = {
       this.openWithContext(e.detail);
     });
 
+    // Listen for panel opened events
+    window.addEventListener('panel-opened', async (e) => {
+      if (e.detail?.panel === 'chat' && !this.conversationLoaded) {
+        await this.loadConversation();
+      }
+    });
+
     // Bind events once on the fixed HTML structure
     this.bindEvents();
 
     // Initial render (empty/loading state)
     this.renderClosed();
+
+    // Check if panel is already open on page load
+    if (window.PanelManager?.isOpen('chat')) {
+      this.loadConversation();
+    }
   },
 
   async open() {
@@ -36,19 +49,24 @@ const ChatUI = {
       this.panel.classList.remove('hidden');
     }
 
+    // Load conversation if not already loaded
+    if (!this.conversationLoaded) {
+      await this.loadConversation();
+    }
+  },
+
+  async loadConversation() {
+    // Prevent multiple simultaneous loads
+    if (this.conversationLoaded) return;
+
     // Show loading state
     this.renderLoading();
 
     try {
       // Start or resume conversation
-      const data = await TriageState.start();
+      await TriageState.start();
       this.render();
-
-      // If logged in, no profile, and new conversation, suggest profile
-      const { default: AuthState } = await import('./auth-state.js');
-      if (AuthState.isLoggedIn() && !TriageState.getProfile() && data.isNew) {
-        this.showProfileSuggestion();
-      }
+      this.conversationLoaded = true;
     } catch (error) {
       this.renderError('Failed to load conversation');
     }
@@ -252,6 +270,8 @@ const ChatUI = {
       await TriageState.newConversation();
       // Render empty state
       this.render();
+      // Keep conversation loaded flag as true (we just loaded a new conversation)
+      this.conversationLoaded = true;
     } catch (error) {
       this.renderError('Failed to start new conversation');
     }
@@ -292,29 +312,6 @@ const ChatUI = {
   // ============================================
   // UTILITIES
   // ============================================
-
-  showProfileSuggestion() {
-    const messagesContainer = document.getElementById('chat-messages');
-    if (!messagesContainer) return;
-
-    messagesContainer.insertAdjacentHTML('beforeend', `
-      <div class="chat-profile-suggestion">
-        <p>💡 <strong>Tip:</strong> Set up your profile for personalized planning help.</p>
-        <button class="suggestion-setup-btn">Set Up Profile</button>
-        <button class="suggestion-dismiss-btn">Maybe later</button>
-      </div>
-    `);
-
-    messagesContainer.querySelector('.suggestion-setup-btn')?.addEventListener('click', async () => {
-      const { default: ProfileUI } = await import('./profile-ui.js');
-      ProfileUI.open();
-      messagesContainer.querySelector('.chat-profile-suggestion')?.remove();
-    });
-
-    messagesContainer.querySelector('.suggestion-dismiss-btn')?.addEventListener('click', () => {
-      messagesContainer.querySelector('.chat-profile-suggestion')?.remove();
-    });
-  },
 
   escapeHtml(text) {
     if (!text) return '';
