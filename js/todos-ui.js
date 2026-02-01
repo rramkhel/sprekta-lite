@@ -2,8 +2,9 @@ const TodosUI = {
   container: null,
   todos: [],
 
-  init(containerId) {
-    this.container = document.getElementById(containerId);
+  init() {
+    // Render into tab content, not modal
+    this.container = document.getElementById('todos-content');
     if (this.container) {
       this.load();
     }
@@ -27,27 +28,25 @@ const TodosUI = {
   render() {
     if (!this.container) return;
 
-    const grouped = this.groupByTimeGroup(this.todos.filter(t => !t.completed));
+    const incomplete = this.todos.filter(t => !t.completed);
+    const grouped = this.groupByTimeGroup(incomplete);
+
+    if (incomplete.length === 0) {
+      this.container.innerHTML = `
+        <div class="todos-empty">
+          <p>No todos yet</p>
+          <p class="text-muted">Chat with Sprekta to add tasks</p>
+        </div>
+      `;
+      return;
+    }
 
     this.container.innerHTML = `
-      <div class="todos-panel">
-        <div class="todos-header">
-          <h3>To-Do List</h3>
-          <div class="todos-header-actions">
-            <button class="todos-refresh-btn" id="todos-refresh">
-              <i data-lucide="refresh-cw"></i>
-            </button>
-            <button class="todos-close-btn" id="todos-close">×</button>
-          </div>
-        </div>
-        <div class="todos-list">
-          ${this.renderGroup('Today', grouped.today)}
-          ${this.renderGroup('Tomorrow', grouped.tomorrow)}
-          ${this.renderGroup('This Week', grouped.this_week)}
-          ${this.renderGroup('Future', grouped.future)}
-          ${this.renderGroup('Someday', grouped.someday)}
-        </div>
-      </div>
+      ${this.renderGroup('Today', grouped.today)}
+      ${this.renderGroup('Tomorrow', grouped.tomorrow)}
+      ${this.renderGroup('This Week', grouped.this_week)}
+      ${this.renderGroup('Future', grouped.future)}
+      ${this.renderGroup('Someday', grouped.someday)}
     `;
 
     this.bindEvents();
@@ -90,16 +89,11 @@ const TodosUI = {
       ? `<span class="todo-deadline">due ${this.formatDate(todo.deadline)}</span>`
       : '';
 
-    const scheduledTime = todo.scheduled_time
-      ? `<span class="todo-time">${this.formatTime(todo.scheduled_time)}</span>`
-      : '';
-
     return `
       <div class="todo-item" data-id="${todo.id}">
-        <button class="todo-checkbox" data-id="${todo.id}">☐</button>
+        <button class="todo-checkbox" data-id="${todo.id}"></button>
         <span class="todo-priority">${priorityIcon}</span>
         <span class="todo-title">${this.escapeHtml(todo.title)}</span>
-        ${scheduledTime}
         ${deadline}
       </div>
     `;
@@ -108,15 +102,6 @@ const TodosUI = {
   formatDate(dateStr) {
     const date = new Date(dateStr + 'T00:00:00');
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  },
-
-  formatTime(timeStr) {
-    // timeStr is "HH:MM" in 24-hour format
-    const [hours, minutes] = timeStr.split(':');
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? 'pm' : 'am';
-    const hour12 = hour % 12 || 12;
-    return `${hour12}:${minutes}${ampm}`;
   },
 
   escapeHtml(text) {
@@ -133,20 +118,6 @@ const TodosUI = {
         this.toggleComplete(id);
       });
     });
-
-    // Refresh button
-    const refreshBtn = document.getElementById('todos-refresh');
-    if (refreshBtn) {
-      refreshBtn.addEventListener('click', () => this.load());
-    }
-
-    // Close button
-    const closeBtn = document.getElementById('todos-close');
-    if (closeBtn) {
-      closeBtn.addEventListener('click', () => {
-        this.container.classList.add('hidden');
-      });
-    }
   },
 
   async toggleComplete(id) {

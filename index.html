@@ -21,27 +21,15 @@
     <!-- History Container -->
     <div id="history-container" class="hidden"></div>
 
-    <!-- Todos Container -->
-    <div id="todos-container" class="hidden"></div>
-
     <!-- App Header -->
     <header class="app-header">
         <div class="header-left">
-            <button id="toggle-chat" class="panel-toggle" aria-label="Toggle chat">
-                <i data-lucide="message-square"></i>
-            </button>
             <h1 class="app-title">Sprekta</h1>
         </div>
         <div class="header-center">
             <!-- Quick capture will stay here -->
         </div>
         <div class="header-right">
-            <button id="toggle-triage" class="panel-toggle" aria-label="Toggle triage">
-                <i data-lucide="inbox"></i>
-            </button>
-            <button id="toggle-todos" class="panel-toggle" aria-label="Toggle todos">
-                <i data-lucide="list-checks"></i>
-            </button>
             <button id="profile-btn" class="profile-btn">
                 <i data-lucide="user"></i>
             </button>
@@ -50,34 +38,50 @@
         </div>
     </header>
 
-    <!-- Three-Panel App Shell -->
-    <div id="app-shell" class="app-shell">
-        <!-- Left: Chat Panel -->
-        <div id="chat-panel" class="panel panel-left hidden">
-            <div class="panel-header">
-                <h3>Chat</h3>
-                <div class="panel-header-actions">
-                    <button id="chat-new" class="panel-action-btn" title="New conversation">
-                        <i data-lucide="plus-circle"></i>
+    <!-- App Container -->
+    <div id="app-container" class="app-container">
+        <!-- Unified Left Sidebar -->
+        <aside id="left-sidebar" class="left-sidebar">
+            <!-- Tab Bar -->
+            <div class="sidebar-tabs">
+                <button class="sidebar-tab active" data-tab="chat">Chat</button>
+                <button class="sidebar-tab" data-tab="inbox">Inbox</button>
+                <button class="sidebar-tab" data-tab="todos">Todos</button>
+                <button class="sidebar-tab-action" id="new-chat-btn" title="New conversation">
+                    <i data-lucide="plus-circle"></i>
+                </button>
+            </div>
+
+            <!-- Tab Content: Chat -->
+            <div class="sidebar-content" id="tab-chat">
+                <div class="chat-messages" id="chat-messages">
+                    <!-- Messages render here -->
+                </div>
+                <div class="chat-input-area">
+                    <textarea id="chat-input" placeholder="What's on your mind?" rows="1"></textarea>
+                    <button id="chat-send" class="chat-send-btn">
+                        <i data-lucide="send"></i>
                     </button>
-                    <button class="panel-close" data-panel="chat">×</button>
                 </div>
             </div>
-            <div class="chat-panel-messages" id="chat-messages">
-                <!-- Messages render here -->
-            </div>
-            <div class="chat-panel-input">
-                <textarea
-                    id="chat-input"
-                    placeholder="What's on your mind?"
-                    rows="2"
-                ></textarea>
-                <button id="chat-send" class="chat-send-btn">Send</button>
-            </div>
-        </div>
 
-        <!-- Center: Calendar (always visible) -->
-        <div id="calendar-panel" class="panel panel-center">
+            <!-- Tab Content: Inbox -->
+            <div class="sidebar-content hidden" id="tab-inbox">
+                <div id="triage-content">
+                    <!-- Triage/inbox items render here -->
+                </div>
+            </div>
+
+            <!-- Tab Content: Todos -->
+            <div class="sidebar-content hidden" id="tab-todos">
+                <div id="todos-content">
+                    <!-- Todos render here -->
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content: Calendar -->
+        <main id="main-content" class="main-content">
             <div class="calendar-view" id="calendarView">
                 <!-- Header -->
                 <div class="calendar-header">
@@ -103,18 +107,7 @@
                 <!-- Events list (month view only) -->
                 <div class="calendar-events" id="calendarEvents"></div>
             </div>
-        </div>
-
-        <!-- Right: Triage Panel -->
-        <div id="triage-panel" class="panel panel-right hidden">
-            <div class="panel-header">
-                <h3>Triage</h3>
-                <button class="panel-close" data-panel="triage">×</button>
-            </div>
-            <div id="triage-content">
-                <!-- Triage sections render here -->
-            </div>
-        </div>
+        </main>
     </div>
 
     <!-- Dev Badge (Toggle) -->
@@ -314,13 +307,13 @@
         import SettingsUI from './js/settings-ui.js';
         import HistoryUI from './js/history-ui.js';
         import TodosUI from './js/todos-ui.js';
+        import SidebarTabs from './js/sidebar-tabs.js';
         import TriageState from './js/triage-state.js';
-        import PanelManager from './js/panel-manager.js';
         import CompactCalendar from './js/compact-calendar.js';
         import TriagePanel from './js/triage-panel.js';
 
-        // Initialize panel manager first
-        PanelManager.init();
+        // Initialize sidebar tabs
+        SidebarTabs.init();
 
         // Initialize triage panel
         TriagePanel.init();
@@ -353,36 +346,24 @@
         ChatUI.init();
         SettingsUI.init('settings-container');
         HistoryUI.init('history-container');
-        TodosUI.init('todos-container');
+        TodosUI.init();
 
         // Wire up buttons
         document.getElementById('plan-mode-btn')?.addEventListener('click', () => {
-            PanelManager.open('chat');
-            if (PanelManager.isOpen('chat')) {
-                ChatUI.focus?.(); // Focus input when opening
-            }
+            SidebarTabs.switchTo('chat');
+            ChatUI.focus?.(); // Focus input when opening
         });
 
         document.getElementById('profile-btn')?.addEventListener('click', () => {
             SettingsUI.open('profile');
         });
 
-        document.getElementById('toggle-todos')?.addEventListener('click', () => {
-            const container = document.getElementById('todos-container');
-            if (container) {
-                container.classList.toggle('hidden');
-                // Reload todos when opening
-                if (!container.classList.contains('hidden')) {
-                    TodosUI.load();
-                }
-            }
-        });
-
         // Make modules available globally
         window.HistoryUI = HistoryUI;
         window.SettingsUI = SettingsUI;
-        window.PanelManager = PanelManager;
+        window.SidebarTabs = SidebarTabs;
         window.TodosUI = TodosUI;
+        window.ChatUI = ChatUI;
     </script>
     <script src="/app.js"></script>
 </body>

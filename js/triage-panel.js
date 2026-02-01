@@ -22,16 +22,9 @@ const TriagePanel = {
       return;
     }
 
-    // Listen for panel open events
-    window.addEventListener('panel-opened', (e) => {
-      if (e.detail?.panel === 'triage') {
-        this.refresh();
-      }
-    });
-
     // Listen for event changes to refresh triage
     window.addEventListener('events-updated', () => {
-      if (window.PanelManager?.isOpen('triage')) {
+      if (window.SidebarTabs?.activeTab === 'inbox') {
         this.refresh();
       }
     });
@@ -242,9 +235,9 @@ const TriagePanel = {
       }
     }));
 
-    // Open chat panel
-    if (window.PanelManager) {
-      window.PanelManager.open('chat');
+    // Switch to chat tab
+    if (window.SidebarTabs) {
+      window.SidebarTabs.switchTo('chat');
     }
   },
 

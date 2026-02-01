@@ -8,11 +8,12 @@ const ChatUI = {
   conversationLoaded: false, // Track if conversation is already loaded
 
   init() {
-    this.panel = document.getElementById('chat-panel');
+    // Use the sidebar tab content instead of panel
+    this.panel = document.getElementById('tab-chat');
     this.appMain = document.getElementById('app-main');
 
     if (!this.panel) {
-      console.error('Chat panel not found');
+      console.error('Chat tab not found');
       return;
     }
 
@@ -21,32 +22,20 @@ const ChatUI = {
       this.openWithContext(e.detail);
     });
 
-    // Listen for panel opened events
-    window.addEventListener('panel-opened', async (e) => {
-      if (e.detail?.panel === 'chat' && !this.conversationLoaded) {
-        await this.loadConversation();
-      }
-    });
-
     // Bind events once on the fixed HTML structure
     this.bindEvents();
 
     // Initial render (empty/loading state)
-    this.renderClosed();
+    this.render();
 
-    // Check if panel is already open on page load
-    if (window.PanelManager?.isOpen('chat')) {
-      this.loadConversation();
-    }
+    // Load conversation on init since chat tab is visible by default
+    this.loadConversation();
   },
 
   async open() {
-    // Open via PanelManager
-    if (window.PanelManager) {
-      window.PanelManager.open('chat');
-    } else {
-      // Fallback
-      this.panel.classList.remove('hidden');
+    // Switch to chat tab via SidebarTabs
+    if (window.SidebarTabs) {
+      window.SidebarTabs.switchTo('chat');
     }
 
     // Load conversation if not already loaded
@@ -73,29 +62,20 @@ const ChatUI = {
   },
 
   close() {
-    // Close via PanelManager
-    if (window.PanelManager) {
-      window.PanelManager.close('chat');
-    } else {
-      // Fallback
-      this.panel.classList.add('hidden');
-    }
+    // Can't really "close" the sidebar, but we can switch away from chat
+    // For now, do nothing - chat is always accessible via tabs
   },
 
   toggle() {
-    if (this.isOpen()) {
-      this.close();
-    } else {
-      this.open();
+    // Toggle to chat tab
+    if (window.SidebarTabs) {
+      window.SidebarTabs.switchTo('chat');
     }
   },
 
   isOpen() {
-    if (window.PanelManager) {
-      return window.PanelManager.isOpen('chat');
-    }
-    // Fallback
-    return !this.panel.classList.contains('hidden');
+    // Chat tab is considered "open" if it's the active tab
+    return window.SidebarTabs?.activeTab === 'chat';
   },
 
   // ============================================
@@ -110,20 +90,11 @@ const ChatUI = {
     const messages = TriageState.getMessages();
     const hasProfile = !!TriageState.getProfile();
 
-    // Update messages container only (panel structure is fixed in HTML)
+    // Update messages container only
     const messagesContainer = document.getElementById('chat-messages');
     if (messagesContainer) {
       messagesContainer.innerHTML = this.renderMessages(messages);
     }
-
-    // Update header title if we want to show "Planning" vs "Chat"
-    const headerTitle = this.panel.querySelector('.panel-header h3');
-    if (headerTitle) {
-      headerTitle.textContent = 'Planning';
-    }
-
-    // Add profile badge/actions if needed (optional enhancement for later)
-    // For now, keep it simple with just messages
 
     this.scrollToBottom();
   },
@@ -140,12 +111,6 @@ const ChatUI = {
         </div>
       `;
     }
-
-    // Update header title
-    const headerTitle = this.panel.querySelector('.panel-header h3');
-    if (headerTitle) {
-      headerTitle.textContent = 'Planning';
-    }
   },
 
   renderError(message) {
@@ -159,13 +124,7 @@ const ChatUI = {
       `;
     }
 
-    // Update header title
-    const headerTitle = this.panel.querySelector('.panel-header h3');
-    if (headerTitle) {
-      headerTitle.textContent = 'Planning';
-    }
-
-    messagesContainer?.querySelector('.chat-retry')?.addEventListener('click', () => this.open());
+    messagesContainer?.querySelector('.chat-retry')?.addEventListener('click', () => this.loadConversation());
   },
 
   renderMessages(messages) {
@@ -351,12 +310,9 @@ const ChatUI = {
       mode: 'resolve'
     };
 
-    // Open via PanelManager
-    if (window.PanelManager) {
-      window.PanelManager.open('chat');
-    } else {
-      // Fallback
-      this.panel.classList.remove('hidden');
+    // Switch to chat tab
+    if (window.SidebarTabs) {
+      window.SidebarTabs.switchTo('chat');
     }
 
     // Clear previous conversation for resolve flow
@@ -370,12 +326,6 @@ const ChatUI = {
    * Render resolve mode with initial prompt
    */
   renderResolveMode(prompt) {
-    // Update header title
-    const headerTitle = this.panel.querySelector('.panel-header h3');
-    if (headerTitle) {
-      headerTitle.textContent = 'Resolve Event';
-    }
-
     // Update messages
     const messagesContainer = document.getElementById('chat-messages');
     if (messagesContainer) {
