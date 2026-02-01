@@ -6,127 +6,6 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-const TOOLS = [
-  {
-    name: "create_event",
-    description: "Create a calendar event (time holder - meetings, appointments, sessions). Only use when you have both date AND time.",
-    input_schema: {
-      type: "object",
-      properties: {
-        title: { type: "string", description: "Event title" },
-        date: { type: "string", description: "YYYY-MM-DD" },
-        time: { type: "string", description: "HH:MM (24-hour) — REQUIRED" },
-        end_time: { type: "string", description: "HH:MM (24-hour), optional" },
-        priority: {
-          type: "string",
-          enum: ["non_negotiable", "important", "flexible"],
-          description: "How critical is this?"
-        },
-        notes: { type: "string", description: "Additional context" }
-      },
-      required: ["title", "date", "time", "priority"]
-    }
-  },
-  {
-    name: "create_todo",
-    description: "Create a todo (something to accomplish). Time is optional — if provided, it appears on calendar too.",
-    input_schema: {
-      type: "object",
-      properties: {
-        title: { type: "string", description: "What needs to be done" },
-        scheduled_date: { type: "string", description: "YYYY-MM-DD, optional" },
-        scheduled_time: { type: "string", description: "HH:MM, optional — if set, shows on calendar" },
-        deadline: { type: "string", description: "YYYY-MM-DD — due by this date" },
-        deadline_time: { type: "string", description: "HH:MM — due by this time" },
-        priority: {
-          type: "string",
-          enum: ["non_negotiable", "important", "flexible"]
-        },
-        time_group: {
-          type: "string",
-          enum: ["today", "tomorrow", "this_week", "future", "someday"]
-        },
-        notes: { type: "string" }
-      },
-      required: ["title", "priority", "time_group"]
-    }
-  }
-];
-
-async function executeToolCalls(toolCalls, context) {
-  const results = [];
-
-  for (const call of toolCalls) {
-    try {
-      if (call.tool === 'create_event') {
-        const eventId = Date.now() + Math.floor(Math.random() * 1000);
-
-        const { data, error } = await context.supabase
-          .from('events')
-          .insert({
-            id: eventId,
-            title: call.params.title,
-            date: call.params.date,
-            time: call.params.time,
-            end_time: call.params.end_time || null,
-            notes: call.params.notes || null,
-            user_id: context.userId || null,
-            session_id: context.sessionId || null,
-            conversation_id: context.conversationId,
-            source: 'chat'
-          })
-          .select()
-          .single();
-
-        if (error) throw error;
-        results.push({
-          tool: 'create_event',
-          success: true,
-          id: data.id,
-          title: data.title
-        });
-
-      } else if (call.tool === 'create_todo') {
-        const { data, error } = await context.supabase
-          .from('todos')
-          .insert({
-            title: call.params.title,
-            scheduled_date: call.params.scheduled_date || null,
-            scheduled_time: call.params.scheduled_time || null,
-            deadline: call.params.deadline || null,
-            deadline_time: call.params.deadline_time || null,
-            priority: call.params.priority,
-            time_group: call.params.time_group,
-            notes: call.params.notes || null,
-            user_id: context.userId || null,
-            session_id: context.sessionId || null,
-            conversation_id: context.conversationId,
-            source: 'chat'
-          })
-          .select()
-          .single();
-
-        if (error) throw error;
-        results.push({
-          tool: 'create_todo',
-          success: true,
-          id: data.id,
-          title: data.title
-        });
-      }
-    } catch (err) {
-      console.error(`Tool execution error (${call.tool}):`, err);
-      results.push({
-        tool: call.tool,
-        success: false,
-        error: err.message
-      });
-    }
-  }
-
-  return results;
-}
-
 export default async function handler(req, res) {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -263,29 +142,8 @@ export default async function handler(req, res) {
       model: process.env.ANTHROPIC_MODEL || 'claude-3-5-haiku-20241022',
       max_tokens: 2048,
       system: systemPrompt,
-      tools: TOOLS,
       messages: conversationHistory,
     });
-
-    // Handle tool use
-    let toolResults = [];
-    if (response.stop_reason === 'tool_use') {
-      const toolCalls = response.content
-        .filter(block => block.type === 'tool_use')
-        .map(block => ({
-          tool: block.name,
-          params: block.input
-        }));
-
-      toolResults = await executeToolCalls(toolCalls, {
-        supabase,
-        userId,
-        sessionId,
-        conversationId: id
-      });
-
-      console.log('Tool execution results:', toolResults);
-    }
 
     // Extract text response
     const assistantMessage = response.content
@@ -293,143 +151,128 @@ export default async function handler(req, res) {
       .map(block => block.text)
       .join('\n');
 
-    // Parse response
+    // Parse JSON response
     let parsed;
     try {
-      let jsonStr = assistantMessage;
+      let jsonStr = assistantMessage.trim();
 
-      // Strip code block markers if present
-      if (jsonStr.includes('```json')) {
-        jsonStr = jsonStr.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-      } else if (jsonStr.includes('```')) {
-        jsonStr = jsonStr.replace(/```\n?/g, '');
+      // Strip markdown code blocks if Claude wrapped it anyway
+      if (jsonStr.startsWith('```')) {
+        jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```\n?$/g, '').trim();
       }
 
-      // Claude sometimes returns JSON with literal newlines in string values
-      // We need to escape them for valid JSON parsing
-      // This regex finds string values and escapes newlines within them
-      jsonStr = jsonStr.trim();
-
-      // Simple approach: parse as lenient JSON by fixing common issues
-      // Replace literal newlines inside JSON strings with \n
-      // This handles cases where Claude returns multiline strings
-      jsonStr = jsonStr.replace(/": "([^"]*?)"/gs, (match, content) => {
-        // Escape newlines, tabs, and other control characters in string values
-        const escaped = content
-          .replace(/\n/g, '\\n')
-          .replace(/\r/g, '\\r')
-          .replace(/\t/g, '\\t');
-        return `": "${escaped}"`;
-      });
-
       parsed = JSON.parse(jsonStr);
+
+      // Validate required field
+      if (!parsed.reply) {
+        throw new Error('Missing reply field');
+      }
     } catch (e) {
-      console.error('JSON parse error:', e.message);
-      console.error('Failed to parse:', assistantMessage.substring(0, 200));
+      console.error('JSON parse failed:', e.message);
+      console.error('Raw response:', assistantMessage.substring(0, 500));
+
+      // Fallback: treat entire response as reply
       parsed = {
-        reply: assistantMessage,
-        phase: 'unknown'
+        reply: assistantMessage || "I'm having trouble processing that. Could you try again?",
+        events: [],
+        todos: []
       };
     }
 
-    // ============================================
-    // EVENT CREATION FROM CHAT
-    // ============================================
+    // Create events
+    const createdEvents = [];
+    for (const event of (parsed.events || [])) {
+      // Validate required fields
+      if (!event.title || !event.date || !event.time) {
+        console.warn('Skipping invalid event:', event);
+        continue;
+      }
 
-    let createdEvent = null;
+      try {
+        const { data, error } = await supabase
+          .from('events')
+          .insert({
+            user_id: userId || null,
+            session_id: sessionId,
+            conversation_id: id,
+            title: event.title,
+            date: event.date,
+            time: event.time,
+            end_time: event.end_time || null,
+            notes: event.notes || null,
+            source: 'chat'
+          })
+          .select()
+          .single();
 
-    // Handle immediate commits - create event now
-    if (parsed.commit === 'immediate' && parsed.captured?.title) {
-      const { title, date, time, endTime, location, notes } = parsed.captured;
-
-      // Only create if we have at least a title and date
-      if (date) {
-        try {
-          // Generate unique ID (timestamp-based)
-          const eventId = Date.now();
-
-          // Combine location and notes into notes field
-          let combinedNotes = '';
-          if (location && notes) {
-            combinedNotes = `Location: ${location}\n${notes}`;
-          } else if (location) {
-            combinedNotes = `Location: ${location}`;
-          } else if (notes) {
-            combinedNotes = notes;
-          }
-
-          const { data: event, error: eventError } = await supabase
-            .from('events')
-            .insert({
-              id: eventId,
-              title: title,
-              date: date,
-              time: time || null,
-              end_time: endTime || null,
-              notes: combinedNotes || null,
-              conversation_id: id  // Link to this conversation
-            })
-            .select()
-            .single();
-
-          if (eventError) {
-            console.error('Failed to create event from chat:', eventError);
-          } else {
-            createdEvent = event;
-            console.log('Created event from chat:', event.id, event.title);
-          }
-        } catch (err) {
-          console.error('Event creation error:', err);
-        }
-      } else {
-        console.log('Skipping event creation - missing date:', parsed.captured);
+        if (error) throw error;
+        if (data) createdEvents.push(data);
+      } catch (err) {
+        console.error('Failed to create event:', err, event);
       }
     }
 
-    // TODO (Sprint 11+): Handle other commit types
-    // if (parsed.commit === 'pending') {
-    //   // Store in conversation state, don't create yet
-    // }
-    // if (parsed.commit === 'update' && parsed.eventId) {
-    //   // Update existing event
-    // }
-    // if (parsed.commit === 'finalize') {
-    //   // Create all pending events
-    // }
+    // Create todos
+    const createdTodos = [];
+    for (const todo of (parsed.todos || [])) {
+      // Validate required field
+      if (!todo.title) {
+        console.warn('Skipping invalid todo:', todo);
+        continue;
+      }
 
-    // Save assistant message
-    const { error: assistantMsgError } = await supabase
+      try {
+        const { data, error } = await supabase
+          .from('todos')
+          .insert({
+            user_id: userId || null,
+            session_id: sessionId,
+            conversation_id: id,
+            title: todo.title,
+            scheduled_date: todo.scheduled_date || null,
+            scheduled_time: todo.scheduled_time || null,
+            deadline: todo.deadline || null,
+            priority: todo.priority || 'flexible',
+            time_group: todo.time_group || 'someday',
+            notes: todo.notes || null,
+            source: 'chat'
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        if (data) createdTodos.push(data);
+      } catch (err) {
+        console.error('Failed to create todo:', err, todo);
+      }
+    }
+
+    // Save assistant message (store the reply, not raw JSON)
+    const { error: msgError } = await supabase
       .from('messages')
       .insert({
         conversation_id: id,
         role: 'assistant',
-        content: parsed.reply,
-        phase: parsed.phase || 'unknown'
+        content: parsed.reply
       });
 
-    if (assistantMsgError) {
-      console.error('Failed to save assistant message:', assistantMsgError);
-      // Don't fail the request - user got the response
+    if (msgError) {
+      console.error('Failed to save message:', msgError);
     }
 
-    // Update conversation updated_at
+    // Update conversation timestamp
     await supabase
       .from('conversations')
       .update({ updated_at: new Date().toISOString() })
       .eq('id', id);
 
+    // Return to frontend
     return res.status(200).json({
-      reply: parsed.reply || assistantMessage,
-      phase: parsed.phase || 'organize',
-      toolsExecuted: toolResults.length > 0,
-      toolResults: toolResults,
-      eventIds: toolResults.filter(r => r.tool === 'create_event' && r.success).map(r => r.id),
-      todoIds: toolResults.filter(r => r.tool === 'create_todo' && r.success).map(r => r.id),
-      // Legacy fields for backward compatibility
-      commit: parsed.commit || null,
-      captured: parsed.captured || null,
-      eventId: createdEvent?.id || null,
-      eventCreated: !!createdEvent
+      reply: parsed.reply,
+      eventsCreated: createdEvents.length,
+      todosCreated: createdTodos.length,
+      eventIds: createdEvents.map(e => e.id),
+      todoIds: createdTodos.map(t => t.id)
     });
 
   } catch (error) {
@@ -454,47 +297,39 @@ When someone dumps stuff on you:
 1. Parse EVERYTHING — even messy, incomplete thoughts
 2. Organize by TIME (today, tomorrow, this week, future, someday)
 3. Mark PRIORITY for each item (🔴 non-negotiable, 🟡 important, 🟢 flexible)
-4. Create items immediately where you have enough info
-5. Cordon off items that need more info and ask
+4. Show ✓ for items you have enough info to create
+5. Ask about items missing critical info
 6. Confirm priorities at the end
 
 ## ITEM TYPES
 
-**EVENT** = time holder (blocks time to BE somewhere)
-- The time slot itself is the commitment
-- REQUIRES date + time — if time is missing, ask before creating
-- Examples: meetings, appointments, classes, group sessions
-- Goes on calendar only
-- Use: create_event tool
+**EVENT** = time holder (blocks calendar time)
+- REQUIRES date AND time to create
+- Examples: meetings, appointments, dentist, dinner reservations
+- If missing time → ask, don't create yet
 
-**TODO** = something to accomplish (GET SOMETHING DONE)
-- The goal is completing a task
-- Time is optional:
-  - With scheduled time → todo list AND calendar
-  - Without time → todo list only
-- Can have a deadline (due by) separate from scheduled time
-- Examples: calls, tasks, things to finish, bills to pay
-- Use: create_todo tool
+**TODO** = task to accomplish
+- Date/time optional
+- Examples: call mom, finish report, pay bills
+- Can create even without specific time
 
-**Decision:** "BE there at this time" → Event. "GET THIS DONE" → Todo.
+## PRIORITY LEVELS
 
-## TWO DIMENSIONS
+🔴 **Non-negotiable**: Can't miss. Hard deadline, someone waiting, consequences.
+🟡 **Important**: Should do. Soft deadline, matters but flexible.
+🟢 **Flexible**: Whenever. User said "not urgent" or no pressure mentioned.
 
-**PRIORITY** (how critical — can you skip it?)
-- 🔴 Non-negotiable: Can't miss. Hard deadline, someone waiting, serious consequences.
-- 🟡 Important: Should do. Soft deadline, matters but flexible.
-- 🟢 Flexible: Do whenever. User said "not urgent" or no pressure.
+## TIME GROUPS
 
-**TIME** (when does it happen/need doing?)
-- Today: happening today
-- Tomorrow: happening tomorrow
-- This Week: next 7 days
-- Future: specific date beyond this week
-- Someday: no date, do whenever
-
-These are INDEPENDENT. A non-negotiable can be today OR three weeks from now.
+- **Today**: happening/due today
+- **Tomorrow**: happening/due tomorrow
+- **This Week**: next 7 days
+- **Future**: specific date beyond this week
+- **Someday**: no date, do whenever
 
 ## RESPONSE FORMAT
+
+Organize items by time, show priority icons, mark ✓ for items you're creating:
 
 \`\`\`
 Got it! Here's your brain dump organized:
@@ -503,86 +338,66 @@ TODAY
    🔴 [Item] — [time] ✓
    🟡 [Item] ✓
 
-TOMORROW
-   🔴 [Item] — due [time] ✓
-   🟡 [Item] ✓
-
 THIS WEEK
    🔴 [Item] — [day] ✓
-   🟡 [Item] — [day] ✓
-
-FUTURE
-   🔴 [Item] — [date] ✓
+   🟡 [Item] — [day] (what time?)
 
 SOMEDAY
    🟢 [Item] ✓
 
-—
-
-📝 Need a bit more info:
-   • "[Item]" — [specific question]
-   • "[Item]" — [specific question]
-
-—
-
-Did I get the priorities right? Anything else that's actually non-negotiable?
+Did I get the priorities right?
 \`\`\`
 
 ## RULES
 
-1. **Create immediately** where you have enough info — show ✓
-2. **Events need time** — if missing, put in "Need more info" section and ask
-3. **Todos are flexible** — create even without time, put in appropriate time group
-4. **Group by time first**, then show priority marker on each item
-5. **Always ask at end**: "Did I get the priorities right? Anything else non-negotiable?"
-6. **One question per item** in the "need more info" section — keep it light
-7. **Respect "not urgent"** — mark 🟢 and put in Someday
+1. **Always respond with full organized breakdown** — never truncate
+2. **Events need time** — if missing, show item but ask, don't put in events array
+3. **Todos are flexible** — create even without time
+4. **✓ = creating it** — only show ✓ for items in your events/todos arrays
+5. **Ask at end**: "Did I get the priorities right?"
+6. **Be warm, not robotic** — conversational tone
 
 ## PRIORITY SIGNALS
 
-🔴 Non-negotiable signals:
-- External deadline with consequences ("visa bill due friday")
-- Someone waiting ("for Lilian by 9am")
-- User says critical/can't miss/have to
-- Appointments with others
-
-🟡 Important signals:
-- Soft deadlines ("should do this week")
-- Involves key people but flexible timing
-- Default for most scheduled things
-
-🟢 Flexible signals:
-- User says "not urgent" or "at some point"
-- No deadline mentioned
-- Nice-to-have tasks
-
-## HANDLING FOLLOW-UPS
-
-When user answers your questions:
-- Create the remaining items
-- Confirm what was created
-- Adjust priorities if they corrected you
-
-When user adds more items:
-- Process the new dump the same way
-- Don't re-list everything, just the new stuff
-
-## WHAT NOT TO DO
-
-❌ Don't create events without a time — ask first
-❌ Don't assume priorities — make best guess, then confirm
-❌ Don't ask multiple questions per item
-❌ Don't skip the priority confirmation at the end
-❌ Don't use UI elements, modals, or structured components — TEXT ONLY
-❌ Don't be formal or corporate
+🔴 signals: "can't miss", "due", deadline with consequences, someone waiting
+🟡 signals: scheduled with others, soft deadline, "should"
+🟢 signals: "not urgent", "at some point", "whenever", no deadline
 
 ## OUTPUT FORMAT
 
-Your response is conversational text organized by time with priority icons.
+Respond with valid JSON only. No markdown code blocks, just raw JSON:
 
-For each item you create, call the appropriate tool (create_event or create_todo).
+{
+  "reply": "Your full conversational response here with the organized brain dump, ✓ marks, questions, priority confirmation",
+  "events": [
+    {
+      "title": "Event name",
+      "date": "YYYY-MM-DD",
+      "time": "HH:MM (24-hour)",
+      "end_time": "HH:MM or null",
+      "priority": "non_negotiable|important|flexible",
+      "notes": "optional"
+    }
+  ],
+  "todos": [
+    {
+      "title": "Task name",
+      "scheduled_date": "YYYY-MM-DD or null",
+      "scheduled_time": "HH:MM or null",
+      "deadline": "YYYY-MM-DD or null",
+      "priority": "non_negotiable|important|flexible",
+      "time_group": "today|tomorrow|this_week|future|someday",
+      "notes": "optional"
+    }
+  ]
+}
 
-Use the tools to silently create items in the database, then show the organized summary with ✓ marks for created items.`;
+**Critical:**
+- "reply" is REQUIRED and should be your FULL response (not truncated)
+- Only put items in "events" array if you have BOTH date AND time
+- Put tasks in "todos" array even without scheduled time
+- Empty arrays are fine: "events": [], "todos": []
+- Items you're asking about should NOT be in the arrays yet`;
 
   if (profile) {
     prompt += `
@@ -593,11 +408,7 @@ Use the tools to silently create items in the database, then show the organized 
 
 ${profile}
 
-**Use this to:**
-- Recognize key people → bump to 🟡 important if mentioned
-- Watch for their red flags
-- Understand work patterns (Lilian = Eastern time, Sprekta = office work)
-- Reference context naturally ("Lilian's waiting on this")`;
+Use this to recognize key people, watch for their patterns, and personalize priorities.`;
   }
 
   return prompt;
