@@ -50,7 +50,7 @@ export default async function handler(req, res) {
 
     // POST - Create profile
     if (req.method === 'POST') {
-      const { name, patterns, redFlags, keyPeople, priorities, notes } = req.body;
+      const { name, patterns, redFlags, keyPeople, priorities, notes, about_me, projects } = req.body;
 
       // Check if profile already exists
       const { data: existing } = await supabase
@@ -72,7 +72,9 @@ export default async function handler(req, res) {
           red_flags: redFlags || [],
           key_people: keyPeople || [],
           priorities: priorities || [],
-          notes: notes || null
+          notes: notes || null,
+          about_me: about_me || null,
+          projects: projects || null
         })
         .select()
         .single();
@@ -87,7 +89,7 @@ export default async function handler(req, res) {
 
     // PUT - Update profile
     if (req.method === 'PUT') {
-      const { name, patterns, redFlags, keyPeople, priorities, notes } = req.body;
+      const { name, patterns, redFlags, keyPeople, priorities, notes, about_me, projects } = req.body;
 
       const updates = {};
       if (name !== undefined) updates.name = name;
@@ -96,6 +98,8 @@ export default async function handler(req, res) {
       if (keyPeople !== undefined) updates.key_people = keyPeople;
       if (priorities !== undefined) updates.priorities = priorities;
       if (notes !== undefined) updates.notes = notes;
+      if (about_me !== undefined) updates.about_me = about_me;
+      if (projects !== undefined) updates.projects = projects;
 
       const { data: profile, error } = await supabase
         .from('profiles')

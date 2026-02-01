@@ -3175,6 +3175,234 @@ body {
   }
 }
 
+/* Settings Section Header (for markdown tabs) */
+.settings-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.settings-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Markdown Editor */
+.markdown-editor {
+  width: 100%;
+  min-height: 400px;
+  padding: 16px;
+  border: 1px solid #e7e5e4;
+  border-radius: 8px;
+  font-family: 'SF Mono', Monaco, Menlo, monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  resize: vertical;
+  background: #fafaf9;
+}
+
+.markdown-editor:focus {
+  outline: none;
+  border-color: #fdba74;
+  box-shadow: 0 0 0 3px rgba(253, 186, 116, 0.1);
+}
+
+/* Markdown Rendered Content */
+.markdown-view {
+  background: #fafaf9;
+  border: 1px solid #e7e5e4;
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 16px;
+  min-height: 200px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #292524;
+}
+
+.markdown-view:empty::before {
+  content: 'No content yet.';
+  color: #a8a29e;
+  font-style: italic;
+}
+
+/* Headings */
+.markdown-view h1 {
+  font-size: 1.5em;
+  font-weight: 600;
+  margin: 24px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e7e5e4;
+  color: #1c1917;
+}
+
+.markdown-view h2 {
+  font-size: 1.25em;
+  font-weight: 600;
+  margin: 20px 0 10px;
+  color: #292524;
+}
+
+.markdown-view h3 {
+  font-size: 1.1em;
+  font-weight: 600;
+  margin: 16px 0 8px;
+  color: #44403c;
+}
+
+.markdown-view h1:first-child,
+.markdown-view h2:first-child,
+.markdown-view h3:first-child {
+  margin-top: 0;
+}
+
+/* Paragraphs */
+.markdown-view p {
+  margin: 12px 0;
+}
+
+/* Lists */
+.markdown-view ul,
+.markdown-view ol {
+  padding-left: 24px;
+  margin: 12px 0;
+}
+
+.markdown-view li {
+  margin: 6px 0;
+  color: #44403c;
+}
+
+.markdown-view li::marker {
+  color: #a8a29e;
+}
+
+/* Nested lists */
+.markdown-view li > ul,
+.markdown-view li > ol {
+  margin: 4px 0;
+}
+
+/* Strong / Bold */
+.markdown-view strong {
+  font-weight: 600;
+  color: #1c1917;
+}
+
+/* Emphasis / Italic */
+.markdown-view em {
+  font-style: italic;
+}
+
+/* Inline code */
+.markdown-view code {
+  background: #e7e5e4;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'SF Mono', Monaco, Menlo, monospace;
+  font-size: 0.9em;
+  color: #c2410c;
+}
+
+/* Code blocks */
+.markdown-view pre {
+  background: #1c1917;
+  color: #fafaf9;
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 16px 0;
+}
+
+.markdown-view pre code {
+  background: none;
+  padding: 0;
+  color: inherit;
+  font-size: 13px;
+}
+
+/* Blockquotes */
+.markdown-view blockquote {
+  border-left: 3px solid #fdba74;
+  margin: 16px 0;
+  padding: 8px 16px;
+  background: #fffbeb;
+  border-radius: 0 6px 6px 0;
+  color: #78716c;
+}
+
+.markdown-view blockquote p {
+  margin: 0;
+}
+
+/* Tables */
+.markdown-view table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 14px;
+}
+
+.markdown-view thead {
+  background: #f5f5f4;
+  border-bottom: 2px solid #d6d3d1;
+}
+
+.markdown-view th {
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #57534e;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.markdown-view td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e7e5e4;
+  color: #44403c;
+}
+
+.markdown-view tbody tr:hover {
+  background: #fafaf9;
+}
+
+.markdown-view tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Horizontal rule */
+.markdown-view hr {
+  border: none;
+  border-top: 1px solid #e7e5e4;
+  margin: 24px 0;
+}
+
+/* Links */
+.markdown-view a {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.markdown-view a:hover {
+  text-decoration: underline;
+}
+
+/* Images */
+.markdown-view img {
+  max-width: 100%;
+  border-radius: 6px;
+  margin: 12px 0;
+}
+
+/* Empty state */
+.markdown-view .text-muted {
+  color: #a8a29e;
+  font-style: italic;
+}
+
 /* ============================================
    THREE-PANEL LAYOUT (Sprint 9.1)
    ============================================ */

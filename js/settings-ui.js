@@ -5,7 +5,9 @@ const API_BASE = '/api/profile';
 const SettingsUI = {
   container: null,
   profile: null,
-  currentTab: 'account', // 'account' | 'profile'
+  currentTab: 'account', // 'account' | 'profile' | 'projects'
+  editingProfile: false,
+  editingProjects: false,
 
   init(containerId) {
     this.container = document.getElementById(containerId);
@@ -96,10 +98,14 @@ const SettingsUI = {
           <button class="settings-tab ${this.currentTab === 'profile' ? 'active' : ''}" data-tab="profile">
             Profile
           </button>
+          <button class="settings-tab ${this.currentTab === 'projects' ? 'active' : ''}" data-tab="projects">
+            Projects
+          </button>
         </div>
 
         <div class="settings-content">
-          ${this.currentTab === 'account' ? this.renderAccountTab(user) : this.renderProfileTab(p)}
+          ${this.currentTab === 'account' ? this.renderAccountTab(user) :
+            this.currentTab === 'profile' ? this.renderProfileTab(p) : this.renderProjectsTab(p)}
         </div>
       </div>
     `;
@@ -149,51 +155,69 @@ const SettingsUI = {
   },
 
   renderProfileTab(p) {
-    return `
-      <div class="settings-section">
-        <h3>Your Profile</h3>
-        <p class="settings-hint">Help the AI give you personalized planning advice by sharing your preferences and patterns.</p>
-      </div>
+    const content = p.about_me || '';
+    const isEmpty = !content.trim();
 
-      <form id="profile-form" class="settings-form">
-        <div class="form-group">
-          <label for="profile-name">Name</label>
-          <input type="text" id="profile-name" value="${this.escapeHtml(p.name || '')}" placeholder="What should I call you?" />
+    if (this.editingProfile) {
+      return `
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <h3>Your Profile</h3>
+            <div class="settings-actions">
+              <button class="btn btn-secondary" id="cancel-profile-btn">Cancel</button>
+              <button class="btn btn-primary" id="save-profile-btn">Save</button>
+            </div>
+          </div>
+          <p class="settings-hint">Use markdown to format your profile. Include your preferences, patterns, priorities, and anything else the AI should know about you.</p>
         </div>
-
-        <div class="form-group">
-          <label for="profile-patterns">Patterns & Preferences</label>
-          <p class="form-hint">One per line. E.g., "Morning person", "Need buffer time between meetings"</p>
-          <textarea id="profile-patterns" rows="4" placeholder="Morning person&#10;Need 15min buffer between meetings&#10;Work best with music">${(p.patterns || []).join('\n')}</textarea>
+        <textarea id="profile-editor" class="markdown-editor" placeholder="# About Me&#10;&#10;## Patterns & Preferences&#10;- Morning person&#10;- Need 15min buffer between meetings&#10;&#10;## Priorities&#10;1. Family time&#10;2. Exercise&#10;&#10;## Red Flags&#10;Things I tend to mess up or forget...">${this.escapeHtml(content)}</textarea>
+      `;
+    } else {
+      return `
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <h3>Your Profile</h3>
+            <button class="btn btn-primary" id="edit-profile-btn">Edit</button>
+          </div>
         </div>
-
-        <div class="form-group">
-          <label for="profile-red-flags">Red Flags</label>
-          <p class="form-hint">Things you tend to mess up or forget. I'll watch out for these.</p>
-          <textarea id="profile-red-flags" rows="4" placeholder="Forget to eat when busy&#10;Overcommit to deadlines&#10;Underestimate travel time">${(p.red_flags || []).join('\n')}</textarea>
+        <div class="markdown-view" id="profile-view">
+          ${isEmpty ? '<p class="text-muted">No profile yet. Click Edit to add your preferences, patterns, and priorities.</p>' : marked.parse(content)}
         </div>
+      `;
+    }
+  },
 
-        <div class="form-group">
-          <label for="profile-people">Key People</label>
-          <p class="form-hint">One per line. Format: "Name (relationship)" - e.g., "Sarah (partner)"</p>
-          <textarea id="profile-people" rows="4" placeholder="Sarah (partner)&#10;Mom&#10;Alex (manager)">${(p.key_people || []).map(x => x.name + (x.relationship ? ` (${x.relationship})` : '')).join('\n')}</textarea>
+  renderProjectsTab(p) {
+    const content = p.projects || '';
+    const isEmpty = !content.trim();
+
+    if (this.editingProjects) {
+      return `
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <h3>Projects</h3>
+            <div class="settings-actions">
+              <button class="btn btn-secondary" id="cancel-projects-btn">Cancel</button>
+              <button class="btn btn-primary" id="save-projects-btn">Save</button>
+            </div>
+          </div>
+          <p class="settings-hint">Use markdown to track your active projects and goals.</p>
         </div>
-
-        <div class="form-group">
-          <label for="profile-priorities">Priorities</label>
-          <p class="form-hint">In order of importance. I'll protect these when scheduling.</p>
-          <textarea id="profile-priorities" rows="4" placeholder="Family time&#10;Exercise&#10;Deep work in the morning">${(p.priorities || []).join('\n')}</textarea>
+        <textarea id="projects-editor" class="markdown-editor" placeholder="# Active Projects&#10;&#10;## Project Name&#10;- Goal or objective&#10;- Current status&#10;- Next steps&#10;&#10;## Another Project&#10;- Description...">${this.escapeHtml(content)}</textarea>
+      `;
+    } else {
+      return `
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <h3>Projects</h3>
+            <button class="btn btn-primary" id="edit-projects-btn">Edit</button>
+          </div>
         </div>
-
-        <div class="form-group">
-          <label for="profile-notes">Additional Notes</label>
-          <p class="form-hint">Anything else I should know about you.</p>
-          <textarea id="profile-notes" rows="4" placeholder="Commute is 30 minutes. Kids have soccer practice Tuesdays...">${this.escapeHtml(p.notes || '')}</textarea>
+        <div class="markdown-view" id="projects-view">
+          ${isEmpty ? '<p class="text-muted">No projects yet. Click Edit to add your active projects and goals.</p>' : marked.parse(content)}
         </div>
-
-        <button type="submit" class="btn btn-primary">Save Profile</button>
-      </form>
-    `;
+      `;
+    }
   },
 
   bindEvents() {
@@ -219,10 +243,34 @@ const SettingsUI = {
       await this.handleDeleteAccount();
     });
 
-    // Profile form
-    this.container.querySelector('#profile-form')?.addEventListener('submit', async (e) => {
-      e.preventDefault();
+    // Profile edit/save/cancel
+    this.container.querySelector('#edit-profile-btn')?.addEventListener('click', () => {
+      this.editingProfile = true;
+      this.render();
+    });
+
+    this.container.querySelector('#save-profile-btn')?.addEventListener('click', async () => {
       await this.handleProfileSave();
+    });
+
+    this.container.querySelector('#cancel-profile-btn')?.addEventListener('click', () => {
+      this.editingProfile = false;
+      this.render();
+    });
+
+    // Projects edit/save/cancel
+    this.container.querySelector('#edit-projects-btn')?.addEventListener('click', () => {
+      this.editingProjects = true;
+      this.render();
+    });
+
+    this.container.querySelector('#save-projects-btn')?.addEventListener('click', async () => {
+      await this.handleProjectsSave();
+    });
+
+    this.container.querySelector('#cancel-projects-btn')?.addEventListener('click', () => {
+      this.editingProjects = false;
+      this.render();
     });
   },
 
@@ -276,30 +324,39 @@ const SettingsUI = {
   },
 
   async handleProfileSave() {
-    const name = document.getElementById('profile-name').value.trim();
-    const patterns = this.textareaToArray('profile-patterns');
-    const redFlags = this.textareaToArray('profile-red-flags');
-    const keyPeople = this.parseKeyPeople('profile-people');
-    const priorities = this.textareaToArray('profile-priorities');
-    const notes = document.getElementById('profile-notes').value.trim();
+    const content = document.getElementById('profile-editor').value;
 
-    const profileData = {
-      name: name || null,
-      patterns,
-      redFlags,
-      keyPeople,
-      priorities,
-      notes: notes || null
-    };
-
-    const saveBtn = this.container.querySelector('#profile-form button[type="submit"]');
+    const saveBtn = this.container.querySelector('#save-profile-btn');
     saveBtn.disabled = true;
     saveBtn.textContent = 'Saving...';
 
-    const success = await this.saveProfile(profileData);
+    const success = await this.saveProfile({ about_me: content });
 
-    saveBtn.disabled = false;
-    saveBtn.textContent = 'Save Profile';
+    if (success) {
+      this.editingProfile = false;
+      this.render();
+    } else {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save';
+    }
+  },
+
+  async handleProjectsSave() {
+    const content = document.getElementById('projects-editor').value;
+
+    const saveBtn = this.container.querySelector('#save-projects-btn');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+
+    const success = await this.saveProfile({ projects: content });
+
+    if (success) {
+      this.editingProjects = false;
+      this.render();
+    } else {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save';
+    }
   },
 
   textareaToArray(id) {
