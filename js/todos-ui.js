@@ -8,15 +8,29 @@ const TodosUI = {
     if (this.container) {
       this.load();
     }
+
+    // Sprint 14.2: Listen for todos changes from chat
+    window.addEventListener('todosChanged', () => {
+      console.log('[TodosUI] Todos changed, refreshing...');
+      this.load();
+    });
   },
 
   async load() {
     try {
-      const response = await fetch('/api/todos');
+      // Get session ID for API call
+      const sessionId = localStorage.getItem('sprekta_session_id');
+
+      const response = await fetch('/api/todos', {
+        headers: {
+          'x-session-id': sessionId
+        }
+      });
+
       if (!response.ok) throw new Error('Failed to load todos');
 
       const data = await response.json();
-      this.todos = data || [];
+      this.todos = data.todos || data || [];
       this.render();
     } catch (err) {
       console.error('Failed to load todos:', err);
@@ -122,9 +136,14 @@ const TodosUI = {
 
   async toggleComplete(id) {
     try {
+      const sessionId = localStorage.getItem('sprekta_session_id');
+
       const response = await fetch(`/api/todos/${id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-session-id': sessionId
+        },
         body: JSON.stringify({ completed: true })
       });
 
@@ -136,5 +155,8 @@ const TodosUI = {
     }
   }
 };
+
+// Export globally for access from other modules
+window.TodosUI = TodosUI;
 
 export default TodosUI;

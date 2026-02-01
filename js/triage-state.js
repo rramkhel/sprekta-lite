@@ -152,15 +152,35 @@ const TriageState = {
       };
       this.messages.push(assistantMessage);
 
-      // If event was created, refresh calendar
-      if (data.eventCreated) {
+      // Sprint 14.1: Refresh calendar if events were created
+      if (data.eventsCreated && data.eventsCreated > 0) {
+        console.log(`[Chat] ${data.eventsCreated} events created, refreshing calendar`);
+
         // Trigger calendar refresh
         if (window.renderCalendar && typeof window.renderCalendar === 'function') {
           window.renderCalendar();
         }
-        // Also dispatch event for any other listeners
+
+        // Dispatch event for any other listeners
         window.dispatchEvent(new CustomEvent('eventsChanged', {
-          detail: { eventId: data.eventId, source: 'chat' }
+          detail: {
+            count: data.eventsCreated,
+            ids: data.eventIds,
+            source: 'chat'
+          }
+        }));
+      }
+
+      // Sprint 14.2: Dispatch event if todos were created
+      if (data.todosCreated && data.todosCreated > 0) {
+        console.log(`[Chat] ${data.todosCreated} todos created`);
+
+        window.dispatchEvent(new CustomEvent('todosChanged', {
+          detail: {
+            count: data.todosCreated,
+            ids: data.todoIds,
+            source: 'chat'
+          }
         }));
       }
 

@@ -4732,7 +4732,7 @@ body {
   position: fixed;
   top: 60px;
   left: 0;
-  width: 360px;
+  width: 420px; /* Sprint 14.3: Increased from 360px for better readability */
   height: calc(100vh - 60px);
   background: #fff;
   border-right: 1px solid #e5e5e5;
@@ -4813,7 +4813,7 @@ body {
 
 /* Main Content */
 .main-content {
-  margin-left: 360px;
+  margin-left: 420px; /* Sprint 14.3: Match increased sidebar width */
   flex: 1;
   overflow-y: auto;
   background: #fafaf9;

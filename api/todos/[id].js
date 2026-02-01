@@ -5,24 +5,41 @@ export default async function handler(req, res) {
 
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'PATCH, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Methods', 'PATCH, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-session-id');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const supabase = createServiceClient();
+  const sessionId = req.headers['x-session-id'];
+
+  if (!sessionId) {
+    return res.status(400).json({ error: 'Missing session ID' });
+  }
+
+  if (!id) {
+    return res.status(400).json({ error: 'Missing todo ID' });
+  }
 
   try {
     if (req.method === 'PATCH') {
-      const { completed } = req.body;
+      const { completed, title, priority, time_group } = req.body;
+
+      const updates = { updated_at: new Date().toISOString() };
+
+      if (typeof completed === 'boolean') {
+        updates.completed = completed;
+        updates.completed_at = completed ? new Date().toISOString() : null;
+      }
+      if (title) updates.title = title;
+      if (priority) updates.priority = priority;
+      if (time_group) updates.time_group = time_group;
 
       const { data, error } = await supabase
         .from('todos')
-        .update({
-          completed: completed,
-          completed_at: completed ? new Date().toISOString() : null
-        })
+        .update(updates)
         .eq('id', id)
+        .eq('session_id', sessionId)
         .select()
         .single();
 
@@ -31,7 +48,22 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: 'Failed to update todo' });
       }
 
-      return res.status(200).json(data);
+      return res.status(200).json({ todo: data });
+    }
+
+    if (req.method === 'DELETE') {
+      const { error } = await supabase
+        .from('todos')
+        .delete()
+        .eq('id', id)
+        .eq('session_id', sessionId);
+
+      if (error) {
+        console.error('Todo delete error:', error);
+        return res.status(500).json({ error: 'Failed to delete todo' });
+      }
+
+      return res.status(200).json({ deleted: true });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
