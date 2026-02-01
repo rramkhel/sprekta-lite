@@ -21,6 +21,9 @@
     <!-- History Container -->
     <div id="history-container" class="hidden"></div>
 
+    <!-- Todos Container -->
+    <div id="todos-container" class="hidden"></div>
+
     <!-- App Header -->
     <header class="app-header">
         <div class="header-left">
@@ -35,6 +38,9 @@
         <div class="header-right">
             <button id="toggle-triage" class="panel-toggle" aria-label="Toggle triage">
                 <i data-lucide="inbox"></i>
+            </button>
+            <button id="toggle-todos" class="panel-toggle" aria-label="Toggle todos">
+                <i data-lucide="list-checks"></i>
             </button>
             <button id="profile-btn" class="profile-btn">
                 <i data-lucide="user"></i>
@@ -307,6 +313,7 @@
         import ChatUI from './js/triage-ui.js';
         import SettingsUI from './js/settings-ui.js';
         import HistoryUI from './js/history-ui.js';
+        import TodosUI from './js/todos-ui.js';
         import TriageState from './js/triage-state.js';
         import PanelManager from './js/panel-manager.js';
         import CompactCalendar from './js/compact-calendar.js';
@@ -346,6 +353,7 @@
         ChatUI.init();
         SettingsUI.init('settings-container');
         HistoryUI.init('history-container');
+        TodosUI.init('todos-container');
 
         // Wire up buttons
         document.getElementById('plan-mode-btn')?.addEventListener('click', () => {
@@ -359,10 +367,22 @@
             SettingsUI.open('profile');
         });
 
+        document.getElementById('toggle-todos')?.addEventListener('click', () => {
+            const container = document.getElementById('todos-container');
+            if (container) {
+                container.classList.toggle('hidden');
+                // Reload todos when opening
+                if (!container.classList.contains('hidden')) {
+                    TodosUI.load();
+                }
+            }
+        });
+
         // Make modules available globally
         window.HistoryUI = HistoryUI;
         window.SettingsUI = SettingsUI;
         window.PanelManager = PanelManager;
+        window.TodosUI = TodosUI;
     </script>
     <script src="/app.js"></script>
 </body>
