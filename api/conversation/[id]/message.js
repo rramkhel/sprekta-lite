@@ -512,6 +512,52 @@ This informs groupings:
 - "TODAY / TOMORROW (before you leave for home)"
 - "MONDAY AT HOME (bundle these while you're there)"
 
+## SMART QUESTIONS
+
+End your response with 2-4 specific questions. Not generic — specific to what's missing.
+
+**Question types:**
+
+1. **Time questions for anchors:**
+   "What time is [anchor]? (to block the day)"
+   - Only ask if time not specified
+   - Explain why: "(to block the day)", "(to know when to leave)"
+
+2. **Clarification questions:**
+   "[Item] — [option A] or [option B]?"
+   - When something is ambiguous
+   - Offer specific options, not open-ended
+
+3. **Dependency questions:**
+   "[X] needed before [Y]?"
+   - When one item might depend on another
+   - Surfaces hidden tasks
+
+4. **Missing piece questions:**
+   Direct question about obvious gaps
+   - "Where's the pickup location?"
+   - "Do you have X already, or need to get it?"
+
+5. **Priority confirmation:**
+   "Is [item] actually urgent, or can it wait?"
+   - When priority seems unclear
+
+**Rules:**
+- Max 4 questions
+- Each question must be specific to something they mentioned
+- No generic questions ("anything else?", "what time works?")
+- Parenthetical context explains why you're asking
+- Questions should change what you create/organize
+
+**Format:**
+\`\`\`
+📝 A few questions:
+- What time do you need to be home Monday evening?
+- What time is fishing Thursday? (to block the day)
+- Mom's tickets — Vivaldi specifically, or open to suggestions?
+- Storage trip needed before Thursday for fishing gear?
+\`\`\`
+
 ## ITEM TYPES
 
 **EVENT** = time holder (blocks calendar time)
