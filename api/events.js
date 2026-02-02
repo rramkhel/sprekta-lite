@@ -4,27 +4,42 @@
  * Handles all event CRUD operations with Supabase
  */
 
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-  console.error('[Events API] Supabase credentials missing!');
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey);
+import { createServiceClient } from '../lib/supabase.js';
 
 export default async function handler(req, res) {
-  // GET - Load all events
+  // CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-session-id');
+
+  if (req.method === 'OPTIONS') return res.status(200).end();
+
+  const supabase = createServiceClient();
+
+  // GET - Load events for session
   if (req.method === 'GET') {
     try {
+      // Sprint 14.4: Filter by session ID
+      const sessionId = req.headers['x-session-id'];
+
+      console.log('[Events API] GET request');
+      console.log('[Events API] Session ID:', sessionId);
+
+      if (!sessionId) {
+        console.warn('[Events API] No session ID provided');
+        return res.status(400).json({ error: 'Missing session ID' });
+      }
+
       const { data, error } = await supabase
         .from('events')
         .select('*')
+        .eq('session_id', sessionId)
         .order('date', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[Events API] Fetch error:', error);
+        throw error;
+      }
 
       // Transform snake_case to camelCase for frontend
       const events = (data || []).map(e => ({
@@ -41,7 +56,7 @@ export default async function handler(req, res) {
         updated_at: e.updated_at
       }));
 
-      console.log(`[Events API] Loaded ${events.length} events`);
+      console.log(`[Events API] Loaded ${events.length} events for session ${sessionId}`);
       return res.status(200).json({ events });
     } catch (error) {
       console.error('[Events API] Load error:', error);

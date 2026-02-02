@@ -779,7 +779,20 @@ async function loadEvents() {
     console.log('[Storage] Loading events from Supabase...');
 
     try {
-        const response = await fetch('/api/events');
+        // Sprint 14.4: Get session ID from sessionStorage
+        let sessionId = sessionStorage.getItem('sprekta-session-id');
+        if (!sessionId) {
+            sessionId = crypto.randomUUID();
+            sessionStorage.setItem('sprekta-session-id', sessionId);
+        }
+
+        console.log('[Storage] Session ID:', sessionId);
+
+        const response = await fetch('/api/events', {
+            headers: {
+                'x-session-id': sessionId
+            }
+        });
 
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);

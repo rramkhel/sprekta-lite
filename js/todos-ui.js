@@ -1,3 +1,5 @@
+import Session from './session.js';
+
 const TodosUI = {
   container: null,
   todos: [],
@@ -18,8 +20,8 @@ const TodosUI = {
 
   async load() {
     try {
-      // Get session ID for API call
-      const sessionId = localStorage.getItem('sprekta_session_id');
+      // Sprint 14.4: Use Session.getId() for correct session management
+      const sessionId = Session.getId();
       console.log('[TodosUI] Loading todos with session:', sessionId);
 
       const response = await fetch('/api/todos', {
@@ -145,7 +147,7 @@ const TodosUI = {
 
   async toggleComplete(id) {
     try {
-      const sessionId = localStorage.getItem('sprekta_session_id');
+      const sessionId = Session.getId();
 
       const response = await fetch(`/api/todos/${id}`, {
         method: 'PATCH',

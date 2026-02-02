@@ -4850,8 +4850,12 @@ body {
   padding: 10px 12px;
   font-size: 14px;
   font-family: inherit;
+  line-height: 1.5;
   resize: none;
-  max-height: 120px;
+  min-height: 48px;
+  max-height: 240px;
+  overflow-y: auto;
+  transition: height 150ms ease;
 }
 
 .chat-input-area textarea:focus {

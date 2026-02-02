@@ -25,6 +25,9 @@ const ChatUI = {
     // Bind events once on the fixed HTML structure
     this.bindEvents();
 
+    // Setup auto-resize for textarea
+    this.setupAutoResize();
+
     // Initial render (empty/loading state)
     this.render();
 
@@ -184,12 +187,36 @@ const ChatUI = {
     });
   },
 
+  setupAutoResize() {
+    const input = document.getElementById('chat-input');
+    if (!input) return;
+
+    const autoResize = () => {
+      // Reset height to recalculate
+      input.style.height = 'auto';
+      // Set to scrollHeight, but cap at max-height (240px)
+      const newHeight = Math.min(input.scrollHeight, 240);
+      input.style.height = newHeight + 'px';
+    };
+
+    // Resize on input
+    input.addEventListener('input', autoResize);
+
+    // Also resize when clearing (after send)
+    input.addEventListener('change', autoResize);
+
+    // Initialize on load
+    autoResize();
+  },
+
   async handleSend() {
     const input = document.getElementById('chat-input');
     const content = input.value.trim();
     if (!content) return;
 
     input.value = '';
+    // Reset height after clearing
+    input.style.height = 'auto';
 
     // Add user message to UI
     this.addMessage('user', content);
