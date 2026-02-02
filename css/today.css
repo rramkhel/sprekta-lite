@@ -15,7 +15,7 @@
 }
 
 /* ============================================================================
-   Right Now Section
+   Right Now Section (Sprint 17.3)
    ============================================================================ */
 .right-now-section {
   background: white;
@@ -42,44 +42,85 @@
 
 .right-now-time {
   font-size: 13px;
-  font-weight: 500;
-  color: #57534e;
+  color: #78716c;
 }
 
 .focus-task {
   background: linear-gradient(135deg, #fef3c7 0%, #fef9c3 100%);
   border: 1px solid #fcd34d;
   border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 20px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+}
+
+.focus-task-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.focus-task-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .focus-task-priority {
-  font-size: 20px;
-  margin-bottom: 8px;
+  font-size: 16px;
 }
 
 .focus-task-title {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
-  color: #292524;
-  margin-bottom: 8px;
+  color: #1c1917;
 }
 
-.focus-task-deadline {
-  font-size: 14px;
+.focus-change-btn {
+  font-size: 13px;
   color: #78716c;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 150ms ease;
 }
 
+.focus-change-btn:hover {
+  background: rgba(0,0,0,0.05);
+  color: #1c1917;
+}
+
+.focus-clear {
+  text-align: center;
+  padding: 16px;
+  color: #22c55e;
+  font-weight: 500;
+}
+
+/* Up Next */
 .up-next {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.up-next-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   font-size: 14px;
-  color: #57534e;
-  line-height: 1.6;
 }
 
 .up-next-label {
-  font-weight: 600;
-  margin-right: 8px;
+  font-size: 12px;
+  color: #a8a29e;
+  min-width: 56px;
+}
+
+.up-next-content {
+  color: #57534e;
 }
 
 /* ============================================================================
@@ -364,6 +405,74 @@
   background: #1c1917;
   border-color: #1c1917;
   color: white;
+}
+
+/* ============================================================================
+   Focus Picker Modal (Sprint 17.3)
+   ============================================================================ */
+.focus-picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.focus-picker {
+  background: white;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 400px;
+  max-height: 80vh;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+}
+
+.focus-picker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e7e5e4;
+  font-weight: 600;
+}
+
+.focus-picker-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #78716c;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.focus-picker-list {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.focus-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px;
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+
+.focus-picker-item:hover {
+  background: #fafaf9;
+}
+
+.focus-picker-priority {
+  font-size: 16px;
+}
+
+.focus-picker-title {
+  font-size: 15px;
+  color: #1c1917;
 }
 
 /* ============================================================================

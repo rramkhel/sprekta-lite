@@ -56,8 +56,11 @@ class TodayUI {
    * Transform API data to render format
    */
   transformData(apiData) {
+    // Build Right Now data first (sets this.focusTaskId)
+    const rightNow = this.buildRightNowData(apiData);
+
     return {
-      rightNow: this.buildRightNowData(apiData),
+      rightNow,
       today: {
         dayName: apiData.dayName,
         context: apiData.context,
@@ -68,9 +71,10 @@ class TodayUI {
             id: task.id,
             title: task.title,
             done: task.completed || false,
-            current: false, // Will be set based on focusTaskId in Sprint 17.3
+            current: task.id === this.focusTaskId, // Mark focus task
             emoji: task.emoji,
-            meta: task.meta
+            meta: task.meta,
+            context_group: task.context_group
           }))
         })),
         anchor: apiData.anchor ? {
@@ -85,15 +89,47 @@ class TodayUI {
   }
 
   buildRightNowData(apiData) {
-    // Placeholder for Sprint 17.3
+    const { groups, anchor } = apiData;
+    const allTasks = groups.flatMap(g => g.tasks);
+    const incompleteTasks = allTasks.filter(t => !t.completed);
+
+    // Get focus task (user-selected or first incomplete)
+    const focusTaskId = this.getFocusTaskId();
+    let focusTask = incompleteTasks.find(t => t.id === focusTaskId);
+
+    // If no valid focus task, default to first incomplete
+    if (!focusTask && incompleteTasks.length > 0) {
+      focusTask = incompleteTasks[0];
+      this.setFocusTaskId(focusTask.id);
+    }
+
+    // Store focusTaskId so renderTaskItem can mark it
+    this.focusTaskId = focusTask?.id || null;
+
+    // Calculate up next and then
+    const focusIndex = incompleteTasks.findIndex(t => t.id === focusTask?.id);
+    const upNext = incompleteTasks[focusIndex + 1] || null;
+    const then = anchor;
+
     return {
-      task: {
-        title: "Choose your focus",
-        priority: ''
-      },
-      upNext: "to be determined",
-      then: "see what's ahead"
+      focusTask,
+      upNext,
+      then,
+      incompleteTasks
     };
+  }
+
+  // Focus task localStorage methods
+  getFocusTaskId() {
+    return localStorage.getItem('sprekta_focus_task_id');
+  }
+
+  setFocusTaskId(taskId) {
+    if (taskId) {
+      localStorage.setItem('sprekta_focus_task_id', taskId);
+    } else {
+      localStorage.removeItem('sprekta_focus_task_id');
+    }
   }
 
   calculateGroupCount(group) {
@@ -213,29 +249,138 @@ class TodayUI {
    * Render Right Now section
    */
   renderRightNow(rightNow) {
-    const focusTask = document.getElementById('focus-task');
-    const upNext = document.getElementById('up-next');
+    const container = document.querySelector('.right-now-section');
+    if (!container) return;
 
-    if (!focusTask || !upNext) return;
+    const currentTime = new Date().toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    }).toLowerCase();
 
-    // Focus task
-    focusTask.innerHTML = `
-      <div class="focus-task-priority">${rightNow.task.priority}</div>
-      <div class="focus-task-title">${rightNow.task.title}</div>
-      <div class="focus-task-deadline">
-        you have until ${rightNow.deadline} (${rightNow.timeRemaining})
+    // No tasks state
+    if (!rightNow.focusTask) {
+      container.innerHTML = `
+        <div class="right-now-header">
+          <span class="right-now-label">RIGHT NOW</span>
+          <span class="right-now-time">${currentTime}</span>
+        </div>
+        <div class="focus-clear">
+          <span>✨ All clear for now</span>
+        </div>
+      `;
+      return;
+    }
+
+    // Normal state with focus task
+    container.innerHTML = `
+      <div class="right-now-header">
+        <span class="right-now-label">RIGHT NOW</span>
+        <span class="right-now-time">${currentTime}</span>
+      </div>
+
+      <div class="focus-task">
+        <div class="focus-task-row">
+          <div class="focus-task-content">
+            <span class="focus-task-priority">${this.getPriorityIcon(rightNow.focusTask)}</span>
+            <span class="focus-task-title">${rightNow.focusTask.title}</span>
+          </div>
+          <button class="focus-change-btn" data-action="change-focus">change</button>
+        </div>
+      </div>
+
+      <div class="up-next">
+        ${rightNow.upNext ? `
+          <div class="up-next-item">
+            <span class="up-next-label">up next</span>
+            <span class="up-next-content">${rightNow.upNext.title}${rightNow.upNext.context_group ? ` (${this.formatGroupName(rightNow.upNext.context_group)})` : ''}</span>
+          </div>
+        ` : ''}
+        ${rightNow.then ? `
+          <div class="up-next-item">
+            <span class="up-next-label">then</span>
+            <span class="up-next-content">${rightNow.then.title}${rightNow.then.time ? ` · ${this.formatTime(rightNow.then.time)}` : ''} ${rightNow.then.flagged ? '<span class="flag">🚩</span>' : ''}</span>
+          </div>
+        ` : ''}
       </div>
     `;
 
-    // Up next
-    upNext.innerHTML = `
-      <div>
-        <span class="up-next-label">up next:</span> ${rightNow.upNext}
-      </div>
-      <div>
-        <span class="up-next-label">then:</span> ${rightNow.then}
+    // Attach change handler
+    this.attachFocusChangeHandler(rightNow.incompleteTasks);
+  }
+
+  getPriorityIcon(task) {
+    if (task.priority === 'non_negotiable') return '🔴';
+    if (task.priority === 'important') return '🟠';
+    return '🟡';
+  }
+
+  formatGroupName(group) {
+    const names = {
+      'while_home': 'while home',
+      'on_the_way': 'on the way',
+      'at_office': 'at office',
+      'due_today': 'due today'
+    };
+    return names[group] || group.replace(/_/g, ' ');
+  }
+
+  /**
+   * Attach focus change handler
+   */
+  attachFocusChangeHandler(incompleteTasks) {
+    const changeBtn = document.querySelector('[data-action="change-focus"]');
+    if (!changeBtn) return;
+
+    changeBtn.addEventListener('click', () => {
+      this.showFocusPicker(incompleteTasks);
+    });
+  }
+
+  /**
+   * Show focus picker modal
+   */
+  showFocusPicker(tasks) {
+    // Create modal/dropdown to pick focus task
+    const picker = document.createElement('div');
+    picker.className = 'focus-picker-overlay';
+    picker.innerHTML = `
+      <div class="focus-picker">
+        <div class="focus-picker-header">
+          <span>What do you want to focus on?</span>
+          <button class="focus-picker-close">×</button>
+        </div>
+        <div class="focus-picker-list">
+          ${tasks.map(task => `
+            <div class="focus-picker-item" data-task-id="${task.id}">
+              <span class="focus-picker-priority">${this.getPriorityIcon(task)}</span>
+              <span class="focus-picker-title">${task.title}</span>
+            </div>
+          `).join('')}
+        </div>
       </div>
     `;
+
+    document.body.appendChild(picker);
+
+    // Close handler
+    picker.querySelector('.focus-picker-close').addEventListener('click', () => {
+      picker.remove();
+    });
+
+    picker.addEventListener('click', (e) => {
+      if (e.target === picker) picker.remove();
+    });
+
+    // Select handler
+    picker.querySelectorAll('.focus-picker-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const taskId = item.dataset.taskId;
+        this.setFocusTaskId(taskId);
+        picker.remove();
+        this.fetchAndRender(); // Re-render with new focus
+      });
+    });
   }
 
   /**
@@ -349,6 +494,11 @@ class TodayUI {
     if (!taskEl) return;
 
     const isCompleted = taskEl.classList.contains('done');
+
+    // If completing the focus task, clear it
+    if (!isCompleted && taskId === this.getFocusTaskId()) {
+      this.setFocusTaskId(null);
+    }
 
     // Optimistic update
     taskEl.classList.toggle('done');
