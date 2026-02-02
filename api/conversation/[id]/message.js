@@ -277,6 +277,50 @@ export default async function handler(req, res) {
 
     console.log(`[Message API] Total todos created: ${createdTodos.length}`);
 
+    // Handle profile save (user confirmed)
+    let profileUpdated = false;
+    if (parsed.profile_save && userId) {
+      console.log('[Message API] Saving profile update:', parsed.profile_save);
+
+      try {
+        // Get current profile
+        const { data: currentProfile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', userId)
+          .single();
+
+        const update = parsed.profile_save;
+        const merged = {
+          user_id: userId,
+          patterns: [...(currentProfile?.patterns || []), ...(update.patterns || [])],
+          key_people: [...(currentProfile?.key_people || []), ...(update.key_people || [])],
+          priorities: [...(currentProfile?.priorities || []), ...(update.priorities || [])],
+          notes: update.notes_append
+            ? (currentProfile?.notes || '') + '\n\n' + update.notes_append
+            : currentProfile?.notes || null,
+          name: currentProfile?.name || null,
+          red_flags: currentProfile?.red_flags || []
+        };
+
+        // Upsert profile
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert(merged, { onConflict: 'user_id' });
+
+        if (profileError) {
+          console.error('[Message API] Profile save error:', profileError);
+        } else {
+          profileUpdated = true;
+          console.log('[Message API] Profile updated successfully');
+        }
+      } catch (err) {
+        console.error('[Message API] Failed to save profile:', err);
+      }
+    } else if (parsed.profile_save && !userId) {
+      console.warn('[Message API] Cannot save profile - user not logged in');
+    }
+
     // Save assistant message (store the reply, not raw JSON)
     const { error: msgError } = await supabase
       .from('messages')
@@ -302,7 +346,9 @@ export default async function handler(req, res) {
       eventsCreated: createdEvents.length,
       todosCreated: createdTodos.length,
       eventIds: createdEvents.map(e => e.id),
-      todoIds: createdTodos.map(t => t.id)
+      todoIds: createdTodos.map(t => t.id),
+      profileUpdated: profileUpdated,
+      profilePending: !!parsed.profile_suggestion
     });
 
   } catch (error) {
@@ -393,6 +439,42 @@ Did I get the priorities right?
 🟡 signals: scheduled with others, soft deadline, "should"
 🟢 signals: "not urgent", "at some point", "whenever", no deadline
 
+## PROFILE LEARNING
+
+When user asks to "remember this", "add to my profile", "save this for later", or shares recurring context:
+
+### Step 1: Suggest (don't save yet)
+- Acknowledge: "I'll remember this!"
+- Show EXACTLY what you'll save, formatted clearly
+- Ask: "Does this look right?" or "Save this?"
+- Include \`profile_suggestion\` in your JSON (data only, not saved yet)
+
+### Step 2: Wait for confirmation
+User might say: "yep", "yes", "looks good", "save it", "perfect", "do it"
+User might correct: "actually change X to Y"
+User might abandon: ask about something else entirely
+
+### Step 3a: If confirmed
+- Say: "✓ Saved to your profile!"
+- Include \`profile_save\` in your JSON (this triggers the actual save)
+
+### Step 3b: If corrected
+- Update your suggestion
+- Show the corrected version
+- Ask again: "Save this?"
+- Include updated \`profile_suggestion\`
+
+### Step 3c: If abandoned
+- Drop it, answer their new question
+- Don't include profile_suggestion or profile_save
+
+### What to save
+Structure the data to match these profile fields:
+- **patterns**: Behavioral patterns ["Morning person", "Volunteers on Sundays"]
+- **key_people**: Important people [{"name": "Sarah", "relationship": "partner"}]
+- **priorities**: Life priorities ["Family time", "Exercise"]
+- **notes_append**: Free-form context to ADD to existing notes (don't replace)
+
 ## OUTPUT FORMAT
 
 Respond with valid JSON only. No markdown code blocks, just raw JSON:
@@ -419,7 +501,19 @@ Respond with valid JSON only. No markdown code blocks, just raw JSON:
       "time_group": "today|tomorrow|this_week|future|someday",
       "notes": "optional"
     }
-  ]
+  ],
+  "profile_suggestion": {
+    "patterns": ["array of patterns to add"],
+    "key_people": [{"name": "...", "relationship": "..."}],
+    "priorities": ["array of priorities"],
+    "notes_append": "text to append to notes"
+  },
+  "profile_save": {
+    "patterns": ["same structure as above"],
+    "key_people": [{"name": "...", "relationship": "..."}],
+    "priorities": ["array of priorities"],
+    "notes_append": "text to append to notes"
+  }
 }
 
 **Critical:**
@@ -427,7 +521,10 @@ Respond with valid JSON only. No markdown code blocks, just raw JSON:
 - Only put items in "events" array if you have BOTH date AND time
 - Put tasks in "todos" array even without scheduled time
 - Empty arrays are fine: "events": [], "todos": []
-- Items you're asking about should NOT be in the arrays yet`;
+- Items you're asking about should NOT be in the arrays yet
+- "profile_suggestion" — include when PROPOSING a save (waiting for confirmation)
+- "profile_save" — include when user CONFIRMED (triggers database write)
+- Never include both profile_suggestion and profile_save in same response`;
 
   if (profile) {
     prompt += `
