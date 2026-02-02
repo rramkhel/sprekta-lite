@@ -181,71 +181,101 @@ export default async function handler(req, res) {
 
     // Create events
     const createdEvents = [];
+    console.log(`[Message API] Attempting to create ${parsed.events?.length || 0} events`);
+
     for (const event of (parsed.events || [])) {
+      console.log('[Message API] Processing event:', event);
+
       // Validate required fields
       if (!event.title || !event.date || !event.time) {
-        console.warn('Skipping invalid event:', event);
+        console.warn('[Message API] Skipping invalid event (missing required fields):', event);
         continue;
       }
 
       try {
+        const insertData = {
+          user_id: userId || null,
+          session_id: sessionId,
+          conversation_id: id,
+          title: event.title,
+          date: event.date,
+          time: event.time,
+          end_time: event.end_time || null,
+          notes: event.notes || null,
+          source: 'chat'
+        };
+
+        console.log('[Message API] Inserting event with data:', insertData);
+
         const { data, error } = await supabase
           .from('events')
-          .insert({
-            user_id: userId || null,
-            session_id: sessionId,
-            conversation_id: id,
-            title: event.title,
-            date: event.date,
-            time: event.time,
-            end_time: event.end_time || null,
-            notes: event.notes || null,
-            source: 'chat'
-          })
+          .insert(insertData)
           .select()
           .single();
 
-        if (error) throw error;
+        if (error) {
+          console.error('[Message API] Insert error:', error);
+          throw error;
+        }
+
+        console.log('[Message API] Successfully created event:', data);
         if (data) createdEvents.push(data);
       } catch (err) {
-        console.error('Failed to create event:', err, event);
+        console.error('[Message API] Failed to create event:', err.message, event);
       }
     }
+
+    console.log(`[Message API] Total events created: ${createdEvents.length}`);
 
     // Create todos
     const createdTodos = [];
+    console.log(`[Message API] Attempting to create ${parsed.todos?.length || 0} todos`);
+
     for (const todo of (parsed.todos || [])) {
+      console.log('[Message API] Processing todo:', todo);
+
       // Validate required field
       if (!todo.title) {
-        console.warn('Skipping invalid todo:', todo);
+        console.warn('[Message API] Skipping invalid todo (missing title):', todo);
         continue;
       }
 
       try {
+        const insertData = {
+          user_id: userId || null,
+          session_id: sessionId,
+          conversation_id: id,
+          title: todo.title,
+          scheduled_date: todo.scheduled_date || null,
+          scheduled_time: todo.scheduled_time || null,
+          deadline: todo.deadline || null,
+          priority: todo.priority || 'flexible',
+          time_group: todo.time_group || 'someday',
+          notes: todo.notes || null,
+          source: 'chat'
+        };
+
+        console.log('[Message API] Inserting todo with data:', insertData);
+
         const { data, error } = await supabase
           .from('todos')
-          .insert({
-            user_id: userId || null,
-            session_id: sessionId,
-            conversation_id: id,
-            title: todo.title,
-            scheduled_date: todo.scheduled_date || null,
-            scheduled_time: todo.scheduled_time || null,
-            deadline: todo.deadline || null,
-            priority: todo.priority || 'flexible',
-            time_group: todo.time_group || 'someday',
-            notes: todo.notes || null,
-            source: 'chat'
-          })
+          .insert(insertData)
           .select()
           .single();
 
-        if (error) throw error;
+        if (error) {
+          console.error('[Message API] Todo insert error:', error);
+          throw error;
+        }
+
+        console.log('[Message API] Successfully created todo:', data);
         if (data) createdTodos.push(data);
       } catch (err) {
-        console.error('Failed to create todo:', err, todo);
+        console.error('[Message API] Failed to create todo:', err.message, todo);
       }
     }
+
+    console.log(`[Message API] Total todos created: ${createdTodos.length}`);
 
     // Save assistant message (store the reply, not raw JSON)
     const { error: msgError } = await supabase

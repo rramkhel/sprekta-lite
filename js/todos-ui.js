@@ -20,6 +20,7 @@ const TodosUI = {
     try {
       // Get session ID for API call
       const sessionId = localStorage.getItem('sprekta_session_id');
+      console.log('[TodosUI] Loading todos with session:', sessionId);
 
       const response = await fetch('/api/todos', {
         headers: {
@@ -27,13 +28,21 @@ const TodosUI = {
         }
       });
 
-      if (!response.ok) throw new Error('Failed to load todos');
+      console.log('[TodosUI] Response status:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('[TodosUI] Error response:', errorData);
+        throw new Error(`Failed to load todos: ${response.status}`);
+      }
 
       const data = await response.json();
+      console.log('[TodosUI] Loaded data:', data);
       this.todos = data.todos || data || [];
+      console.log('[TodosUI] Parsed todos count:', this.todos.length);
       this.render();
     } catch (err) {
-      console.error('Failed to load todos:', err);
+      console.error('[TodosUI] Load error:', err);
       this.todos = [];
       this.render();
     }
