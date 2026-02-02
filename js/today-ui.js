@@ -1,8 +1,9 @@
-// Sprint 17.1: Today Page UI Component
+// Sprint 17.2: Today Page UI Component with Real Data
 
 class TodayUI {
   constructor() {
     this.container = document.getElementById('today-page');
+    this.focusTaskId = null; // Will be set in Sprint 17.3
     this.init();
   }
 
@@ -10,8 +11,114 @@ class TodayUI {
     this.updateCurrentTime();
     setInterval(() => this.updateCurrentTime(), 60000); // Update every minute
 
-    // Render placeholder data for Sprint 17.1
-    this.renderPlaceholder();
+    // Fetch and render real data
+    this.fetchAndRender();
+  }
+
+  /**
+   * Fetch today's data from API and render
+   */
+  async fetchAndRender() {
+    try {
+      const sessionId = localStorage.getItem('session_id');
+      const token = localStorage.getItem('supabase.auth.token');
+
+      const headers = {
+        'Content-Type': 'application/json',
+        'x-session-id': sessionId
+      };
+
+      if (token) {
+        headers['Authorization'] = `Bearer ${JSON.parse(token).access_token}`;
+      }
+
+      const response = await fetch('/api/todos/today', { headers });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch today data');
+      }
+
+      const data = await response.json();
+      console.log('[TodayUI] Fetched data:', data);
+
+      // Transform API data to render format
+      const renderData = this.transformData(data);
+      this.render(renderData);
+
+    } catch (error) {
+      console.error('[TodayUI] Fetch error:', error);
+      // Fall back to placeholder for now
+      this.renderPlaceholder();
+    }
+  }
+
+  /**
+   * Transform API data to render format
+   */
+  transformData(apiData) {
+    return {
+      rightNow: this.buildRightNowData(apiData),
+      today: {
+        dayName: apiData.dayName,
+        context: apiData.context,
+        groups: apiData.groups.map(group => ({
+          ...group,
+          count: this.calculateGroupCount(group),
+          tasks: group.tasks.map(task => ({
+            id: task.id,
+            title: task.title,
+            done: task.completed || false,
+            current: false, // Will be set based on focusTaskId in Sprint 17.3
+            emoji: task.emoji,
+            meta: task.meta
+          }))
+        })),
+        anchor: apiData.anchor ? {
+          time: this.formatTime(apiData.anchor.time),
+          title: apiData.anchor.title,
+          flagged: apiData.anchor.flagged || false
+        } : null
+      },
+      tomorrow: this.buildTomorrowData(),
+      totals: this.buildTotalsData(apiData)
+    };
+  }
+
+  buildRightNowData(apiData) {
+    // Placeholder for Sprint 17.3
+    return {
+      task: {
+        title: "Choose your focus",
+        priority: ''
+      },
+      upNext: "to be determined",
+      then: "see what's ahead"
+    };
+  }
+
+  calculateGroupCount(group) {
+    const incompleteCount = group.tasks.filter(t => !t.completed).length;
+    return incompleteCount > 0 ? `${incompleteCount} left` : '';
+  }
+
+  buildTomorrowData() {
+    // Placeholder for Sprint 17.4
+    return {
+      dayName: 'Tomorrow',
+      vibe: 'Loading...',
+      items: []
+    };
+  }
+
+  buildTotalsData(apiData) {
+    const allTasks = apiData.groups.flatMap(g => g.tasks);
+    const flaggedCount = allTasks.filter(t => t.priority === 'non_negotiable').length;
+
+    return {
+      allAccountedFor: true,
+      taskCount: allTasks.length,
+      flaggedCount
+    };
   }
 
   updateCurrentTime() {
@@ -167,18 +274,27 @@ class TodayUI {
     `).join('');
 
     // Anchor event
-    if (today.anchor) {
-      const anchorEl = document.getElementById('anchor-event');
-      if (anchorEl) {
-        anchorEl.innerHTML = `
-          <div class="anchor-event-content">
-            <div class="anchor-event-time">${today.anchor.time}</div>
-            <div class="anchor-event-title">${today.anchor.title}</div>
-          </div>
-          ${today.anchor.flagged ? '<div class="anchor-event-flag">🚩</div>' : ''}
-        `;
-      }
+    const anchorEl = document.getElementById('anchor-event');
+    if (today.anchor && anchorEl) {
+      anchorEl.innerHTML = `
+        <div class="anchor-event-content">
+          <div class="anchor-event-time">${today.anchor.time}</div>
+          <div class="anchor-event-title">${today.anchor.title}</div>
+        </div>
+        ${today.anchor.flagged ? '<div class="anchor-event-flag">🚩</div>' : ''}
+      `;
+      anchorEl.style.display = 'flex';
+    } else if (anchorEl) {
+      anchorEl.style.display = 'none';
     }
+
+    // Hide context if not present
+    if (contextEl) {
+      contextEl.style.display = today.context ? 'block' : 'none';
+    }
+
+    // Attach event listeners for checkboxes
+    this.attachTaskListeners();
   }
 
   /**
@@ -190,8 +306,8 @@ class TodayUI {
     if (task.current) classes.push('current');
 
     return `
-      <div class="${classes.join(' ')}">
-        <div class="task-item-checkbox">
+      <div class="${classes.join(' ')}" data-task-id="${task.id}">
+        <div class="task-item-checkbox" data-task-id="${task.id}">
           ${task.done ? `
             <svg viewBox="0 0 12 12" fill="none">
               <path d="M2 6l3 3 5-5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -206,10 +322,81 @@ class TodayUI {
           <div>
             ${task.current ? '<span class="task-item-current-marker">← right now</span>' : ''}
             ${task.meta ? `<span class="task-item-meta">${task.meta}</span>` : ''}
+            ${task.done ? '<span class="task-item-meta">done</span>' : ''}
           </div>
         </div>
       </div>
     `;
+  }
+
+  /**
+   * Attach event listeners for task checkboxes
+   */
+  attachTaskListeners() {
+    document.querySelectorAll('.task-item-checkbox').forEach(checkbox => {
+      checkbox.addEventListener('click', (e) => {
+        const taskId = e.currentTarget.dataset.taskId;
+        this.toggleTask(taskId);
+      });
+    });
+  }
+
+  /**
+   * Toggle task completion
+   */
+  async toggleTask(taskId) {
+    const taskEl = document.querySelector(`[data-task-id="${taskId}"]`).closest('.task-item');
+    if (!taskEl) return;
+
+    const isCompleted = taskEl.classList.contains('done');
+
+    // Optimistic update
+    taskEl.classList.toggle('done');
+
+    try {
+      const sessionId = localStorage.getItem('session_id');
+      const token = localStorage.getItem('supabase.auth.token');
+
+      const headers = {
+        'Content-Type': 'application/json',
+        'x-session-id': sessionId
+      };
+
+      if (token) {
+        headers['Authorization'] = `Bearer ${JSON.parse(token).access_token}`;
+      }
+
+      const response = await fetch(`/api/todos/${taskId}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ completed: !isCompleted })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update task');
+      }
+
+      // Refresh the page data
+      await this.fetchAndRender();
+
+    } catch (error) {
+      console.error('[TodayUI] Toggle task error:', error);
+      // Revert optimistic update
+      taskEl.classList.toggle('done');
+    }
+  }
+
+  /**
+   * Format time (HH:MM) to 12-hour format
+   */
+  formatTime(time) {
+    if (!time) return '';
+
+    const [hours, minutes] = time.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minutes} ${ampm}`;
   }
 
   /**
