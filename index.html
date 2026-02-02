@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/css/today.css">
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
@@ -80,8 +81,51 @@
             </div>
         </aside>
 
-        <!-- Main Content: Calendar -->
+        <!-- Main Content -->
         <main id="main-content" class="main-content">
+            <!-- Today Page -->
+            <div id="today-page" class="today-page">
+
+              <!-- Right Now Section -->
+              <section class="right-now-section">
+                <div class="right-now-header">
+                  <span class="right-now-label">RIGHT NOW</span>
+                  <span class="right-now-time" id="current-time">2:34 pm</span>
+                </div>
+
+                <div class="focus-task" id="focus-task">
+                  <!-- Populated by JS -->
+                </div>
+
+                <div class="up-next" id="up-next">
+                  <!-- Populated by JS -->
+                </div>
+              </section>
+
+              <!-- Today Section -->
+              <section class="today-section">
+                <div class="today-header">
+                  <h1 class="today-title" id="today-title">TODAY · Monday</h1>
+                  <p class="today-context" id="today-context">you're at home for mom's birthday</p>
+                </div>
+
+                <div class="task-groups" id="task-groups">
+                  <!-- Populated by JS -->
+                </div>
+
+                <div class="anchor-event" id="anchor-event">
+                  <!-- Populated by JS -->
+                </div>
+              </section>
+
+              <!-- Tomorrow Section -->
+              <section class="tomorrow-section" id="tomorrow-section">
+                <!-- Populated by JS -->
+              </section>
+
+            </div>
+
+            <!-- Calendar View -->
             <div class="calendar-view" id="calendarView">
                 <!-- Header -->
                 <div class="calendar-header">
@@ -109,6 +153,26 @@
             </div>
         </main>
     </div>
+
+    <!-- Footer Navigation -->
+    <footer class="today-footer">
+      <div class="footer-status">
+        <span class="status-check" id="status-check">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="display: inline-block; vertical-align: middle; margin-right: 6px;">
+            <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5" fill="none"/>
+            <path d="M5 8l2 2 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </svg>
+          all accounted for
+        </span>
+        <span class="status-counts" id="status-counts">18 tasks · 4 🚩</span>
+      </div>
+      <nav class="footer-nav">
+        <button class="nav-btn active" data-view="today">Today</button>
+        <button class="nav-btn" data-view="week">Week</button>
+        <button class="nav-btn" data-view="calendar">Calendar</button>
+        <button class="nav-btn" data-view="all">All</button>
+      </nav>
+    </footer>
 
     <!-- Dev Badge (Toggle) -->
     <div id="dev-badge" class="dev-badge">
@@ -311,6 +375,7 @@
         import TriageState from './js/triage-state.js';
         import CompactCalendar from './js/compact-calendar.js';
         import TriagePanel from './js/triage-panel.js';
+        import TodayUI from './js/today-ui.js';
 
         // Initialize sidebar tabs
         SidebarTabs.init();
@@ -348,7 +413,52 @@
         HistoryUI.init('history-container');
         TodosUI.init();
 
-        // Wire up buttons
+        // Initialize Today page
+        const todayUI = new TodayUI();
+
+        // View switching
+        let currentView = 'today'; // Default to Today view
+
+        function switchView(viewName) {
+            currentView = viewName;
+
+            // Update page visibility
+            const todayPage = document.getElementById('today-page');
+            const calendarView = document.getElementById('calendarView');
+
+            if (viewName === 'today') {
+                todayPage?.classList.add('active');
+                calendarView?.style.setProperty('display', 'none');
+            } else if (viewName === 'calendar') {
+                todayPage?.classList.remove('active');
+                calendarView?.style.setProperty('display', 'block');
+            } else {
+                // Week and All views: hide both for now (TODO: implement)
+                todayPage?.classList.remove('active');
+                calendarView?.style.setProperty('display', 'none');
+            }
+
+            // Update footer nav buttons
+            document.querySelectorAll('.footer-nav .nav-btn').forEach(btn => {
+                if (btn.dataset.view === viewName) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+
+        // Wire up footer navigation
+        document.querySelectorAll('.footer-nav .nav-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                switchView(btn.dataset.view);
+            });
+        });
+
+        // Start with Today view
+        switchView('today');
+
+        // Wire up existing buttons
         document.getElementById('plan-mode-btn')?.addEventListener('click', () => {
             SidebarTabs.switchTo('chat');
             ChatUI.focus?.(); // Focus input when opening
@@ -364,6 +474,8 @@
         window.SidebarTabs = SidebarTabs;
         window.TodosUI = TodosUI;
         window.ChatUI = ChatUI;
+        window.TodayUI = todayUI;
+        window.switchView = switchView;
     </script>
     <script src="/app.js"></script>
 </body>
