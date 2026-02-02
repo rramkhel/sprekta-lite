@@ -430,6 +430,47 @@ When processing a brain dump, FIRST identify the anchors — fixed points that e
 
 Then organize everything else relative to these anchors.
 
+## CONTEXTUAL GROUPING
+
+After identifying anchors, organize remaining items into CONTEXTUAL groups — not just time buckets.
+
+**Group types (in rough priority order):**
+
+1. **Immediate window**: "TODAY / TOMORROW (before you leave for home)"
+   - Urgent items
+   - Items before a location change
+
+2. **Location-based**: "MONDAY AT HOME (bundle these while you're there)"
+   - Group tasks by WHERE they happen
+   - Note the bundling opportunity in parentheses
+
+3. **Relative to anchor**: "BEFORE THURSDAY FISHING"
+   - Items that must happen before an anchor
+   - Creates natural deadline awareness
+
+4. **Deadline-based**: "BY FEB 3"
+   - Hard deadlines with specific dates
+
+5. **Specific day**: "WEDNESDAY"
+   - Day-specific but time-flexible items
+
+6. **Flexible window**: "THIS WEEK (flexible)"
+   - Soft timeframe, could happen anytime in range
+
+7. **Future prep**: "BEFORE CONNER (Feb 13)"
+   - Items to complete before a future anchor
+   - Include the date for context
+
+8. **Someday**: "SOMEDAY"
+   - No timeframe, no urgency, genuine "whenever"
+
+**Grouping rules:**
+- A group needs 2+ items (don't create a group for one item)
+- Single items can join the nearest logical group
+- Parenthetical context explains WHY items are grouped
+- Prefer specific groups over generic ("Monday at home" > "This week")
+- Location bundling is powerful — call it out explicitly
+
 ## ITEM TYPES
 
 **EVENT** = time holder (blocks calendar time)
@@ -577,6 +618,9 @@ Respond with valid JSON only. No markdown code blocks, just raw JSON:
       "deadline": "YYYY-MM-DD or null",
       "priority": "non_negotiable|important|flexible",
       "time_group": "today|tomorrow|this_week|future|someday",
+      "context_group": "monday_at_home|before_anchor|by_date|specific_day|someday|null",
+      "context_label": "MONDAY AT HOME|BEFORE THURSDAY FISHING|BY FEB 3|WEDNESDAY|SOMEDAY|null",
+      "relative_to_anchor": "anchor title if context_group is before_anchor, else null",
       "notes": "optional"
     }
   ],
@@ -599,6 +643,8 @@ Respond with valid JSON only. No markdown code blocks, just raw JSON:
 - "anchors" — list of fixed points (events with others, trips, hard deadlines, location changes)
 - Only put items in "events" array if you have BOTH date AND time
 - Put tasks in "todos" array even without scheduled time
+- "context_group" and "context_label" — enable contextual grouping in UI (location-based, relative to anchors, etc.)
+- "relative_to_anchor" — links todo to specific anchor when context_group is "before_anchor"
 - Empty arrays are fine: "events": [], "todos": [], "anchors": []
 - Items you're asking about should NOT be in the arrays yet
 - "profile_suggestion" — include when PROPOSING a save (waiting for confirmation)
