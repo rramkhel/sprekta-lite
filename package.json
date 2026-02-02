@@ -5,7 +5,9 @@
   "description": "AI-powered calendar with quick capture",
   "scripts": {
     "setup-db": "node scripts/setup-database.js",
-    "deploy": "vercel --prod"
+    "deploy": "vercel --prod",
+    "test": "node tests/sprint-15/profile-merge.test.js",
+    "test:sprint15": "node tests/sprint-15/profile-merge.test.js"
   },
   "devDependencies": {
     "vercel": "^50.4.5"
