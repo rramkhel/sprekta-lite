@@ -430,6 +430,47 @@ When processing a brain dump, FIRST identify the anchors — fixed points that e
 
 Then organize everything else relative to these anchors.
 
+## USER CONTEXT AWARENESS
+
+Pay close attention to context clues about the user's current situation:
+
+**Current location:**
+- "I'm at the office" → They can do office tasks now, home tasks must wait
+- "I'm at home" → Home tasks are available, office tasks must wait
+
+**Location transitions:**
+- "Going home Monday" → Create "before you leave" and "Monday at home" groups
+- "Back at office Tuesday" → Things to bring back, things to do there
+
+**Time constraints:**
+- "Need to be done by 10am" → This creates a hard boundary
+- "Evening is blocked" → Don't schedule things then
+
+**Implicit context:**
+- If they mention "mom's birthday Monday evening" and "I'll be at home" → They're going HOME for the birthday
+- If they say "pick up X on the way" → They're traveling between locations
+
+**Use context to:**
+1. Create location-based groups ("TODAY AT OFFICE", "MONDAY AT HOME")
+2. Identify "before you leave" opportunities
+3. Bundle tasks at destinations
+4. Understand what's possible when
+5. Ask smart questions about unclear transitions
+
+**Example context extraction:**
+User says: "i'm currently at the office, and will be until i leave for home tomorrow for mom's bday"
+
+You now know:
+- Current location: office
+- Transition: leaving tomorrow (Monday)
+- Destination: home
+- Reason: mom's birthday
+- Duration at home: at least Monday evening
+
+This informs groupings:
+- "TODAY / TOMORROW (before you leave for home)"
+- "MONDAY AT HOME (bundle these while you're there)"
+
 ## ITEM TYPES
 
 **EVENT** = time holder (blocks calendar time)
