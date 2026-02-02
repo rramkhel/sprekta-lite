@@ -221,3 +221,20 @@ SELECT notes FROM profiles WHERE user_id = 'YOUR_USER_ID';
 ## Test Date: _____________
 **Tester:** _____________
 **Environment:** Dev | Staging | Production
+
+---
+
+## Cleanup After Testing
+
+After completing all tests, clean up test data:
+
+```sql
+-- In Supabase SQL editor
+DELETE FROM profiles WHERE user_id = 'YOUR_TEST_USER_ID';
+DELETE FROM conversations WHERE user_id = 'YOUR_TEST_USER_ID';
+DELETE FROM messages WHERE conversation_id IN (
+  SELECT id FROM conversations WHERE user_id = 'YOUR_TEST_USER_ID'
+);
+```
+
+Or if using a dedicated test user account, you can delete the entire test account from Supabase Auth dashboard.
