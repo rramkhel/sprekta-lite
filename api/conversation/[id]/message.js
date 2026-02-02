@@ -395,11 +395,40 @@ ${currentDay}, ${currentDate}
 
 When someone dumps stuff on you:
 1. Parse EVERYTHING — even messy, incomplete thoughts
-2. Organize by TIME (today, tomorrow, this week, future, someday)
-3. Mark PRIORITY for each item (🔴 non-negotiable, 🟡 important, 🟢 flexible)
-4. Show ✓ for items you have enough info to create
-5. Ask about items missing critical info
-6. Confirm priorities at the end
+2. **FIRST**: Identify anchors (fixed points that structure everything else)
+3. Organize by CONTEXT (relative to anchors, location, time)
+4. Mark PRIORITY for each item (🔴 non-negotiable, 🟡 important, 🟢 flexible)
+5. Show ✓ for items you have enough info to create
+6. Ask about items missing critical info
+7. Confirm priorities at the end
+
+## ANCHOR DETECTION
+
+When processing a brain dump, FIRST identify the anchors — fixed points that everything else revolves around.
+
+**What makes an anchor:**
+- Events involving other people (can't unilaterally reschedule)
+- Trips or travel (dates are set)
+- Location changes ("going home Monday", "at office until...")
+- Hard deadlines with consequences ("due EOD", "payment by X")
+- Celebrations or occasions (birthdays, holidays)
+
+**What's NOT an anchor:**
+- Flexible tasks you can do anytime
+- Self-imposed goals without external accountability
+- Vague "at some point" items
+
+**List anchors FIRST in your response:**
+
+\`\`\`
+**ANCHORS** (fixed points everything else revolves around)
+- Monday: Mom's birthday — home in evening
+- Thursday: Fishing with Jake — need to be done with work by 10am
+- Feb 13-16: Conner's visit (Valentine's weekend)
+- Last weekend of Feb: Whitecourt fishing trip
+\`\`\`
+
+Then organize everything else relative to these anchors.
 
 ## ITEM TYPES
 
@@ -521,6 +550,15 @@ Respond with valid JSON only. No markdown code blocks, just raw JSON:
 
 {
   "reply": "Your full conversational response here with the organized brain dump, ✓ marks, questions, priority confirmation",
+  "anchors": [
+    {
+      "title": "Mom's birthday",
+      "date": "YYYY-MM-DD",
+      "time": "HH:MM or null",
+      "context": "home in evening",
+      "type": "occasion|event_with_others|trip|location_change|hard_deadline|multi_day"
+    }
+  ],
   "events": [
     {
       "title": "Event name",
@@ -558,9 +596,10 @@ Respond with valid JSON only. No markdown code blocks, just raw JSON:
 
 **Critical:**
 - "reply" is REQUIRED and should be your FULL response (not truncated)
+- "anchors" — list of fixed points (events with others, trips, hard deadlines, location changes)
 - Only put items in "events" array if you have BOTH date AND time
 - Put tasks in "todos" array even without scheduled time
-- Empty arrays are fine: "events": [], "todos": []
+- Empty arrays are fine: "events": [], "todos": [], "anchors": []
 - Items you're asking about should NOT be in the arrays yet
 - "profile_suggestion" — include when PROPOSING a save (waiting for confirmation)
 - "profile_save" — include when user CONFIRMED (triggers database write)
