@@ -279,46 +279,69 @@ export default async function handler(req, res) {
 
     // Handle profile save (user confirmed)
     let profileUpdated = false;
-    if (parsed.profile_save && userId) {
-      console.log('[Message API] Saving profile update:', parsed.profile_save);
+    let profileError = null;
 
-      try {
-        // Get current profile
-        const { data: currentProfile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('user_id', userId)
-          .single();
+    if (parsed.profile_save) {
+      if (!userId) {
+        // User not logged in - can't save
+        console.warn('[Message API] Profile save requested but user not logged in');
+        profileError = 'not_authenticated';
+      } else {
+        console.log('[Message API] Saving profile update:', parsed.profile_save);
 
-        const update = parsed.profile_save;
-        const merged = {
-          user_id: userId,
-          patterns: [...(currentProfile?.patterns || []), ...(update.patterns || [])],
-          key_people: [...(currentProfile?.key_people || []), ...(update.key_people || [])],
-          priorities: [...(currentProfile?.priorities || []), ...(update.priorities || [])],
-          notes: update.notes_append
-            ? (currentProfile?.notes || '') + '\n\n' + update.notes_append
-            : currentProfile?.notes || null,
-          name: currentProfile?.name || null,
-          red_flags: currentProfile?.red_flags || []
-        };
+        try {
+          // Get current profile (might not exist for first-time users)
+          const { data: currentProfile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', userId)
+            .single();
 
-        // Upsert profile
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .upsert(merged, { onConflict: 'user_id' });
+          const update = parsed.profile_save;
 
-        if (profileError) {
-          console.error('[Message API] Profile save error:', profileError);
-        } else {
-          profileUpdated = true;
-          console.log('[Message API] Profile updated successfully');
+          // Deduplicate patterns
+          const existingPatterns = new Set(currentProfile?.patterns || []);
+          const newPatterns = (update.patterns || []).filter(p => !existingPatterns.has(p));
+
+          // Deduplicate key_people by name
+          const existingPeople = new Map((currentProfile?.key_people || []).map(p => [p.name, p]));
+          const newPeople = (update.key_people || []).filter(p => !existingPeople.has(p.name));
+
+          // Deduplicate priorities
+          const existingPriorities = new Set(currentProfile?.priorities || []);
+          const newPriorities = (update.priorities || []).filter(p => !existingPriorities.has(p));
+
+          const merged = {
+            user_id: userId,
+            name: currentProfile?.name || null,
+            patterns: [...(currentProfile?.patterns || []), ...newPatterns],
+            red_flags: currentProfile?.red_flags || [],
+            key_people: [...(currentProfile?.key_people || []), ...newPeople],
+            priorities: [...(currentProfile?.priorities || []), ...newPriorities],
+            notes: update.notes_append
+              ? ((currentProfile?.notes || '') + '\n\n' + update.notes_append).trim()
+              : (currentProfile?.notes || null)
+          };
+
+          // Upsert profile (creates if doesn't exist, updates if does)
+          const { error: profileDbError } = await supabase
+            .from('profiles')
+            .upsert(merged, { onConflict: 'user_id' });
+
+          if (profileDbError) {
+            console.error('[Message API] Profile save error:', profileDbError);
+            profileError = 'save_failed';
+            profileUpdated = false;
+          } else {
+            profileUpdated = true;
+            console.log('[Message API] Profile updated successfully');
+          }
+        } catch (err) {
+          console.error('[Message API] Failed to save profile:', err);
+          profileError = 'save_failed';
+          profileUpdated = false;
         }
-      } catch (err) {
-        console.error('[Message API] Failed to save profile:', err);
       }
-    } else if (parsed.profile_save && !userId) {
-      console.warn('[Message API] Cannot save profile - user not logged in');
     }
 
     // Save assistant message (store the reply, not raw JSON)
@@ -348,7 +371,8 @@ export default async function handler(req, res) {
       eventIds: createdEvents.map(e => e.id),
       todoIds: createdTodos.map(t => t.id),
       profileUpdated: profileUpdated,
-      profilePending: !!parsed.profile_suggestion
+      profilePending: !!parsed.profile_suggestion,
+      profileError: profileError  // 'not_authenticated' | 'save_failed' | null
     });
 
   } catch (error) {
@@ -474,6 +498,22 @@ Structure the data to match these profile fields:
 - **key_people**: Important people [{"name": "Sarah", "relationship": "partner"}]
 - **priorities**: Life priorities ["Family time", "Exercise"]
 - **notes_append**: Free-form context to ADD to existing notes (don't replace)
+
+### Edge Cases
+
+**Not logged in:**
+If saving profile but no authenticated user, say:
+"I'd love to remember this! To save it to your profile, sign in first — then just ask me again."
+Include profile_suggestion (for display) but it won't persist.
+
+**Already in profile:**
+Check the USER PROFILE section. If this info is already there:
+"I actually already have that! Want me to update any details?"
+Don't duplicate.
+
+**Lost context:**
+If user says "yes" or "save it" but no recent suggestion:
+"Sure! What would you like me to save to your profile?"
 
 ## OUTPUT FORMAT
 
