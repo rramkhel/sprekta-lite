@@ -309,7 +309,7 @@
 }
 
 /* ============================================================================
-   Tomorrow Section
+   Tomorrow Section (Sprint 17.4)
    ============================================================================ */
 .tomorrow-section {
   background: white;
@@ -342,10 +342,24 @@
   font-size: 15px;
   color: #292524;
   padding: 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tomorrow-item-subtle {
+  color: #78716c;
+  font-size: 13px;
+}
+
+.tomorrow-more {
+  font-size: 13px;
+  color: #a8a29e;
+  margin-top: 8px;
 }
 
 /* ============================================================================
-   Footer
+   Footer (Sprint 17.4)
    ============================================================================ */
 .today-footer {
   position: fixed;
@@ -368,11 +382,19 @@
 }
 
 .status-check {
-  font-size: 13px;
-  font-weight: 500;
-  color: #16a34a;
   display: flex;
   align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.status-check.success {
+  color: #22c55e;
+}
+
+.status-check.warning {
+  color: #f59e0b;
 }
 
 .status-counts {

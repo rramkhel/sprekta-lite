@@ -57,14 +57,14 @@ class TodayUI {
    */
   transformData(apiData) {
     // Build Right Now data first (sets this.focusTaskId)
-    const rightNow = this.buildRightNowData(apiData);
+    const rightNow = this.buildRightNowData(apiData.today);
 
     return {
       rightNow,
       today: {
-        dayName: apiData.dayName,
-        context: apiData.context,
-        groups: apiData.groups.map(group => ({
+        dayName: apiData.today.dayName,
+        context: apiData.today.context,
+        groups: apiData.today.groups.map(group => ({
           ...group,
           count: this.calculateGroupCount(group),
           tasks: group.tasks.map(task => ({
@@ -77,14 +77,14 @@ class TodayUI {
             context_group: task.context_group
           }))
         })),
-        anchor: apiData.anchor ? {
-          time: this.formatTime(apiData.anchor.time),
-          title: apiData.anchor.title,
-          flagged: apiData.anchor.flagged || false
+        anchor: apiData.today.anchor ? {
+          time: this.formatTime(apiData.today.anchor.time),
+          title: apiData.today.anchor.title,
+          flagged: apiData.today.anchor.flagged || false
         } : null
       },
-      tomorrow: this.buildTomorrowData(),
-      totals: this.buildTotalsData(apiData)
+      tomorrow: apiData.tomorrow,
+      totals: apiData.totals
     };
   }
 
@@ -135,26 +135,6 @@ class TodayUI {
   calculateGroupCount(group) {
     const incompleteCount = group.tasks.filter(t => !t.completed).length;
     return incompleteCount > 0 ? `${incompleteCount} left` : '';
-  }
-
-  buildTomorrowData() {
-    // Placeholder for Sprint 17.4
-    return {
-      dayName: 'Tomorrow',
-      vibe: 'Loading...',
-      items: []
-    };
-  }
-
-  buildTotalsData(apiData) {
-    const allTasks = apiData.groups.flatMap(g => g.tasks);
-    const flaggedCount = allTasks.filter(t => t.priority === 'non_negotiable').length;
-
-    return {
-      allAccountedFor: true,
-      taskCount: allTasks.length,
-      flaggedCount
-    };
   }
 
   updateCurrentTime() {
@@ -550,37 +530,99 @@ class TodayUI {
   }
 
   /**
-   * Render Tomorrow section
+   * Render Tomorrow section (Sprint 17.4)
    */
   renderTomorrow(tomorrow) {
-    const tomorrowSection = document.getElementById('tomorrow-section');
-    if (!tomorrowSection) return;
+    const container = document.getElementById('tomorrow-section');
+    if (!container) return;
 
-    tomorrowSection.innerHTML = `
+    // Clear day state
+    if (!tomorrow || (tomorrow.taskCount === 0 && tomorrow.eventCount === 0)) {
+      container.innerHTML = `
+        <div class="tomorrow-header">
+          <span class="tomorrow-title">Tomorrow · ${tomorrow?.dayName || 'Unknown'}</span>
+          <span class="tomorrow-vibe">clear day ✨</span>
+        </div>
+      `;
+      return;
+    }
+
+    let itemsHtml = '';
+
+    if (tomorrow.flagged.length > 0) {
+      // Show flagged items (up to 3)
+      itemsHtml = tomorrow.flagged.slice(0, 3).map(item => `
+        <div class="tomorrow-item">
+          <span class="flag">🚩</span>
+          <span>${item.title}${item.time ? ` · ${this.formatTime(item.time)}` : ''}</span>
+        </div>
+      `).join('');
+
+      if (tomorrow.flagged.length > 3) {
+        itemsHtml += `<div class="tomorrow-more">+${tomorrow.flagged.length - 3} more</div>`;
+      }
+    } else if (tomorrow.eventCount > 0) {
+      // No flagged, but has events - show count summary
+      itemsHtml = `
+        <div class="tomorrow-item tomorrow-item-subtle">
+          ${tomorrow.taskCount} tasks · ${tomorrow.eventCount} event${tomorrow.eventCount > 1 ? 's' : ''}
+        </div>
+      `;
+    } else {
+      // Just tasks
+      itemsHtml = `
+        <div class="tomorrow-item tomorrow-item-subtle">
+          ${tomorrow.taskCount} task${tomorrow.taskCount > 1 ? 's' : ''}
+        </div>
+      `;
+    }
+
+    container.innerHTML = `
       <div class="tomorrow-header">
-        <h2 class="tomorrow-title">TOMORROW · ${tomorrow.dayName}</h2>
+        <span class="tomorrow-title">Tomorrow · ${tomorrow.dayName}</span>
         <span class="tomorrow-vibe">${tomorrow.vibe}</span>
       </div>
-      ${tomorrow.items.map(item => `
-        <div class="tomorrow-item">
-          ${item.flagged ? '🚩 ' : ''}${item.title}
-        </div>
-      `).join('')}
+      ${itemsHtml}
     `;
   }
 
   /**
-   * Render footer
+   * Render footer (Sprint 17.4)
    */
   renderFooter(totals) {
-    const statusCheck = document.getElementById('status-check');
-    const statusCounts = document.getElementById('status-counts');
+    const statusEl = document.getElementById('status-check');
+    const countsEl = document.getElementById('status-counts');
 
-    if (statusCounts) {
-      statusCounts.textContent = `${totals.taskCount} tasks · ${totals.flaggedCount} 🚩`;
+    // Status check
+    if (statusEl) {
+      if (totals.allAccountedFor) {
+        statusEl.innerHTML = `
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="16" height="16">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+          </svg>
+          all accounted for
+        `;
+        statusEl.classList.remove('warning');
+        statusEl.classList.add('success');
+      } else {
+        statusEl.innerHTML = `
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="16" height="16">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          ${totals.orphanedCount} item${totals.orphanedCount > 1 ? 's' : ''} need attention
+        `;
+        statusEl.classList.remove('success');
+        statusEl.classList.add('warning');
+      }
     }
 
-    // Status check already has inline SVG in HTML
+    // Counts
+    if (countsEl) {
+      countsEl.textContent = `${totals.taskCount} tasks · ${totals.flaggedCount} 🚩`;
+    }
   }
 }
 

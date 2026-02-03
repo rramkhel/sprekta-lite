@@ -92,13 +92,87 @@ export default async function handler(req, res) {
     // Determine today's context from anchor or tasks
     const context = determineContext(anchor, todos || []);
 
+    // Fetch tomorrow's data
+    const tomorrowDate = new Date();
+    tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+    const tomorrowStr = tomorrowDate.toISOString().split('T')[0];
+
+    // Fetch tomorrow's todos
+    let tomorrowTodosQuery = supabase
+      .from('todos')
+      .select('*')
+      .or(`scheduled_date.eq.${tomorrowStr},deadline.eq.${tomorrowStr}`);
+
+    if (userId) {
+      tomorrowTodosQuery = tomorrowTodosQuery.eq('user_id', userId);
+    } else {
+      tomorrowTodosQuery = tomorrowTodosQuery.eq('session_id', sessionId);
+    }
+
+    const { data: tomorrowTodos } = await tomorrowTodosQuery;
+
+    // Fetch tomorrow's events
+    let tomorrowEventsQuery = supabase
+      .from('events')
+      .select('*')
+      .eq('date', tomorrowStr);
+
+    if (userId) {
+      tomorrowEventsQuery = tomorrowEventsQuery.eq('user_id', userId);
+    } else {
+      tomorrowEventsQuery = tomorrowEventsQuery.eq('session_id', sessionId);
+    }
+
+    const { data: tomorrowEvents } = await tomorrowEventsQuery;
+
+    // Calculate tomorrow vibe
+    const tomorrowVibe = calculateVibe(tomorrowTodos || [], tomorrowEvents || []);
+
+    // Get flagged items from tomorrow
+    const tomorrowFlagged = [
+      ...(tomorrowTodos || []).filter(t => t.priority === 'non_negotiable'),
+      ...(tomorrowEvents || []).filter(e => e.flagged)
+    ];
+
+    // Calculate totals across all time
+    let allTodosQuery = supabase
+      .from('todos')
+      .select('id, completed, priority, scheduled_date, deadline');
+
+    if (userId) {
+      allTodosQuery = allTodosQuery.eq('user_id', userId);
+    } else {
+      allTodosQuery = allTodosQuery.eq('session_id', sessionId);
+    }
+
+    const { data: allTodos, count: totalTasks } = await allTodosQuery;
+
+    const flaggedCount = (allTodos || []).filter(t => t.priority === 'non_negotiable').length;
+    const orphanedCount = (allTodos || []).filter(t => !t.scheduled_date && !t.deadline && !t.completed).length;
+
     return res.status(200).json({
-      dayName: today.toLocaleDateString('en-US', { weekday: 'long' }),
-      date: todayStr,
-      context,
-      groups,
-      anchor,
-      events: events || []
+      today: {
+        dayName: today.toLocaleDateString('en-US', { weekday: 'long' }),
+        date: todayStr,
+        context,
+        groups,
+        anchor,
+        events: events || []
+      },
+      tomorrow: {
+        dayName: tomorrowDate.toLocaleDateString('en-US', { weekday: 'long' }),
+        date: tomorrowStr,
+        vibe: tomorrowVibe,
+        flagged: tomorrowFlagged,
+        taskCount: (tomorrowTodos || []).length,
+        eventCount: (tomorrowEvents || []).length
+      },
+      totals: {
+        taskCount: (allTodos || []).length,
+        flaggedCount,
+        orphanedCount,
+        allAccountedFor: orphanedCount === 0
+      }
     });
 
   } catch (error) {
@@ -188,4 +262,36 @@ function determineContext(anchor, todos) {
   }
 
   return null; // No specific context
+}
+
+function calculateVibe(todos, events) {
+  const totalItems = todos.length + events.length;
+  const flaggedCount = todos.filter(t => t.priority === 'non_negotiable').length +
+                       events.filter(e => e.flagged).length;
+  const deadlineCount = todos.filter(t => t.due_time).length;
+
+  // Build vibe string
+  const parts = [];
+
+  if (totalItems === 0) {
+    return 'clear day';
+  }
+
+  if (totalItems <= 3) {
+    parts.push('light day');
+  } else if (totalItems <= 6) {
+    parts.push('moderate day');
+  } else {
+    parts.push('busy day');
+  }
+
+  if (flaggedCount > 0) {
+    parts.push(`${flaggedCount} 🚩`);
+  }
+
+  if (deadlineCount > 0 && flaggedCount === 0) {
+    parts.push(`${deadlineCount} deadline${deadlineCount > 1 ? 's' : ''}`);
+  }
+
+  return parts.join(' · ');
 }
