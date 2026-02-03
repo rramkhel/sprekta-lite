@@ -16,10 +16,12 @@ class TodayUI {
   }
 
   /**
-   * Fetch today's data from API and render
+   * Fetch today's data from API and render (Sprint 17.5)
    */
   async fetchAndRender() {
     try {
+      this.showLoading();
+
       const sessionId = localStorage.getItem('session_id');
       const token = localStorage.getItem('supabase.auth.token');
 
@@ -44,11 +46,46 @@ class TodayUI {
       // Transform API data to render format
       const renderData = this.transformData(data);
       this.render(renderData);
+      this.hideLoading();
 
     } catch (error) {
       console.error('[TodayUI] Fetch error:', error);
-      // Fall back to placeholder for now
-      this.renderPlaceholder();
+      this.hideLoading();
+      this.showError();
+    }
+  }
+
+  /**
+   * Show loading state
+   */
+  showLoading() {
+    if (this.container) {
+      this.container.classList.add('loading');
+    }
+  }
+
+  /**
+   * Hide loading state
+   */
+  hideLoading() {
+    if (this.container) {
+      this.container.classList.remove('loading');
+    }
+  }
+
+  /**
+   * Show error state with retry button
+   */
+  showError() {
+    const errorContainer = document.querySelector('.today-section');
+    if (errorContainer) {
+      errorContainer.innerHTML = `
+        <div class="error-state">
+          <div class="error-state-icon">⚠️</div>
+          <div class="error-state-title">Couldn't load your day</div>
+          <button class="error-state-retry" onclick="todayUI.fetchAndRender()">Try again</button>
+        </div>
+      `;
     }
   }
 
@@ -364,7 +401,7 @@ class TodayUI {
   }
 
   /**
-   * Render Today section
+   * Render Today section (Sprint 17.5 - with empty state)
    */
   renderToday(today) {
     // Title and context
@@ -382,6 +419,27 @@ class TodayUI {
     // Task groups
     const groupsContainer = document.getElementById('task-groups');
     if (!groupsContainer) return;
+
+    // Check if there are any tasks
+    const hasTasks = today.groups.length > 0 && today.groups.some(g => g.tasks.length > 0);
+
+    if (!hasTasks) {
+      // Show empty state
+      groupsContainer.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">📋</div>
+          <div class="empty-state-title">Nothing for today</div>
+          <div class="empty-state-subtitle">Add some tasks to get started</div>
+        </div>
+      `;
+
+      // Hide anchor if no tasks
+      const anchorEl = document.getElementById('anchor-event');
+      if (anchorEl) {
+        anchorEl.style.display = 'none';
+      }
+      return;
+    }
 
     groupsContainer.innerHTML = today.groups.map(group => `
       <div class="task-group">
