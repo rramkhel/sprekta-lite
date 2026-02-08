@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sprekta — Debug Test Harness</title>
+  <title>Sprekta — API Test</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -16,14 +16,12 @@
       flex-direction: column;
     }
 
-    /* ── Header ── */
     header {
-      padding: 12px 24px;
+      padding: 16px 24px;
       border-bottom: 1px solid #222;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      flex-shrink: 0;
     }
 
     header h1 {
@@ -32,54 +30,13 @@
       color: #fff;
     }
 
-    header h1 span { color: #555; font-weight: 400; }
-
-    .controls {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .tag {
+    header .tag {
       font-size: 11px;
       color: #888;
       background: #1a1a1a;
       padding: 3px 8px;
       border-radius: 4px;
       font-family: monospace;
-    }
-
-    .controls button {
-      background: none;
-      border: 1px solid #333;
-      color: #888;
-      padding: 4px 10px;
-      border-radius: 4px;
-      font-size: 12px;
-      cursor: pointer;
-    }
-
-    .controls button:hover { border-color: #555; color: #ccc; }
-
-    .controls button.active {
-      background: #1a2a1a;
-      border-color: #3a5a3a;
-      color: #8f8;
-    }
-
-    /* ── Main Layout ── */
-    #main {
-      flex: 1;
-      display: flex;
-      overflow: hidden;
-    }
-
-    /* ── Left: Chat ── */
-    #chat-panel {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      min-width: 0;
     }
 
     #chat-area {
@@ -113,7 +70,7 @@
 
     .message.assistant strong { color: #fff; }
 
-    .message.system-msg {
+    .message.system {
       color: #555;
       font-size: 13px;
       font-style: italic;
@@ -121,17 +78,16 @@
       align-self: center;
     }
 
-    .thinking-indicator {
+    .thinking {
       color: #555;
       font-style: italic;
     }
 
     #input-area {
-      padding: 12px 24px;
+      padding: 16px 24px;
       border-top: 1px solid #222;
       display: flex;
       gap: 12px;
-      flex-shrink: 0;
     }
 
     #input-area textarea {
@@ -151,6 +107,7 @@
     }
 
     #input-area textarea:focus { border-color: #555; }
+
     #input-area textarea::placeholder { color: #555; }
 
     #input-area button {
@@ -168,183 +125,48 @@
     #input-area button:hover { background: #ddd; }
     #input-area button:disabled { background: #333; color: #666; cursor: not-allowed; }
 
-    /* ── Right: Debug Panel ── */
-    #debug-panel {
-      width: 480px;
-      border-left: 1px solid #222;
+    .controls {
       display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      transition: width 0.2s ease;
+      gap: 8px;
+      align-items: center;
     }
 
-    #debug-panel.hidden {
-      width: 0;
-      border-left: none;
-    }
-
-    .debug-tabs {
-      display: flex;
-      border-bottom: 1px solid #222;
-      flex-shrink: 0;
-    }
-
-    .debug-tab {
-      flex: 1;
-      padding: 10px 12px;
-      text-align: center;
-      font-size: 12px;
-      font-weight: 600;
-      color: #555;
-      cursor: pointer;
-      border-bottom: 2px solid transparent;
+    .controls button {
       background: none;
-      border-top: none;
-      border-left: none;
-      border-right: none;
-    }
-
-    .debug-tab:hover { color: #888; }
-
-    .debug-tab.active {
-      color: #ccc;
-      border-bottom-color: #4a9eff;
-    }
-
-    .debug-content {
-      flex: 1;
-      overflow-y: auto;
-      padding: 16px;
-    }
-
-    .debug-section {
-      display: none;
-    }
-
-    .debug-section.active {
-      display: block;
-    }
-
-    .debug-section pre {
-      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      border: 1px solid #333;
+      color: #888;
+      padding: 4px 10px;
+      border-radius: 4px;
       font-size: 12px;
-      line-height: 1.6;
-      color: #aaa;
-      white-space: pre-wrap;
-      word-wrap: break-word;
+      cursor: pointer;
     }
 
-    .debug-section h3 {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #555;
-      margin-bottom: 8px;
-    }
-
-    /* Thinking panel styling */
-    .thinking-text {
-      color: #8ab4f8;
-    }
-
-    .rule-hit {
-      color: #f8c87a;
-      font-weight: 600;
-    }
-
-    /* Stats bar */
-    .stats-bar {
-      padding: 8px 16px;
-      border-top: 1px solid #222;
-      font-size: 11px;
-      color: #555;
-      font-family: monospace;
-      display: flex;
-      gap: 16px;
-      flex-shrink: 0;
-    }
-
-    /* ── Responsive ── */
-    @media (max-width: 900px) {
-      #debug-panel { width: 320px; }
-    }
-
-    @media (max-width: 700px) {
-      #main { flex-direction: column; }
-      #debug-panel {
-        width: 100% !important;
-        border-left: none;
-        border-top: 1px solid #222;
-        max-height: 40vh;
-      }
-      #debug-panel.hidden { max-height: 0; }
-    }
+    .controls button:hover { border-color: #555; color: #ccc; }
   </style>
 </head>
 <body>
   <header>
-    <h1>Sprekta <span>— Debug Harness</span></h1>
+    <h1>Sprekta <span style="color: #555; font-weight: 400;">— API Test</span></h1>
     <div class="controls">
-      <span class="tag" id="model-tag">sonnet 4</span>
-      <span class="tag" id="token-tag">—</span>
-      <button onclick="toggleDebug()" id="debug-toggle">Debug ▸</button>
+      <span class="tag" id="model-tag">loading...</span>
       <button onclick="clearChat()">Clear</button>
     </div>
   </header>
 
-  <div id="main">
-    <!-- Left: Chat -->
-    <div id="chat-panel">
-      <div id="chat-area">
-        <div class="message system-msg">
-          System prompt loaded with Rachel's profile + behavioral rules engine.<br>
-          Extended thinking enabled (10K budget). Toggle debug panel to see thinking.
-        </div>
-      </div>
-
-      <div id="input-area">
-        <textarea
-          id="input"
-          placeholder="Dump your chaos here..."
-          rows="2"
-          autofocus
-        ></textarea>
-        <button id="send-btn" onclick="send()">Send</button>
-      </div>
+  <div id="chat-area">
+    <div class="message system">
+      System prompt loaded with Rachel's profile. Type anything — brain dump, quick capture, questions about your week.
     </div>
+  </div>
 
-    <!-- Right: Debug -->
-    <div id="debug-panel" class="hidden">
-      <div class="debug-tabs">
-        <button class="debug-tab active" onclick="switchTab('thinking')">🧠 Thinking</button>
-        <button class="debug-tab" onclick="switchTab('response')">💬 Raw Response</button>
-        <button class="debug-tab" onclick="switchTab('prompt')">📋 System Prompt</button>
-      </div>
-
-      <div class="debug-content">
-        <div id="tab-thinking" class="debug-section active">
-          <h3>Extended Thinking Output</h3>
-          <pre id="thinking-output" class="thinking-text">Send a message to see the model's reasoning...</pre>
-        </div>
-
-        <div id="tab-response" class="debug-section">
-          <h3>Raw API Response (before any processing)</h3>
-          <pre id="raw-output">No response yet.</pre>
-        </div>
-
-        <div id="tab-prompt" class="debug-section">
-          <h3>System Prompt (sent on every call)</h3>
-          <pre id="prompt-output">Loading...</pre>
-        </div>
-      </div>
-
-      <div class="stats-bar">
-        <span id="stat-input">in: —</span>
-        <span id="stat-output">out: —</span>
-        <span id="stat-thinking">think: —</span>
-        <span id="stat-time">time: —</span>
-      </div>
-    </div>
+  <div id="input-area">
+    <textarea
+      id="input"
+      placeholder="Dump your chaos here..."
+      rows="2"
+      autofocus
+    ></textarea>
+    <button id="send-btn" onclick="send()">Send</button>
   </div>
 
   <script>
@@ -352,12 +174,8 @@
     const input = document.getElementById('input');
     const sendBtn = document.getElementById('send-btn');
     const modelTag = document.getElementById('model-tag');
-    const tokenTag = document.getElementById('token-tag');
-    const debugPanel = document.getElementById('debug-panel');
-    const debugToggle = document.getElementById('debug-toggle');
 
-    let messages = [];
-    let debugVisible = false;
+    let messages = []; // conversation history for API
 
     // Auto-resize textarea
     input.addEventListener('input', () => {
@@ -373,23 +191,6 @@
       }
     });
 
-    function toggleDebug() {
-      debugVisible = !debugVisible;
-      debugPanel.classList.toggle('hidden', !debugVisible);
-      debugToggle.textContent = debugVisible ? '◂ Debug' : 'Debug ▸';
-      debugToggle.classList.toggle('active', debugVisible);
-    }
-
-    function switchTab(tabName) {
-      // Update tab buttons
-      document.querySelectorAll('.debug-tab').forEach(t => t.classList.remove('active'));
-      event.target.classList.add('active');
-
-      // Update tab content
-      document.querySelectorAll('.debug-section').forEach(s => s.classList.remove('active'));
-      document.getElementById(`tab-${tabName}`).classList.add('active');
-    }
-
     async function send() {
       const text = input.value.trim();
       if (!text) return;
@@ -403,17 +204,12 @@
       input.style.height = 'auto';
 
       // Show thinking indicator
-      const thinkingEl = addMessage('assistant', 'Thinking...');
-      thinkingEl.classList.add('thinking-indicator');
-
-      // Update debug thinking panel
-      document.getElementById('thinking-output').textContent = 'Model is reasoning...';
+      const thinkingEl = addMessage('assistant', '...');
+      thinkingEl.classList.add('thinking');
 
       // Disable input while waiting
       sendBtn.disabled = true;
       input.disabled = true;
-
-      const startTime = Date.now();
 
       try {
         const res = await fetch('/api/demo-chat', {
@@ -423,45 +219,23 @@
         });
 
         const data = await res.json();
-        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
         if (!res.ok) throw new Error(data.error || 'API error');
 
-        // Update chat with response
+        // Replace thinking with actual response
         thinkingEl.textContent = data.reply;
-        thinkingEl.classList.remove('thinking-indicator');
+        thinkingEl.classList.remove('thinking');
 
         // Add to conversation history
         messages.push({ role: 'assistant', content: data.reply });
 
-        // Update debug panels
-        document.getElementById('thinking-output').textContent =
-          data.thinking || '(No thinking output — model may have skipped extended thinking)';
-
-        document.getElementById('raw-output').textContent =
-          `MODEL: ${data.model}\n\n` +
-          `--- THINKING ---\n${data.thinking || '(none)'}\n\n` +
-          `--- RESPONSE ---\n${data.reply}`;
-
-        // Update stats
-        modelTag.textContent = data.model?.replace('claude-', '').replace(/-\d{8}$/, '') || 'unknown';
-        tokenTag.textContent = `${data.usage?.input_tokens || '?'}in / ${data.usage?.output_tokens || '?'}out`;
-        document.getElementById('stat-input').textContent = `in: ${data.usage?.input_tokens || '?'}`;
-        document.getElementById('stat-output').textContent = `out: ${data.usage?.output_tokens || '?'}`;
-        document.getElementById('stat-thinking').textContent = `think: ${data.thinking?.split(/\s+/).length || 0} words`;
-        document.getElementById('stat-time').textContent = `time: ${elapsed}s`;
-
-        // If debug panel is closed and thinking found something interesting, hint at it
-        if (!debugVisible && data.thinking && data.thinking.length > 500) {
-          tokenTag.style.color = '#8ab4f8';
-          setTimeout(() => { tokenTag.style.color = ''; }, 3000);
-        }
+        // Update model tag
+        modelTag.textContent = 'sonnet 4';
 
       } catch (err) {
         thinkingEl.textContent = `Error: ${err.message}`;
         thinkingEl.style.color = '#ff4444';
-        thinkingEl.classList.remove('thinking-indicator');
-        document.getElementById('thinking-output').textContent = `Error: ${err.message}`;
+        thinkingEl.classList.remove('thinking');
       }
 
       // Re-enable input
@@ -469,7 +243,7 @@
       input.disabled = false;
       input.focus();
 
-      // Scroll chat to bottom
+      // Scroll to bottom
       chatArea.scrollTop = chatArea.scrollHeight;
     }
 
@@ -484,36 +258,12 @@
 
     function clearChat() {
       messages = [];
-      chatArea.innerHTML = '<div class="message system-msg">Chat cleared. Fresh start.</div>';
-      document.getElementById('thinking-output').textContent = 'Send a message to see the model\'s reasoning...';
-      document.getElementById('raw-output').textContent = 'No response yet.';
-      tokenTag.textContent = '—';
+      chatArea.innerHTML = '<div class="message system">Chat cleared. Fresh start.</div>';
       input.focus();
     }
 
-    // Load system prompt into debug panel
-    // (We can't see the actual server-side prompt, so we note this)
-    document.getElementById('prompt-output').textContent =
-      'System prompt is constructed server-side in api/demo-chat.js.\n\n' +
-      'Sections:\n' +
-      '  1. IDENTITY — Who Sprekta is\n' +
-      '  2. TONE — How to talk to Rachel\n' +
-      '  3. USER PROFILE — Who Rachel is, key people, locations\n' +
-      '  4. GOALS — 3 active goals with Sprekta rules\n' +
-      '  5. BEHAVIORAL RULES ENGINE — 6 rules + 4 meta-rules\n' +
-      '     Rule 1: Location-Productivity (office vs home)\n' +
-      '     Rule 2: Transport Reality-Check (car/bus/carrying)\n' +
-      '     Rule 3: Car Day Errand Cap (max stops, geography)\n' +
-      '     Rule 4: Work Expansion Guard (Conner call protection)\n' +
-      '     Rule 5: Lilian Bleed Detector (Eastern TZ conflicts)\n' +
-      '     Rule 6: Errand Decay Monitor (overdue personal tasks)\n' +
-      '     Meta: Conflict Detection, Time Math, Budget, Emotional Weight, Overcommit Count\n' +
-      '  6. CURRENT STATE — Today\'s date, schedule, inbox, transport status\n' +
-      '  7. INPUT HANDLING — How to process different input types\n' +
-      '  8. CONSTRAINTS — Response length, formatting, character rules\n\n' +
-      'Extended Thinking: enabled, 10K token budget\n' +
-      'The model reasons through behavioral rules during thinking,\n' +
-      'then incorporates findings into the visible response.';
+    // Focus input on load
+    modelTag.textContent = 'sonnet 4';
   </script>
 </body>
 </html>

@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sprekta — Dev Harness</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: #0a0a0a;
+      color: #e0e0e0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 12px 24px;
+      border-bottom: 1px solid #222;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    header h1 {
+      font-size: 15px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    header h1 span { color: #555; font-weight: 400; }
+
+    .controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .tag {
+      font-size: 11px;
+      color: #888;
+      background: #1a1a1a;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+
+    .controls button {
+      background: none;
+      border: 1px solid #333;
+      color: #888;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .controls button:hover { border-color: #555; color: #ccc; }
+
+    /* Main layout: panels on left, chat on right */
+    .main {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* Left side: debug panels */
+    .debug-panels {
+      width: 420px;
+      min-width: 320px;
+      border-right: 1px solid #222;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .panel {
+      border-bottom: 1px solid #1a1a1a;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .panel.expanded {
+      flex: 1;
+    }
+
+    .panel-header {
+      padding: 8px 16px;
+      background: #111;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #888;
+      user-select: none;
+      flex-shrink: 0;
+    }
+
+    .panel-header:hover { background: #151515; color: #bbb; }
+
+    .panel-header .arrow {
+      font-size: 10px;
+      transition: transform 0.15s;
+    }
+
+    .panel.expanded .panel-header .arrow { transform: rotate(90deg); }
+
+    .panel-content {
+      display: none;
+      overflow-y: auto;
+      padding: 12px 16px;
+      font-size: 13px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .panel.expanded .panel-content { display: block; }
+
+    .panel-content.system-prompt { color: #666; font-size: 11px; font-family: monospace; }
+    .panel-content.thinking { color: #a8c8ff; }
+    .panel-content.thinking.empty { color: #444; font-style: italic; }
+
+    /* Right side: chat */
+    .chat-side {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    #chat-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .message {
+      max-width: 720px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .message.user {
+      color: #fff;
+      padding: 12px 16px;
+      background: #1a1a2e;
+      border-radius: 12px;
+      align-self: flex-end;
+    }
+
+    .message.assistant {
+      color: #ccc;
+      padding: 12px 0;
+    }
+
+    .message.system-msg {
+      color: #555;
+      font-size: 13px;
+      font-style: italic;
+      text-align: center;
+      align-self: center;
+    }
+
+    .waiting {
+      color: #555;
+      font-style: italic;
+    }
+
+    .error-msg { color: #ff4444; }
+
+    /* Usage stats */
+    .usage-badge {
+      display: inline-block;
+      font-size: 10px;
+      color: #555;
+      font-family: monospace;
+      margin-top: 4px;
+    }
+
+    /* Input area */
+    #input-area {
+      padding: 16px 24px;
+      border-top: 1px solid #222;
+      display: flex;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    #input-area textarea {
+      flex: 1;
+      background: #111;
+      border: 1px solid #333;
+      border-radius: 8px;
+      color: #fff;
+      padding: 12px 16px;
+      font-family: inherit;
+      font-size: 14px;
+      line-height: 1.5;
+      resize: none;
+      min-height: 48px;
+      max-height: 200px;
+      outline: none;
+    }
+
+    #input-area textarea:focus { border-color: #555; }
+    #input-area textarea::placeholder { color: #555; }
+
+    #input-area button {
+      background: #fff;
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      align-self: flex-end;
+    }
+
+    #input-area button:hover { background: #ddd; }
+    #input-area button:disabled { background: #333; color: #666; cursor: not-allowed; }
+
+    /* Resize handle between panels and chat */
+    .resize-handle {
+      width: 4px;
+      cursor: col-resize;
+      background: #0a0a0a;
+      flex-shrink: 0;
+    }
+
+    .resize-handle:hover { background: #333; }
+
+    /* Rules highlight in thinking */
+    .rule-hit { color: #ffcc66; font-weight: 600; }
+
+    /* Responsive: stack on narrow screens */
+    @media (max-width: 900px) {
+      .main { flex-direction: column; }
+      .debug-panels {
+        width: 100%;
+        max-height: 35vh;
+        border-right: none;
+        border-bottom: 1px solid #222;
+      }
+      .resize-handle { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Sprekta <span>— Dev Harness v2</span></h1>
+    <div class="controls">
+      <span class="tag" id="model-tag">sonnet 4.5</span>
+      <span class="tag" id="tokens-tag">—</span>
+      <button onclick="clearChat()">Clear</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <!-- Left: Debug Panels -->
+    <div class="debug-panels" id="debug-panels">
+      <!-- System Prompt Panel -->
+      <div class="panel" id="panel-system">
+        <div class="panel-header" onclick="togglePanel('panel-system')">
+          <span>System Prompt</span>
+          <span class="arrow">▶</span>
+        </div>
+        <div class="panel-content system-prompt" id="system-prompt-content">
+          Loading...
+        </div>
+      </div>
+
+      <!-- Thinking Panel -->
+      <div class="panel expanded" id="panel-thinking">
+        <div class="panel-header" onclick="togglePanel('panel-thinking')">
+          <span>Thinking <span id="thinking-tokens" style="font-weight:400; text-transform:none;">(waiting for response)</span></span>
+          <span class="arrow">▶</span>
+        </div>
+        <div class="panel-content thinking empty" id="thinking-content">
+          Send a message to see the model's thinking process...
+        </div>
+      </div>
+
+      <!-- Rules Fired Panel -->
+      <div class="panel" id="panel-rules">
+        <div class="panel-header" onclick="togglePanel('panel-rules')">
+          <span>Rules Fired</span>
+          <span class="arrow">▶</span>
+        </div>
+        <div class="panel-content" id="rules-content" style="color: #ffcc66;">
+          No rules analysis yet...
+        </div>
+      </div>
+    </div>
+
+    <div class="resize-handle" id="resize-handle"></div>
+
+    <!-- Right: Chat -->
+    <div class="chat-side">
+      <div id="chat-area">
+        <div class="message system-msg">
+          Extended thinking enabled (8K budget). System prompt v2 with behavioral rules engine loaded.
+          <br>Type a brain dump — then check the Thinking panel to see what Sprekta caught.
+        </div>
+      </div>
+
+      <div id="input-area">
+        <textarea
+          id="input"
+          placeholder="Dump your chaos here..."
+          rows="2"
+          autofocus
+        ></textarea>
+        <button id="send-btn" onclick="send()">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const chatArea = document.getElementById('chat-area');
+    const input = document.getElementById('input');
+    const sendBtn = document.getElementById('send-btn');
+    const modelTag = document.getElementById('model-tag');
+    const tokensTag = document.getElementById('tokens-tag');
+    const thinkingContent = document.getElementById('thinking-content');
+    const rulesContent = document.getElementById('rules-content');
+    const systemPromptContent = document.getElementById('system-prompt-content');
+    const thinkingTokensLabel = document.getElementById('thinking-tokens');
+
+    let messages = [];
+
+    // Auto-resize textarea
+    input.addEventListener('input', () => {
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 200) + 'px';
+    });
+
+    // Enter to send, Shift+Enter for newline
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        send();
+      }
+    });
+
+    // Panel toggle
+    function togglePanel(id) {
+      document.getElementById(id).classList.toggle('expanded');
+    }
+
+    // Extract rule references from thinking text
+    function extractRules(thinkingText) {
+      if (!thinkingText) return 'No thinking output to analyze.';
+
+      const ruleNames = [
+        'RULE 1', 'RULE 2', 'RULE 3', 'RULE 4', 'RULE 5', 'RULE 6',
+        'LOCATION', 'TRANSIT', 'CAR DAY', 'SPREKTA.*EXPAN', 'RENTFASTER.*BLEED', 'LILIAN', 'ERRAND',
+        'TRANSPORT', 'CONFLICTS', 'TIME MATH', 'OVERCOMMIT', 'BUDGET', 'EMOTIONAL', 'PATTERNS'
+      ];
+
+      const findings = [];
+      const lines = thinkingText.split('\n');
+
+      for (const line of lines) {
+        for (const rule of ruleNames) {
+          const regex = new RegExp(rule, 'i');
+          if (regex.test(line)) {
+            findings.push(line.trim());
+            break;
+          }
+        }
+      }
+
+      if (findings.length === 0) {
+        return 'No explicit rule references detected in thinking.\n\n(The model may have applied rules without naming them explicitly.)';
+      }
+
+      return findings.join('\n\n');
+    }
+
+    async function send() {
+      const text = input.value.trim();
+      if (!text) return;
+
+      addMessage('user', text);
+      messages.push({ role: 'user', content: text });
+
+      input.value = '';
+      input.style.height = 'auto';
+
+      const waitingEl = addMessage('assistant', 'Thinking...');
+      waitingEl.classList.add('waiting');
+
+      // Update thinking panel
+      thinkingContent.textContent = 'Model is thinking...';
+      thinkingContent.className = 'panel-content thinking empty';
+      thinkingTokensLabel.textContent = '(processing...)';
+      rulesContent.textContent = 'Analyzing...';
+
+      sendBtn.disabled = true;
+      input.disabled = true;
+
+      try {
+        const res = await fetch('/api/demo-chat-v2', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || 'API error');
+
+        // Update chat with response
+        waitingEl.textContent = data.reply;
+        waitingEl.classList.remove('waiting');
+
+        // Update thinking panel
+        if (data.thinking) {
+          thinkingContent.textContent = data.thinking;
+          thinkingContent.className = 'panel-content thinking';
+          // Auto-expand thinking panel
+          document.getElementById('panel-thinking').classList.add('expanded');
+        } else {
+          thinkingContent.textContent = 'No thinking content returned. (Model may not have used thinking budget.)';
+          thinkingContent.className = 'panel-content thinking empty';
+        }
+
+        // Update rules panel
+        rulesContent.textContent = extractRules(data.thinking);
+
+        // Update token display
+        if (data.usage) {
+          const total = (data.usage.input_tokens || 0) + (data.usage.output_tokens || 0);
+          tokensTag.textContent = `${total.toLocaleString()} tokens`;
+          thinkingTokensLabel.textContent = `(${data.usage.output_tokens?.toLocaleString() || '?'} output tokens)`;
+        }
+
+        // Update model tag
+        if (data.model) {
+          modelTag.textContent = data.model.includes('4-5') ? 'sonnet 4.5' : data.model;
+        }
+
+        messages.push({ role: 'assistant', content: data.reply });
+
+      } catch (err) {
+        waitingEl.textContent = `Error: ${err.message}`;
+        waitingEl.classList.remove('waiting');
+        waitingEl.classList.add('error-msg');
+
+        thinkingContent.textContent = `Error: ${err.message}`;
+        thinkingContent.className = 'panel-content thinking empty';
+      }
+
+      sendBtn.disabled = false;
+      input.disabled = false;
+      input.focus();
+      chatArea.scrollTop = chatArea.scrollHeight;
+    }
+
+    function addMessage(role, text) {
+      const el = document.createElement('div');
+      el.className = `message ${role}`;
+      el.textContent = text;
+      chatArea.appendChild(el);
+      chatArea.scrollTop = chatArea.scrollHeight;
+      return el;
+    }
+
+    function clearChat() {
+      messages = [];
+      chatArea.innerHTML = '<div class="message system-msg">Chat cleared. Fresh start.</div>';
+      thinkingContent.textContent = 'Send a message to see the model\'s thinking process...';
+      thinkingContent.className = 'panel-content thinking empty';
+      thinkingTokensLabel.textContent = '(waiting for response)';
+      rulesContent.textContent = 'No rules analysis yet...';
+      tokensTag.textContent = '—';
+      input.focus();
+    }
+
+    // Resize handle for panels/chat split
+    const resizeHandle = document.getElementById('resize-handle');
+    const debugPanels = document.getElementById('debug-panels');
+    let isResizing = false;
+
+    resizeHandle.addEventListener('mousedown', (e) => {
+      isResizing = true;
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isResizing) return;
+      const newWidth = Math.max(250, Math.min(e.clientX, window.innerWidth - 400));
+      debugPanels.style.width = newWidth + 'px';
+    });
+
+    document.addEventListener('mouseup', () => {
+      isResizing = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    });
+
+    // Load system prompt into panel (abbreviated view)
+    systemPromptContent.textContent = `[System prompt v2 loaded — 7 sections]\n\n` +
+      `1. IDENTITY + PERSONALITY\n` +
+      `2. USER PROFILE (Rachel)\n` +
+      `3. ACTIVE GOALS (3 goals with protection rules)\n` +
+      `4. BEHAVIORAL RULES ENGINE (6 if/then rules)\n` +
+      `5. SITUATION CHECKS (7 checks run on every input)\n` +
+      `6. CURRENT SCHEDULE CONTEXT\n` +
+      `7. RESPONSE FORMAT\n\n` +
+      `Click to expand. Full prompt is in api/demo-chat-v2.js`;
+
+    // Focus input
+    input.focus();
+  </script>
+</body>
+</html>
