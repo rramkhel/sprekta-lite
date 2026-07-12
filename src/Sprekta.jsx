@@ -161,6 +161,8 @@ export default function Sprekta({ session, onSignOut }) {
   const [justDetected, setJustDetected] = useState([]);
   const [showRaw, setShowRaw] = useState(false);
   const [importText, setImportText] = useState('');
+  const [snapshots, setSnapshots] = useState([]);
+  const [showSnapshots, setShowSnapshots] = useState(false);
   const [feedbackText, setFeedbackText] = useState('');
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [obActive, setObActive] = useState(false);
@@ -435,20 +437,43 @@ Group into real projects (invent short lowercase keys when a theme has no bucket
   }
 
   // ---- dev tools (admin only, still RLS-scoped to the caller's own rows) ----
-  async function devStartFresh() {
-    if (!window.confirm('Wipe all items and reset your profile to seed?')) return;
+  async function devResetToBlank() {
+    if (!window.confirm('Reset your profile to blank and clear all items?')) return;
     setItems([]); setRead(''); setQuestions([]); setJustDetected([]);
     setProfile(SEED_PROFILE);
     await supabase.from('items').delete().eq('user_id', userId);
   }
-  function devRestoreProfile() {
-    setProfile(p => ({ ...SEED_PROFILE, projects: p.projects }));
+  async function devSaveProfile() {
+    const defaultName = `snapshot ${new Date().toLocaleString()}`;
+    const name = window.prompt('Name this snapshot:', defaultName);
+    if (!name) return;
+    await supabase.from('profile_snapshots').insert({ user_id: userId, name, profile });
+    if (showSnapshots) await devRefreshSnapshots();
+  }
+  async function devRefreshSnapshots() {
+    const { data } = await supabase.from('profile_snapshots').select('id,name,created_at').eq('user_id', userId).order('created_at', { ascending: false });
+    setSnapshots(data || []);
+  }
+  async function devToggleSnapshots() {
+    const next = !showSnapshots;
+    setShowSnapshots(next);
+    if (next) await devRefreshSnapshots();
+  }
+  async function devApplySnapshot(snap) {
+    if (!window.confirm(`Load "${snap.name}"? This overwrites your current profile.`)) return;
+    const { data } = await supabase.from('profile_snapshots').select('profile').eq('id', snap.id).single();
+    if (data) setProfile({ ...SEED_PROFILE, ...data.profile });
+  }
+  async function devDeleteSnapshot(id) {
+    if (!window.confirm('Delete this snapshot?')) return;
+    await supabase.from('profile_snapshots').delete().eq('id', id);
+    devRefreshSnapshots();
   }
   async function devLoadSample() {
     const inserted = await replaceAllItems(SAMPLE_ITEMS, userId);
     setItems(inserted);
   }
-  async function devLoadSnapshot() {
+  async function devImportRawState() {
     try {
       const d = JSON.parse(importText);
       if (Array.isArray(d.items)) {
@@ -898,20 +923,41 @@ Group into real projects (invent short lowercase keys when a theme has no bucket
             {isAdmin && (
               <div style={{ border: `1px solid #F0D9D0`, background: '#FCF6F3', borderRadius: 12, padding: 14, marginTop: 22 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#B4552E', marginBottom: 10 }}>Developer tools · test only</div>
-                <div className="flex gap-2" style={{ flexWrap: 'wrap', marginBottom: showRaw ? 12 : 0 }}>
-                  <button onClick={devStartFresh} style={devBtn}>Start fresh</button>
-                  <button onClick={devRestoreProfile} style={devBtn}>Restore my profile</button>
+                <div className="flex gap-2" style={{ flexWrap: 'wrap', marginBottom: (showSnapshots || showRaw) ? 12 : 0 }}>
+                  <button onClick={devSaveProfile} style={devBtn}>Save profile</button>
+                  <button onClick={devToggleSnapshots} style={devBtn}>{showSnapshots ? 'Hide' : 'Load'} profile</button>
+                  <button onClick={devResetToBlank} style={devBtn}>Reset to blank</button>
                   <button onClick={devLoadSample} style={devBtn}>Load sample tasks</button>
                   <button onClick={devRunOnboarding} style={devBtn}>Run onboarding</button>
                   <button onClick={() => setShowRaw(s => !s)} style={devBtn}>{showRaw ? 'Hide' : 'Show'} raw state</button>
                 </div>
+
+                {showSnapshots && (
+                  <div style={{ marginBottom: showRaw ? 12 : 0 }}>
+                    {snapshots.length === 0
+                      ? <div style={{ fontSize: 12.5, color: MUTED, marginBottom: 8 }}>No saved snapshots yet.</div>
+                      : <div className="flex flex-col gap-1.5" style={{ marginBottom: 8 }}>
+                          {snapshots.map(s => (
+                            <div key={s.id} className="flex items-center gap-2" style={{ background: '#fff', border: `1px solid ${LINE}`, borderRadius: 8, padding: '6px 9px' }}>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 12.5, fontWeight: 500, color: INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</div>
+                                <div style={{ fontSize: 11, color: MUTED }}>{new Date(s.created_at).toLocaleString()}</div>
+                              </div>
+                              <button onClick={() => devApplySnapshot(s)} style={devBtn}>Load</button>
+                              <button onClick={() => devDeleteSnapshot(s.id)} style={iconBtn}><X size={13} /></button>
+                            </div>
+                          ))}
+                        </div>}
+                  </div>
+                )}
+
                 {showRaw && (
                   <div>
-                    <div style={{ fontSize: 11.5, color: MUTED, marginBottom: 4 }}>Current state — copy to save a snapshot:</div>
+                    <div style={{ fontSize: 11.5, color: MUTED, marginBottom: 4 }}>Current state — copy to save elsewhere:</div>
                     <textarea readOnly value={JSON.stringify({ items, profile }, null, 2)} rows={6} style={{ width: '100%', fontSize: 11, fontFamily: 'monospace', border: `1px solid ${LINE}`, borderRadius: 8, padding: 8, background: '#fff', color: INK, marginBottom: 10, resize: 'vertical' }} />
-                    <div style={{ fontSize: 11.5, color: MUTED, marginBottom: 4 }}>Paste a snapshot to load it (writes to your rows):</div>
+                    <div style={{ fontSize: 11.5, color: MUTED, marginBottom: 4 }}>Paste a JSON blob to import it (writes to your rows):</div>
                     <textarea value={importText} onChange={e => setImportText(e.target.value)} rows={3} placeholder='{"items":[...],"profile":{...}}' style={{ width: '100%', fontSize: 11, fontFamily: 'monospace', border: `1px solid ${LINE}`, borderRadius: 8, padding: 8, background: '#fff', color: INK, marginBottom: 6, resize: 'vertical' }} />
-                    <button onClick={devLoadSnapshot} style={devBtn}>Load snapshot</button>
+                    <button onClick={devImportRawState} style={devBtn}>Import state</button>
                   </div>
                 )}
               </div>
