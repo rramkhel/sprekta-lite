@@ -2,15 +2,5 @@
 .vercel
 node_modules
 .DS_Store
-
-# Versioning - snapshots are local only, milestones are tracked
-versioning/snapshots/
-
-sprekta-lite-prd-01.md
-
-docs/sprints-1-9/
-docs/old/
-docs/claude-outputs/
-
-# Tests are local only
-tests/
+dist
+.tmp-setup
