@@ -271,42 +271,75 @@ export default function Onboarding({ onFinish }) {
     return text ? [...rest, { key, text, color }] : rest;
   });
 
+  // Every ledger line is derived here, purely from current state — never
+  // computed inline inside a tap handler. That means two chip taps fired in
+  // the same React batch (e.g. two clicks with no re-render between them)
+  // can never lose an update to a stale closure: each setState call below
+  // uses the functional updater form, and the ledger effects always read
+  // the latest committed state after render, not a snapshot from whenever
+  // the handler was defined.
   useEffect(() => { learn('wd', weekday.trim() ? 'weekdays: ' + trunc(weekday.trim().toLowerCase()) : null, IRIS); }, [weekday]);
   useEffect(() => { learn('we', weekend.trim() ? 'weekends: ' + trunc(weekend.trim().toLowerCase()) : null, IRIS); }, [weekend]);
   useEffect(() => { learn('anchor', anchors.trim() ? 'anchors: ' + trunc(anchors.trim().toLowerCase()) : null, IRIS); }, [anchors]);
+  useEffect(() => { learn('resp', resp.trim() ? 'keeping track of: ' + trunc(resp.trim().toLowerCase()) : null, FERN); }, [resp]);
+  useEffect(() => { learn('loves', loves.trim() ? 'into: ' + trunc(loves.trim().toLowerCase()) : null, '#C25A76'); }, [loves]);
+  useEffect(() => { learn('nono', nonos.trim() ? 'non-negotiables: ' + trunc(nonos.trim().toLowerCase()) : null, '#C25A76'); }, [nonos]);
+  useEffect(() => { learn('season', lifeBig.trim() ? 'on the horizon / lately: ' + trunc(lifeBig.trim().toLowerCase()) : null, '#C25A76'); }, [lifeBig]);
+  useEffect(() => { learn('tmrw', tomorrow.trim() ? 'this week: ' + trunc(tomorrow.trim().toLowerCase()) : null, '#C77D2E'); }, [tomorrow]);
+  useEffect(() => { learn('challenge', challenge.trim() ? 'where planning breaks down: ' + trunc(challenge.trim().toLowerCase()) : null, '#C25A76'); }, [challenge]);
 
-  const ledgerWork = (title, type, varies) => {
-    const base = title.trim() || type;
-    const t = type === 'It varies' && varies.trim() ? 'it varies — ' + varies.trim() : base;
+  useEffect(() => {
+    const base = jobTitle.trim() || jobType;
+    const t = jobType === 'It varies' && jobVaries.trim() ? 'it varies — ' + jobVaries.trim() : base;
     learn('work', t ? 'work: ' + String(t).toLowerCase() : null, IRIS);
-  };
-  const onJobTitle = (v) => { setJobTitle(v); setJobType(null); ledgerWork(v, null, jobVaries); };
-  const tapJobType = (v) => { const nextT = jobType === v ? null : v; setJobType(nextT); setJobTitle(''); ledgerWork('', nextT, jobVaries); };
-  const onJobVaries = (v) => { setJobVaries(v); ledgerWork(jobTitle, jobType, v); };
-  const ledgerWish = (keys, note) => { const labels = keys.map(k => WISHES.find(w => w.key === k)?.label.toLowerCase()); const all = [...labels, ...(note.trim() ? [note.trim().toLowerCase()] : [])]; learn('wish', all.length ? 'wants: ' + all.join(' · ') : null, '#C77D2E'); };
-  const tapWish = (k) => { const next = wishes.includes(k) ? wishes.filter(x => x !== k) : [...wishes, k]; setWishes(next); ledgerWish(next, wishNote); };
-  const ledgerProtect = (chips, note) => { const all = [...chips, ...(note.trim() ? [note.trim()] : [])]; learn('protect', all.length ? 'holding time for: ' + all.join(', ').toLowerCase() : null, '#2E9E8F'); };
-  const tapProtect = (v) => { const next = protect.includes(v) ? protect.filter(x => x !== v) : [...protect, v]; setProtect(next); ledgerProtect(next, protectNote); };
-  const onProtectNote = (v) => { setProtectNote(v); ledgerProtect(protect, v); };
-  const onResp = (v) => { setResp(v); learn('resp', v.trim() ? 'keeping track of: ' + trunc(v.trim().toLowerCase()) : null, FERN); };
-  const onLoves = (v) => { setLoves(v); learn('loves', v.trim() ? 'into: ' + trunc(v.trim().toLowerCase()) : null, '#C25A76'); };
-  const onNonos = (v) => { setNonos(v); learn('nono', v.trim() ? 'non-negotiables: ' + trunc(v.trim().toLowerCase()) : null, '#C25A76'); };
-  const onLifeBig = (v) => { setLifeBig(v); learn('season', v.trim() ? 'on the horizon / lately: ' + trunc(v.trim().toLowerCase()) : null, '#C25A76'); };
-  const ledgerPeople = (chips, note) => { const all = [...chips.filter(p => p !== 'Just me'), ...(note.trim() ? [note.trim()] : [])]; learn('people', chips.includes('Just me') && !all.length ? 'day to day: just you' : all.length ? 'day to day: ' + all.join(', ').toLowerCase() : null, '#C25A76'); };
-  const tapPeople = (v) => { let next; if (v === 'Just me') next = people.includes('Just me') ? [] : ['Just me']; else next = people.includes(v) ? people.filter(x => x !== v) : [...people.filter(x => x !== 'Just me'), v]; setPeople(next); ledgerPeople(next, peopleNote); };
-  const onPeopleNote = (v) => { setPeopleNote(v); ledgerPeople(people, v); };
-  const ledgerRide = (chips, other) => { const all = [...chips.filter(r => r !== 'Other'), ...(chips.includes('Other') && other.trim() ? [other.trim()] : [])]; learn('ride', all.length ? 'gets around by: ' + all.join(', ').toLowerCase() : chips.includes('Other') ? 'gets around by: (tell me more)' : null, IRIS); };
-  const tapRide = (v) => { const next = rides.includes(v) ? rides.filter(x => x !== v) : [...rides, v]; setRides(next); ledgerRide(next, rideOther); };
-  const onRideOther = (v) => { setRideOther(v); ledgerRide(rides, v); };
-  const onTomorrow = (v) => { setTomorrow(v); learn('tmrw', v.trim() ? 'this week: ' + trunc(v.trim().toLowerCase()) : null, '#C77D2E'); };
-  const onChallenge = (v) => { setChallenge(v); learn('challenge', v.trim() ? 'where planning breaks down: ' + trunc(v.trim().toLowerCase()) : null, '#C25A76'); };
+  }, [jobTitle, jobType, jobVaries]);
+  const onJobTitle = (v) => { setJobTitle(v); setJobType(null); };
+  const tapJobType = (v) => { setJobType(t => t === v ? null : v); setJobTitle(''); };
+  const onJobVaries = (v) => { setJobVaries(v); };
+
+  useEffect(() => {
+    const labels = wishes.map(k => WISHES.find(w => w.key === k)?.label.toLowerCase());
+    const all = [...labels, ...(wishNote.trim() ? [wishNote.trim().toLowerCase()] : [])];
+    learn('wish', all.length ? 'wants: ' + all.join(' · ') : null, '#C77D2E');
+  }, [wishes, wishNote]);
+  const tapWish = (k) => setWishes(prev => prev.includes(k) ? prev.filter(x => x !== k) : [...prev, k]);
+
+  useEffect(() => {
+    const all = [...protect, ...(protectNote.trim() ? [protectNote.trim()] : [])];
+    learn('protect', all.length ? 'holding time for: ' + all.join(', ').toLowerCase() : null, '#2E9E8F');
+  }, [protect, protectNote]);
+  const tapProtect = (v) => setProtect(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
+  const onProtectNote = (v) => { setProtectNote(v); };
+
+  useEffect(() => {
+    const all = [...people.filter(p => p !== 'Just me'), ...(peopleNote.trim() ? [peopleNote.trim()] : [])];
+    learn('people', people.includes('Just me') && !all.length ? 'day to day: just you' : all.length ? 'day to day: ' + all.join(', ').toLowerCase() : null, '#C25A76');
+  }, [people, peopleNote]);
+  const tapPeople = (v) => setPeople(prev => {
+    if (v === 'Just me') return prev.includes('Just me') ? [] : ['Just me'];
+    return prev.includes(v) ? prev.filter(x => x !== v) : [...prev.filter(x => x !== 'Just me'), v];
+  });
+  const onPeopleNote = (v) => { setPeopleNote(v); };
+
+  useEffect(() => {
+    const all = [...rides.filter(r => r !== 'Other'), ...(rides.includes('Other') && rideOther.trim() ? [rideOther.trim()] : [])];
+    learn('ride', all.length ? 'gets around by: ' + all.join(', ').toLowerCase() : rides.includes('Other') ? 'gets around by: (tell me more)' : null, IRIS);
+  }, [rides, rideOther]);
+  const tapRide = (v) => setRides(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
+  const onRideOther = (v) => { setRideOther(v); };
+
+  const onTomorrow = (v) => { setTomorrow(v); };
+  const onChallenge = (v) => { setChallenge(v); };
+
+  useEffect(() => {
+    const count = Object.keys(gridCells).length;
+    learn('grid', count ? 'blocked on the calendar: ' + count + (count === 1 ? ' fixed slot' : ' fixed slots') : null, IRIS);
+  }, [gridCells]);
   const toggleCell = (day, band) => {
     const key = day + '-' + band;
     setGridCells(prev => {
       const next = { ...prev };
       if (next[key]) delete next[key]; else next[key] = true;
-      const count = Object.keys(next).length;
-      learn('grid', count ? 'blocked on the calendar: ' + count + (count === 1 ? ' fixed slot' : ' fixed slots') : null, IRIS);
       return next;
     });
   };
