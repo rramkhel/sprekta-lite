@@ -120,3 +120,4 @@ Email: Resend, domain `mail.sprekta.com`, wired as Supabase custom SMTP.
 (Appended automatically by `.claude/hooks/post-merge.sh` on every merge to
 `main` — one line per merge, newest at the bottom. Don't hand-edit above
 this point without also updating "Last updated" and "Current state" above.)
+- 2026-07-13: Set up agent-facing repo infrastructure (7 files)
