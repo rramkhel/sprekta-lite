@@ -88,7 +88,7 @@ async function callClaude({ system, messages, accessToken }) {
   const res = await fetch('/api/claude', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-    body: JSON.stringify({ model: 'claude-sonnet-5', max_tokens: 2048, system, messages }),
+    body: JSON.stringify({ model: 'claude-sonnet-5', max_tokens: 6000, system, messages }),
   });
   return extractText(await res.json());
 }

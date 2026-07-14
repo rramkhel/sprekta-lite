@@ -30,7 +30,11 @@ export default async function handler(req, res) {
     body: JSON.stringify({
       ...req.body,
       model: 'claude-sonnet-5',
-      max_tokens: 2048,
+      // Claude Sonnet 5 thinks by default even without an explicit `thinking`
+      // param, and thinking tokens count against max_tokens — 2048 was too
+      // tight and let extended thinking alone exhaust the budget before any
+      // JSON answer was emitted (stop_reason: "max_tokens", 0 text output).
+      max_tokens: 6000,
     }),
   });
 
