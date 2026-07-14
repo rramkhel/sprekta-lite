@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, ListTodo, MessageSquare, Clock, Calendar as CalIcon, Check, Loader2, Sparkles, Trash2, ChevronRight, ChevronLeft, Sun, ArrowUp, ArrowDown, Plus, X, CalendarClock, MessageSquarePlus, Zap, AlertCircle, StickyNote, Wand2, FolderInput, LogOut } from 'lucide-react';
+import { Send, ListTodo, MessageSquare, Clock, Calendar as CalIcon, Check, Loader2, Sparkles, Trash2, ChevronRight, ChevronLeft, Sun, ArrowUp, ArrowDown, Plus, X, CalendarClock, MessageSquarePlus, Zap, AlertCircle, StickyNote, Wand2, FolderInput, LogOut, Bell } from 'lucide-react';
 import { supabase } from './lib/supabaseClient.js';
 import Onboarding, { WISHES } from './Onboarding.jsx';
+import { getDeviceId, getUserTimezone } from './lib/device.js';
+import { computeFixedTime } from './lib/dateResolve.js';
+import { isIOS, isInstalled, isPromptDismissed, dismissPrompt, remindersEnabledOnThisDevice, enableReminders, sendTestNotification } from './lib/push.js';
 
 const INK = '#22223B', PAPER = '#FAF9F6', CARD = '#FFFFFF', LINE = '#E7E4DC';
 const GREEN = '#12886A', AI = '#6A5AE0', MUTED = '#77748A';
@@ -112,7 +115,7 @@ function projectMap(projects) {
 ${known}
 Prefer a SPECIFIC project over the "personal" catch-all whenever two or more items share a real theme (a wedding, a trip, a launch). If a real theme has no bucket yet, invent a short lowercase key. Don't scatter related things into "personal".`;
 }
-const ITEM_FIELDS = `"title", "kind":"task|event|errand", "minutes":number, "deadline":"YYYY-MM-DD"|null, "energy":"deep|admin|physical", "priority":"high|med|low", "suggested_slot": short placement from their rhythm, "project": a project key, "today": boolean, "why": one short warm line — ONLY when today is true`;
+const ITEM_FIELDS = `"title", "kind":"task|event|errand", "minutes":number, "deadline":"YYYY-MM-DD"|null, "energy":"deep|admin|physical", "priority":"high|med|low", "suggested_slot": short placement from their rhythm, "project": a project key, "today": boolean, "why": one short warm line — ONLY when today is true, "stated_date": ONLY if they named a specific day for this item — either an absolute "YYYY-MM-DD" if they gave a real date, or the literal token "today"/"tomorrow"/one of monday..sunday if they said a relative day name. Do NOT compute which calendar date a weekday resolves to yourself — just echo the token you heard; the app resolves it deterministically. null if no day was named. "stated_time": ONLY if they stated an explicit clock time, as 24h "HH:MM" (e.g. "2pm" → "14:00"). Never infer a time from a vague part-of-day ("afternoon"/"evening"/"morning" alone) — that stays null, not a guess`;
 const FOCUS_RULES = `Choosing "today" — be an editor, not a list: keep it SMALL (2–4). Include hard anchors (due today / fixed time today). PROTECT one goal-advancing item (usually a Sprekta block) even when nothing forces it. Importance ≠ urgency.
 Voice: calm, warm, short. NEVER shame or alarm. Late things are a gentle choice, never a failure.`;
 
@@ -141,6 +144,22 @@ Think, don't transcribe:
 
 ${FOCUS_RULES}
 Resolve dates against NOW: ${nowStr()}. Always estimate minutes.`;
+}
+
+// Resolves each raw parsed item's stated_date/stated_time (model-supplied,
+// unresolved tokens) into a real fixed_time in application code — the model
+// never does date/time arithmetic. Also stamps device_id/timezone so the
+// items-table trigger can decide reminder eligibility. stated_date/
+// stated_time are intermediate signals only; they're never persisted.
+function prepareParsedItems(rawItems) {
+  const deviceId = getDeviceId();
+  const timezone = getUserTimezone();
+  const now = new Date();
+  return (rawItems || []).map((it) => {
+    const { stated_date, stated_time, ...rest } = it;
+    const fixed_time = computeFixedTime({ stated_date, stated_time, timezone, now });
+    return { ...rest, fixed_time, device_id: deviceId, timezone };
+  });
 }
 
 function mergeItems(existing, incoming) {
@@ -215,6 +234,9 @@ export default function Sprekta({ session, onSignOut }) {
   const [feedbackText, setFeedbackText] = useState('');
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showReminderPrompt, setShowReminderPrompt] = useState(false);
+  const [reminderStatus, setReminderStatus] = useState('');
+  const [testNotifStatus, setTestNotifStatus] = useState('');
   const chatEnd = useRef(null);
   const chatBox = useRef(null);
   const itemWriteTimers = useRef({});
@@ -321,13 +343,14 @@ export default function Sprekta({ session, onSignOut }) {
     const system = offloadSystemPrompt(profile, projects);
     try {
       const parsed = grabJSON(await callClaude({ system, messages: [{ role: 'user', content: dump }], accessToken }));
-      const merged = mergeItems(items, parsed.items || []);
+      const merged = mergeItems(items, prepareParsedItems(parsed.items));
       setItems(merged);
       setRead(parsed.read || '');
       if (Array.isArray(parsed.ask) && parsed.ask.length) setQuestions(prev => [...prev, ...parsed.ask.filter(Boolean)]);
       await supabase.from('dumps').insert({ user_id: userId, raw_text: dump });
       const withIds = await persistNewItems(merged, items, userId);
       setItems(withIds);
+      maybeOfferReminders(withIds);
     } catch { setErr('Parse hiccup — try again.'); }
     setBusy(false);
   }
@@ -371,15 +394,34 @@ Keep the spoken reply short and warm. Never mention the block.`;
       const { visible, data } = splitReplyAndJSON(text);
       setChat(c => [...c, { role: 'assistant', content: visible || '…' }]);
       if (data && Array.isArray(data.items) && data.items.length) {
-        const merged = mergeItems(items, data.items);
+        const merged = mergeItems(items, prepareParsedItems(data.items));
         setItems(merged);
         const withIds = await persistNewItems(merged, items, userId);
         setItems(withIds);
+        maybeOfferReminders(withIds);
       }
     } catch { setChat(c => [...c, { role: 'assistant', content: 'Hit a snag — mind resending?' }]); }
     setBusy(false);
   }
   function nudgeToChat(seed) { setDetailId(null); setView('plan'); setMode('think'); sendChat(seed); }
+
+  // Offers the reminder-permission prompt the first time a timed item lands
+  // on a device that hasn't enabled reminders and hasn't dismissed the ask —
+  // never on page load, only as a reaction to something the user just did.
+  function maybeOfferReminders(newlyCreatedItems) {
+    if (remindersEnabledOnThisDevice() || isPromptDismissed()) return;
+    if ((newlyCreatedItems || []).some((i) => i.fixed_time)) setShowReminderPrompt(true);
+  }
+  async function handleEnableReminders() {
+    setReminderStatus('working');
+    const result = await enableReminders({ accessToken });
+    setReminderStatus(result.status);
+    if (result.status === 'enabled') setShowReminderPrompt(false);
+  }
+  function handleDismissReminderPrompt() {
+    dismissPrompt();
+    setShowReminderPrompt(false);
+  }
 
   // ---- onboarding ----
   // Called once, from Onboarding's "See my week" CTA. Derives the app's
@@ -459,11 +501,12 @@ Keep the spoken reply short and warm. Never mention the block.`;
       try {
         const system = offloadSystemPrompt(newProfile, projects);
         const parsed = grabJSON(await callClaude({ system, messages: [{ role: 'user', content: tomorrow }], accessToken }));
-        const its = (parsed.items || []).map(x => ({ ...x, id: uid() }));
+        const its = prepareParsedItems(parsed.items).map(x => ({ ...x, id: uid() }));
         const inserted = await insertAllItems(its, userId);
         await supabase.from('dumps').insert({ user_id: userId, raw_text: tomorrow });
         setItems(inserted);
         setRead(parsed.read || '');
+        maybeOfferReminders(inserted);
       } catch { setErr('Had trouble building your first plan — try Offload again from Plan.'); }
       setBusy(false);
     }
@@ -577,6 +620,12 @@ Keep the spoken reply short and warm. Never mention the block.`;
   function devRunOnboarding() {
     setShowOnboarding(true);
   }
+  async function devSendTestNotification() {
+    setTestNotifStatus('sending');
+    const ok = await sendTestNotification({ accessToken });
+    setTestNotifStatus(ok ? 'sent' : 'no-subscription');
+    setTimeout(() => setTestNotifStatus(''), 4000);
+  }
 
   const T = todayYMD(), TM = addDays(1), W = addDays(6);
   const isOverdue = (i) => { const d = itemDay(i); return d && d < T; };
@@ -632,6 +681,22 @@ Keep the spoken reply short and warm. Never mention the block.`;
             <Tab id="settings" label="Settings" Icon={MessageSquare} />
           </div>
         </div>
+
+        {showReminderPrompt && (
+          <div style={{ background: '#F1F0FB', border: '1px solid #E3E1F7', borderRadius: 14, padding: 14, marginBottom: 16 }}>
+            <div className="flex items-center gap-2" style={{ fontSize: 13.5, fontWeight: 600, color: AI, marginBottom: 6 }}><Bell size={15} /> Want a nudge before this starts?</div>
+            {reminderStatus === 'needs-install' && <div style={{ fontSize: 13, color: '#5A5878', lineHeight: 1.5, marginBottom: 8 }}>On iPhone, reminders need Sprekta added to your home screen first — tap Share, then "Add to Home Screen," then open it from there and try again.</div>}
+            {reminderStatus === 'denied' && <div style={{ fontSize: 13, color: '#5A5878', marginBottom: 8 }}>Notifications are blocked for this site — turn them on in your browser's site settings, then try again.</div>}
+            {reminderStatus === 'unsupported' && <div style={{ fontSize: 13, color: '#5A5878', marginBottom: 8 }}>This browser doesn't support reminders.</div>}
+            {reminderStatus === 'error' && <div style={{ fontSize: 13, color: '#5A5878', marginBottom: 8 }}>Couldn't turn reminders on — you can try again from Settings.</div>}
+            <div className="flex items-center gap-2">
+              {!['needs-install', 'denied', 'unsupported'].includes(reminderStatus) && (
+                <button onClick={handleEnableReminders} disabled={reminderStatus === 'working'} style={{ fontSize: 13, fontWeight: 500, color: '#fff', background: reminderStatus === 'working' ? '#B7B3DE' : AI, border: 'none', borderRadius: 10, padding: '7px 14px', cursor: reminderStatus === 'working' ? 'default' : 'pointer' }}>{reminderStatus === 'working' ? 'Turning on…' : 'Enable reminders'}</button>
+              )}
+              <button onClick={handleDismissReminderPrompt} style={{ fontSize: 13, color: MUTED, background: 'none', border: 'none', cursor: 'pointer' }}>Not now</button>
+            </div>
+          </div>
+        )}
 
         {err && <div style={{ fontSize: 13, color: '#B23', marginBottom: 14 }}>{err}</div>}
 
@@ -914,6 +979,16 @@ Keep the spoken reply short and warm. Never mention the block.`;
               <div style={{ fontSize: 12.5, color: MUTED, lineHeight: 1.5 }}>The deeper read: what you actually do vs. plan. Learned quietly from use.</div>
             </div>
 
+            <div style={{ fontSize: 13, fontWeight: 600, color: AI, margin: '20px 0 8px' }}>Reminders</div>
+            <div style={{ fontSize: 12.5, color: MUTED, marginBottom: 8 }}>A nudge 15 minutes before something with a set time — only on this device.</div>
+            <div className="flex items-center gap-2" style={{ marginBottom: 6 }}>
+              <button onClick={handleEnableReminders} disabled={reminderStatus === 'working'} className="flex items-center gap-1.5" style={{ fontSize: 13, fontWeight: 500, color: '#fff', background: reminderStatus === 'working' ? '#B7B3DE' : AI, border: 'none', borderRadius: 10, padding: '8px 14px', cursor: reminderStatus === 'working' ? 'default' : 'pointer' }}><Bell size={14} /> {reminderStatus === 'working' ? 'Turning on…' : reminderStatus === 'enabled' ? 'Reminders on' : 'Enable reminders'}</button>
+            </div>
+            {reminderStatus === 'needs-install' && <div style={{ fontSize: 12.5, color: MUTED, marginBottom: 8 }}>On iPhone, add Sprekta to your home screen first (Share → Add to Home Screen), then open it from there and try again.</div>}
+            {reminderStatus === 'denied' && <div style={{ fontSize: 12.5, color: MUTED, marginBottom: 8 }}>Notifications are blocked for this site — turn them on in your browser's site settings.</div>}
+            {reminderStatus === 'unsupported' && <div style={{ fontSize: 12.5, color: MUTED, marginBottom: 8 }}>This browser doesn't support reminders.</div>}
+            {reminderStatus === 'error' && <div style={{ fontSize: 12.5, color: '#B23', marginBottom: 8 }}>Couldn't turn reminders on — try again.</div>}
+
             <div style={{ fontSize: 13, fontWeight: 600, color: AI, margin: '22px 0 8px' }}>Send feedback</div>
             <div style={{ fontSize: 12.5, color: MUTED, marginBottom: 10 }}>Tell me what's broken, confusing, or what you wish it did.</div>
             <textarea value={feedbackText} onChange={e => setFeedbackText(e.target.value)} rows={3} placeholder="what's on your mind…" style={{ width: '100%', resize: 'vertical', border: `1px solid ${LINE}`, borderRadius: 10, padding: '10px 12px', fontSize: 13.5, lineHeight: 1.55, outline: 'none', background: CARD, color: INK, fontFamily: 'inherit', marginBottom: 8 }} />
@@ -931,8 +1006,10 @@ Keep the spoken reply short and warm. Never mention the block.`;
                   <button onClick={devResetToBlank} style={devBtn}>Reset to blank</button>
                   <button onClick={devLoadSample} style={devBtn}>Load sample tasks</button>
                   <button onClick={devRunOnboarding} style={devBtn}>Run onboarding</button>
+                  <button onClick={devSendTestNotification} style={devBtn}>{testNotifStatus === 'sending' ? 'Sending…' : 'Send test notification'}</button>
                   <button onClick={() => setShowRaw(s => !s)} style={devBtn}>{showRaw ? 'Hide' : 'Show'} raw state</button>
                 </div>
+                {testNotifStatus && testNotifStatus !== 'sending' && <div style={{ fontSize: 12, color: testNotifStatus === 'sent' ? GREEN : '#B23', marginBottom: 8 }}>{testNotifStatus === 'sent' ? 'Sent — check your notifications.' : 'No subscription for this device yet — enable reminders first.'}</div>}
 
                 {showSnapshots && (
                   <div style={{ marginBottom: showRaw ? 12 : 0 }}>
