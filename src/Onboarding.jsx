@@ -295,7 +295,6 @@ export default function Onboarding({ onFinish }) {
   }, [jobTitle, jobType, jobVaries]);
   const onJobTitle = (v) => { setJobTitle(v); setJobType(null); };
   const tapJobType = (v) => { setJobType(t => t === v ? null : v); setJobTitle(''); };
-  const onJobVaries = (v) => { setJobVaries(v); };
 
   useEffect(() => {
     const labels = wishes.map(k => WISHES.find(w => w.key === k)?.label.toLowerCase());
@@ -309,7 +308,6 @@ export default function Onboarding({ onFinish }) {
     learn('protect', all.length ? 'holding time for: ' + all.join(', ').toLowerCase() : null, '#2E9E8F');
   }, [protect, protectNote]);
   const tapProtect = (v) => setProtect(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
-  const onProtectNote = (v) => { setProtectNote(v); };
 
   useEffect(() => {
     const all = [...people.filter(p => p !== 'Just me'), ...(peopleNote.trim() ? [peopleNote.trim()] : [])];
@@ -319,17 +317,12 @@ export default function Onboarding({ onFinish }) {
     if (v === 'Just me') return prev.includes('Just me') ? [] : ['Just me'];
     return prev.includes(v) ? prev.filter(x => x !== v) : [...prev.filter(x => x !== 'Just me'), v];
   });
-  const onPeopleNote = (v) => { setPeopleNote(v); };
 
   useEffect(() => {
     const all = [...rides.filter(r => r !== 'Other'), ...(rides.includes('Other') && rideOther.trim() ? [rideOther.trim()] : [])];
     learn('ride', all.length ? 'gets around by: ' + all.join(', ').toLowerCase() : rides.includes('Other') ? 'gets around by: (tell me more)' : null, IRIS);
   }, [rides, rideOther]);
   const tapRide = (v) => setRides(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
-  const onRideOther = (v) => { setRideOther(v); };
-
-  const onTomorrow = (v) => { setTomorrow(v); };
-  const onChallenge = (v) => { setChallenge(v); };
 
   useEffect(() => {
     const count = Object.keys(gridCells).length;
@@ -718,7 +711,7 @@ export default function Onboarding({ onFinish }) {
             </div>
             {jobType === 'It varies' && (
               <div style={{ marginTop: 14 }}>
-                <VoiceBox target="jobVaries" value={jobVaries} onChange={onJobVaries} rows={3}
+                <VoiceBox target="jobVaries" value={jobVaries} onChange={setJobVaries} rows={3}
                   voiceTarget={voiceTarget} onToggleVoice={toggleVoice} registerVoice={registerVoice}
                   placeholder={'tell me how it varies — e.g. “contract gigs, some months packed, some open” · “two part-time jobs, schedules change weekly”'} />
               </div>
@@ -775,7 +768,7 @@ export default function Onboarding({ onFinish }) {
             </div>
             <H2>Any major responsibilities to keep track of?</H2>
             <Sub>The standing ones — I’ll factor them into every plan.</Sub>
-            <VoiceBox target="resp" value={resp} onChange={onResp} rows={2}
+            <VoiceBox target="resp" value={resp} onChange={setResp} rows={2}
               voiceTarget={voiceTarget} onToggleVoice={toggleVoice} registerVoice={registerVoice}
               placeholder={'e.g. “the dog, rent and bills, my mom’s appointments”'} />
             {(Object.keys(gridCells).length > 0 || anchors.trim() || resp.trim()) && <NextBtn onNext={next} />}
@@ -790,7 +783,7 @@ export default function Onboarding({ onFinish }) {
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9, marginBottom: 14 }}>
               {PROTECT.map(v => <Chip key={v} text={v} on={protect.includes(v)} color={'#2E9E8F'} onTap={() => tapProtect(v)} />)}
             </div>
-            <VoiceBox target="protectNote" value={protectNote} onChange={onProtectNote} rows={2}
+            <VoiceBox target="protectNote" value={protectNote} onChange={setProtectNote} rows={2}
               voiceTarget={voiceTarget} onToggleVoice={toggleVoice} registerVoice={registerVoice}
               placeholder={'or say it your way: “free up evenings for the kids” · “practice guitar more” · “date night every friday” · “gym 2–3x a week”'} />
             {(protect.length > 0 || protectNote.trim()) && <NextBtn onNext={next} />}
@@ -802,7 +795,7 @@ export default function Onboarding({ onFinish }) {
           <Wrap anim={anim}>
             <Q anim={anim}>Where does your planning usually break down?</Q>
             <Sub>The part that keeps tripping you up. Say it however it comes out — it’s the first thing I’ll work on.</Sub>
-            <VoiceBox target="challenge" value={challenge} onChange={onChallenge} rows={3}
+            <VoiceBox target="challenge" value={challenge} onChange={setChallenge} rows={3}
               voiceTarget={voiceTarget} onToggleVoice={toggleVoice} registerVoice={registerVoice}
               placeholder={'e.g. “I never protect time for the gym” · “everything piles onto one day” · “I forget the little errands until it’s too late” · “I overbook myself constantly”'} />
             <H2>And where could Sprekta help most?</H2>
@@ -835,15 +828,15 @@ export default function Onboarding({ onFinish }) {
             <Q anim={anim}>A bit about you.</Q>
             <H2 top={0}>Any hobbies or loves?</H2>
             <Sub>Shapes what I suggest and how I fill a free evening.</Sub>
-            <VoiceBox target="loves" value={loves} onChange={onLoves} rows={2}
+            <VoiceBox target="loves" value={loves} onChange={setLoves} rows={2}
               voiceTarget={voiceTarget} onToggleVoice={toggleVoice} registerVoice={registerVoice}
               placeholder={'e.g. “hockey, baking, true crime, tinkering in the garage”'} />
             <H2>Any major dislikes or non-negotiables?</H2>
-            <VoiceBox target="nonos" value={nonos} onChange={onNonos} rows={2}
+            <VoiceBox target="nonos" value={nonos} onChange={setNonos} rows={2}
               voiceTarget={voiceTarget} onToggleVoice={toggleVoice} registerVoice={registerVoice}
               placeholder={'e.g. “no early mornings” · “sundays stay free” · “never book me back-to-back”'} />
             <H2>Anything big coming up — or changed recently?</H2>
-            <VoiceBox target="lifeBig" value={lifeBig} onChange={onLifeBig} rows={2}
+            <VoiceBox target="lifeBig" value={lifeBig} onChange={setLifeBig} rows={2}
               voiceTarget={voiceTarget} onToggleVoice={toggleVoice} registerVoice={registerVoice}
               placeholder={'e.g. “getting married in september” · “just started a new job” · “moved cities last month”'} />
             <button onClick={() => setBranch('people')} style={{ fontFamily: SANS, marginTop: 26, display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 550, color: '#fff', background: INK, border: 'none', borderRadius: 12, padding: '12px 22px', cursor: 'pointer' }}>Continue<ArrowRight size={16} /></button>
@@ -859,7 +852,7 @@ export default function Onboarding({ onFinish }) {
               {PEOPLE.map(v => <Chip key={v} text={v} on={people.includes(v)} color={'#C25A76'} onTap={() => tapPeople(v)} />)}
             </div>
             {people.length > 0 && !people.includes('Just me') && (
-              <VoiceBox target="peopleNote" value={peopleNote} onChange={onPeopleNote} rows={2}
+              <VoiceBox target="peopleNote" value={peopleNote} onChange={setPeopleNote} rows={2}
                 voiceTarget={voiceTarget} onToggleVoice={toggleVoice} registerVoice={registerVoice}
                 placeholder={'e.g. “my partner Sam” · “my sister watches the kids on thursdays”'} />
             )}
@@ -870,7 +863,7 @@ export default function Onboarding({ onFinish }) {
             </div>
             {rides.includes('Other') && (
               <div style={{ marginTop: 14 }}>
-                <VoiceBox target="rideOther" value={rideOther} onChange={onRideOther} rows={2}
+                <VoiceBox target="rideOther" value={rideOther} onChange={setRideOther} rows={2}
                   voiceTarget={voiceTarget} onToggleVoice={toggleVoice} registerVoice={registerVoice}
                   placeholder={'describe how you commute or travel — e.g. “bus most days, carpool fridays, rent a car for big errand runs”'} />
               </div>
@@ -883,7 +876,7 @@ export default function Onboarding({ onFinish }) {
           <Wrap anim={anim}>
             <Q anim={anim}>Last one{first ? `, ${first}` : ''} — what’s coming up this week?</Q>
             <Sub>Appointments, deadlines, to-dos, half-thoughts — any order. This becomes your first plan, built around everything you just told me.</Sub>
-            <VoiceBox target="tomorrow" value={tomorrow} onChange={onTomorrow} rows={4}
+            <VoiceBox target="tomorrow" value={tomorrow} onChange={setTomorrow} rows={4}
               voiceTarget={voiceTarget} onToggleVoice={toggleVoice} registerVoice={registerVoice}
               placeholder={'e.g. “dentist thursday at 2, taxes, groceries, kids’ practice wednesday, gym twice if it fits”'} />
             <button onClick={() => setBranch('life')} style={{ fontFamily: SANS, display: 'block', marginTop: 12, fontSize: 13, color: IRIS, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Answer a few more optional questions to personalize further →</button>
