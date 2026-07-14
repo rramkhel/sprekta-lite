@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Send, ListTodo, MessageSquare, Clock, Calendar as CalIcon, Check, Loader2, Sparkles, Trash2, ChevronRight, ChevronLeft, Sun, ArrowUp, ArrowDown, Plus, X, CalendarClock, MessageSquarePlus, Zap, AlertCircle, StickyNote, Wand2, FolderInput, LogOut } from 'lucide-react';
 import { supabase } from './lib/supabaseClient.js';
+import Onboarding, { WISHES } from './Onboarding.jsx';
 
 const INK = '#22223B', PAPER = '#FAF9F6', CARD = '#FFFFFF', LINE = '#E7E4DC';
 const GREEN = '#12886A', AI = '#6A5AE0', MUTED = '#77748A';
@@ -24,7 +25,27 @@ const SEED_PROFILE = {
   situations: [],
   onboarded: false,
   projects: SEED_PROJECTS,
+  displayName: '',
+  wishes: [],
+  challenge: '',
+  onboardingAnswers: {},
 };
+
+// Maps each onboarding "wish" key to a planner directive — preferences the
+// system leans toward, never hard-gated behavior. See onboarding handoff §5.
+const WISH_HINTS = {
+  clear: 'They want to just dump and have it sorted — minimize follow-up questions, parse aggressively.',
+  big: 'When a large multi-step item appears, break it into a short sequence of dated steps.',
+  remember: 'Proactively surface small things at the right time — treat deadlines and small tasks as worth a gentle nudge, not just a list entry.',
+  room: 'Defend their "protect" goals even on weeks they do not mention them — do not let them get silently dropped.',
+  protectwork: 'Reserve real, uninterrupted deep-work blocks; avoid fragmenting focus time into small pieces.',
+  reverse: 'For deadline-driven items, schedule backward from the deadline, sequencing prep steps in dependency order.',
+};
+function wishContext(wishes) {
+  if (!wishes || !wishes.length) return '';
+  const lines = wishes.map(k => WISH_HINTS[k]).filter(Boolean);
+  return lines.length ? `\nWhat they explicitly asked for:\n${lines.map(l => '- ' + l).join('\n')}` : '';
+}
 
 const EXAMPLE_DUMP = `finish the SACC deck
 call dentist to rebook
@@ -82,7 +103,8 @@ ${p.learned.filter(Boolean).length ? p.learned.filter(Boolean).map(l => '- ' + l
 Life facts (use these to connect the dots — people, dates, what matters):
 ${(p.facts || []).filter(Boolean).length ? (p.facts || []).filter(Boolean).map(f => '- ' + f).join('\n') : '- (none)'}
 ${(p.priorities || []).length ? 'Priority order — protect the top when the week is tight: ' + (p.priorities || []).join(' > ') : ''}
-${(p.situations || []).length ? 'Right now — bend the plan to these:\n' + (p.situations || []).filter(s => s.raw).map(s => `- ${s.raw} [${s.scope}]`).join('\n') : ''}`;
+${(p.situations || []).length ? 'Right now — bend the plan to these:\n' + (p.situations || []).filter(s => s.raw).map(s => `- ${s.raw} [${s.scope}]`).join('\n') : ''}
+${(p.challenge || '').trim() ? 'Their #1 planning pain, in their own words — actively address this: ' + p.challenge.trim() : ''}${wishContext(p.wishes)}`;
 }
 function projectMap(projects) {
   const known = Object.entries(projects).map(([k, v]) => `- ${k}: ${v.label}`).join('\n');
@@ -93,6 +115,33 @@ Prefer a SPECIFIC project over the "personal" catch-all whenever two or more ite
 const ITEM_FIELDS = `"title", "kind":"task|event|errand", "minutes":number, "deadline":"YYYY-MM-DD"|null, "energy":"deep|admin|physical", "priority":"high|med|low", "suggested_slot": short placement from their rhythm, "project": a project key, "today": boolean, "why": one short warm line — ONLY when today is true`;
 const FOCUS_RULES = `Choosing "today" — be an editor, not a list: keep it SMALL (2–4). Include hard anchors (due today / fixed time today). PROTECT one goal-advancing item (usually a Sprekta block) even when nothing forces it. Importance ≠ urgency.
 Voice: calm, warm, short. NEVER shame or alarm. Late things are a gentle choice, never a failure.`;
+
+// Shared by the regular "Build my plan" offload and onboarding's first dump
+// (the "tomorrow" field) so both go through identical parse behavior.
+function offloadSystemPrompt(profile, projects) {
+  return `You are Sprekta — a sharp, calm second brain. You don't transcribe a dump; you READ it. Before listing anything, notice what these have in common, which one is the real anchor (most time-critical), what depends on what, and what the person hasn't said but would care about.
+
+${profileContext(profile)}
+
+${projectMap(projects)}
+
+Return ONLY JSON — no prose, no fences:
+{
+  "read": "1–2 warm, specific sentences of genuine insight — the thread connecting these, the anchor, or a dependency/stake worth naming. NOT a summary of the list. Empty string only if there is truly nothing to add.",
+  "items": [ { ${ITEM_FIELDS} } ],
+  "ask": [ genuinely ambiguous questions — usually empty ]
+}
+
+Think, don't transcribe:
+- Group by real project. Related items belong together, not scattered in "personal".
+- Sequence by real urgency: honor hard dates ("tomorrow" = tomorrow), and surface dependencies — you can't attend a meeting you never booked, so booking is the task.
+- Vary energy honestly. Focused or emotionally-weighty work (sending wedding invites, a hard email) is NOT slump filler.
+- Priority reflects consequence + deadline, not a default of "med".
+- Turn a vague note into its real next action ("meeting with Andrea? haven't booked" → the task is booking it).
+
+${FOCUS_RULES}
+Resolve dates against NOW: ${nowStr()}. Always estimate minutes.`;
+}
 
 function mergeItems(existing, incoming) {
   const out = [...existing];
@@ -165,20 +214,7 @@ export default function Sprekta({ session, onSignOut }) {
   const [showSnapshots, setShowSnapshots] = useState(false);
   const [feedbackText, setFeedbackText] = useState('');
   const [feedbackSent, setFeedbackSent] = useState(false);
-  const [obActive, setObActive] = useState(false);
-  const [obStep, setObStep] = useState('dump');
-  const [obDump, setObDump] = useState('');
-  const [obBusy, setObBusy] = useState(false);
-  const [obErr, setObErr] = useState('');
-  const [obItems, setObItems] = useState([]);
-  const [obProjects, setObProjects] = useState([]);
-  const [obNewProj, setObNewProj] = useState('');
-  const [obSituations, setObSituations] = useState([]);
-  const [obAnchor, setObAnchor] = useState('');
-  const [obReflection, setObReflection] = useState('');
-  const [obRhythm, setObRhythm] = useState([]);
-  const [obPriorities, setObPriorities] = useState([]);
-  const [brk, setBrk] = useState(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const chatEnd = useRef(null);
   const chatBox = useRef(null);
   const itemWriteTimers = useRef({});
@@ -205,9 +241,27 @@ export default function Sprekta({ session, onSignOut }) {
           situations: profileRow.situations || [],
           onboarded: !!profileRow.onboarded,
           projects: Object.keys(profileRow.projects || {}).length ? profileRow.projects : SEED_PROJECTS,
+          displayName: profileRow.display_name || '',
+          wishes: profileRow.wishes || [],
+          challenge: profileRow.challenge || '',
+          onboardingAnswers: profileRow.onboarding_answers || {},
         });
       } else {
-        await supabase.from('profiles').insert({ user_id: userId, ...SEED_PROFILE });
+        await supabase.from('profiles').insert({
+          user_id: userId,
+          rhythm: SEED_PROFILE.rhythm,
+          defaults: SEED_PROFILE.defaults,
+          learned: SEED_PROFILE.learned,
+          facts: SEED_PROFILE.facts,
+          priorities: SEED_PROFILE.priorities,
+          situations: SEED_PROFILE.situations,
+          onboarded: SEED_PROFILE.onboarded,
+          projects: SEED_PROFILE.projects,
+          display_name: SEED_PROFILE.displayName,
+          wishes: SEED_PROFILE.wishes,
+          challenge: SEED_PROFILE.challenge,
+          onboarding_answers: SEED_PROFILE.onboardingAnswers,
+        });
       }
       const { data: itemRows } = await supabase.from('items').select('*').eq('user_id', userId).order('created_at', { ascending: true });
       if (cancelled) return;
@@ -231,6 +285,10 @@ export default function Sprekta({ session, onSignOut }) {
         situations: profile.situations,
         onboarded: profile.onboarded,
         projects: profile.projects,
+        display_name: profile.displayName,
+        wishes: profile.wishes,
+        challenge: profile.challenge,
+        onboarding_answers: profile.onboardingAnswers,
         updated_at: new Date().toISOString(),
       }).then(() => {});
     }, 800);
@@ -248,7 +306,7 @@ export default function Sprekta({ session, onSignOut }) {
       setJustDetected(missing);
     }
   }, [items]);
-  useEffect(() => { if (loaded && !profile.onboarded && items.length === 0) setObActive(true); }, [loaded]);
+  useEffect(() => { if (loaded && !profile.onboarded && items.length === 0) setShowOnboarding(true); }, [loaded]);
 
   function debouncedItemUpdate(id, patch) {
     clearTimeout(itemWriteTimers.current[id]);
@@ -260,28 +318,7 @@ export default function Sprekta({ session, onSignOut }) {
   async function runOffload() {
     if (!dump.trim() || busy) return;
     setBusy(true); setErr(''); setJustDetected([]);
-    const system = `You are Sprekta — a sharp, calm second brain. You don't transcribe a dump; you READ it. Before listing anything, notice what these have in common, which one is the real anchor (most time-critical), what depends on what, and what the person hasn't said but would care about.
-
-${profileContext(profile)}
-
-${projectMap(projects)}
-
-Return ONLY JSON — no prose, no fences:
-{
-  "read": "1–2 warm, specific sentences of genuine insight — the thread connecting these, the anchor, or a dependency/stake worth naming. NOT a summary of the list. Empty string only if there is truly nothing to add.",
-  "items": [ { ${ITEM_FIELDS} } ],
-  "ask": [ genuinely ambiguous questions — usually empty ]
-}
-
-Think, don't transcribe:
-- Group by real project. Related items belong together, not scattered in "personal".
-- Sequence by real urgency: honor hard dates ("tomorrow" = tomorrow), and surface dependencies — you can't attend a meeting you never booked, so booking is the task.
-- Vary energy honestly. Focused or emotionally-weighty work (sending wedding invites, a hard email) is NOT slump filler.
-- Priority reflects consequence + deadline, not a default of "med".
-- Turn a vague note into its real next action ("meeting with Andrea? haven't booked" → the task is booking it).
-
-${FOCUS_RULES}
-Resolve dates against NOW: ${nowStr()}. Always estimate minutes.`;
+    const system = offloadSystemPrompt(profile, projects);
     try {
       const parsed = grabJSON(await callClaude({ system, messages: [{ role: 'user', content: dump }], accessToken }));
       const merged = mergeItems(items, parsed.items || []);
@@ -345,41 +382,94 @@ Keep the spoken reply short and warm. Never mention the block.`;
   function nudgeToChat(seed) { setDetailId(null); setView('plan'); setMode('think'); sendChat(seed); }
 
   // ---- onboarding ----
-  const toggleRhythm = (v) => setObRhythm(r => r.includes(v) ? r.filter(x => x !== v) : [...r, v]);
-  const addObProj = () => { const k = obNewProj.trim().toLowerCase().replace(/[^a-z0-9]+/g, ''); if (k && !obProjects.includes(k)) setObProjects([...obProjects, k]); setObNewProj(''); };
-  function startBracket() { const c = obProjects; const pairs = []; for (let a = 0; a < c.length; a++) for (let b = a + 1; b < c.length; b++) pairs.push([c[a], c[b]]); setBrk({ pairs, idx: 0, wins: Object.fromEntries(c.map(x => [x, 0])) }); }
-  function brkPick(w) { const wins = { ...brk.wins, [w]: (brk.wins[w] || 0) + 1 }; const idx = brk.idx + 1; if (idx >= brk.pairs.length) { setObPriorities(Object.keys(wins).sort((a, b) => wins[b] - wins[a])); setBrk(null); } else setBrk({ ...brk, idx, wins }); }
-  async function obParse() {
-    if (!obDump.trim() || obBusy) return;
-    setObBusy(true); setObErr('');
-    const system = `You are Sprekta onboarding a new user from their first brain-dump. Read it and infer their world — don't transcribe.
-${projectMap(projects)}
-Return ONLY JSON:
-{ "items": [ { ${ITEM_FIELDS} } ],
-  "situations": [ { "raw": short phrase, "scope": "ongoing|season|moment" } ],
-  "anchor_guess": "the project key most likely to be the thing they don't want crowded out",
-  "reflection": "2-3 warm, honestly-hedged sentences reading their world back — name the projects, the likely anchor, any season. You are interpreting; invite correction." }
-Group into real projects (invent short lowercase keys when a theme has no bucket). Infer situations from context. NOW: ${nowStr()}.`;
-    try {
-      const data = grabJSON(await callClaude({ system, messages: [{ role: 'user', content: obDump }], accessToken }));
-      const its = (data.items || []).map(x => ({ ...x, id: uid() }));
-      setObItems(its);
-      setObProjects([...new Set(its.map(i => i.project).filter(Boolean))]);
-      setObSituations(data.situations || []);
-      setObAnchor(data.anchor_guess || '');
-      setObReflection(data.reflection || '');
-      setObStep('projects');
-    } catch { setObErr('Hmm — let me try that again.'); }
-    setObBusy(false);
-  }
-  async function obFinish(goSettings) {
-    const projObj = { ...projects };
-    obProjects.forEach((k) => { if (!projObj[k]) projObj[k] = { label: labelize(k), color: PALETTE[Object.keys(projObj).length % PALETTE.length] }; });
-    const insertedItems = await insertAllItems(obItems, userId);
-    if (obDump.trim()) await supabase.from('dumps').insert({ user_id: userId, raw_text: obDump });
-    setItems(insertedItems);
-    setProfile(p => ({ ...p, projects: projObj, rhythm: obRhythm.length ? ['Sharpest for hard work: ' + obRhythm.join(', ')] : p.rhythm, priorities: obPriorities.length ? obPriorities : (obAnchor ? [obAnchor] : []), situations: obSituations, onboarded: true }));
-    setObActive(false); setView(goSettings ? 'settings' : 'today');
+  // Called once, from Onboarding's "See my week" CTA. Derives the app's
+  // existing profile fields (rhythm/facts/situations) from the raw answers,
+  // persists everything, and runs the real parse pipeline on their first
+  // "what's coming up this week" dump so they land in Today with a real plan.
+  async function finishOnboarding(answers) {
+    const {
+      name, jobTitle, jobType, jobVaries, weekday, weekend, anchors, gridCells,
+      resp, protect, protectNote, challenge, wishes, loves, nonos, lifeBig,
+      people, peopleNote, rides, rideOther, tomorrow,
+    } = answers;
+
+    const rhythmLines = [];
+    if (weekday.trim()) rhythmLines.push('Weekdays: ' + weekday.trim());
+    if (weekend.trim()) rhythmLines.push('Weekends: ' + weekend.trim());
+    const fixedCount = Object.keys(gridCells).length;
+    if (fixedCount) {
+      const label = anchors.trim() ? ` — ${anchors.trim()}` : '';
+      rhythmLines.push(`Fixed weekly commitments (${fixedCount} slot${fixedCount === 1 ? '' : 's'})${label}`);
+    }
+
+    const factLines = [];
+    const work = jobTitle.trim() || (jobType === 'It varies' && jobVaries.trim() ? `Work varies — ${jobVaries.trim()}` : jobType);
+    if (work) factLines.push('Work: ' + work);
+    if (resp.trim()) factLines.push('Keeping track of: ' + resp.trim());
+    if (protect.length || protectNote.trim()) {
+      const all = [...protect, ...(protectNote.trim() ? [protectNote.trim()] : [])];
+      factLines.push('Wants regular time for: ' + all.join(', '));
+    }
+    if (loves.trim()) factLines.push('Into: ' + loves.trim());
+    if (nonos.trim()) factLines.push('Non-negotiables: ' + nonos.trim());
+    if (people.length) {
+      const peopleAll = [...people.filter(p => p !== 'Just me'), ...(peopleNote.trim() ? [peopleNote.trim()] : [])];
+      factLines.push(people.includes('Just me') && !peopleAll.length ? 'Day to day: just themself' : 'Day to day: ' + peopleAll.join(', '));
+    }
+    if (rides.length) {
+      const rideAll = [...rides.filter(r => r !== 'Other'), ...(rides.includes('Other') && rideOther.trim() ? [rideOther.trim()] : [])];
+      factLines.push('Gets around by: ' + rideAll.join(', '));
+    }
+
+    const situationsArr = [];
+    if (lifeBig.trim()) situationsArr.push({ raw: lifeBig.trim(), scope: 'season' });
+
+    const newProfile = {
+      ...profile,
+      rhythm: rhythmLines,
+      facts: factLines,
+      situations: situationsArr,
+      wishes,
+      challenge: challenge.trim(),
+      displayName: name.trim(),
+      onboardingAnswers: answers,
+      onboarded: true,
+    };
+    setProfile(newProfile);
+
+    await supabase.from('profiles').upsert({
+      user_id: userId,
+      rhythm: newProfile.rhythm,
+      defaults: newProfile.defaults,
+      learned: newProfile.learned,
+      facts: newProfile.facts,
+      priorities: newProfile.priorities,
+      situations: newProfile.situations,
+      onboarded: true,
+      projects: newProfile.projects,
+      display_name: newProfile.displayName,
+      wishes: newProfile.wishes,
+      challenge: newProfile.challenge,
+      onboarding_answers: newProfile.onboardingAnswers,
+      updated_at: new Date().toISOString(),
+    });
+
+    if (tomorrow.trim()) {
+      setBusy(true);
+      try {
+        const system = offloadSystemPrompt(newProfile, projects);
+        const parsed = grabJSON(await callClaude({ system, messages: [{ role: 'user', content: tomorrow }], accessToken }));
+        const its = (parsed.items || []).map(x => ({ ...x, id: uid() }));
+        const inserted = await insertAllItems(its, userId);
+        await supabase.from('dumps').insert({ user_id: userId, raw_text: tomorrow });
+        setItems(inserted);
+        setRead(parsed.read || '');
+      } catch { setErr('Had trouble building your first plan — try Offload again from Plan.'); }
+      setBusy(false);
+    }
+
+    setShowOnboarding(false);
+    setView('today');
   }
   const setSit = (i, patch) => setProfile(p => ({ ...p, situations: (p.situations || []).map((s, idx) => idx === i ? { ...s, ...patch } : s) }));
   const addSit = () => setProfile(p => ({ ...p, situations: [...(p.situations || []), { raw: '', scope: 'moment' }] }));
@@ -485,7 +575,7 @@ Group into real projects (invent short lowercase keys when a theme has no bucket
     } catch { setErr('Bad JSON — check the snapshot.'); }
   }
   function devRunOnboarding() {
-    setObDump(''); setObItems([]); setObProjects([]); setObRhythm([]); setObPriorities([]); setBrk(null); setObStep('dump'); setObActive(true);
+    setShowOnboarding(true);
   }
 
   const T = todayYMD(), TM = addDays(1), W = addDays(6);
@@ -498,7 +588,6 @@ Group into real projects (invent short lowercase keys when a theme has no bucket
   const iconBtn = { background: 'none', border: `1px solid ${LINE}`, borderRadius: 8, cursor: 'pointer', padding: 5, display: 'flex', alignItems: 'center', color: MUTED };
   const tint = (c) => c + '22';
   const devBtn = { fontSize: 12.5, color: '#B4552E', background: '#fff', border: '1px solid #F0D9D0', borderRadius: 8, padding: '6px 11px', cursor: 'pointer' };
-  const obNextBtn = { fontSize: 14.5, fontWeight: 500, color: '#fff', background: AI, border: 'none', borderRadius: 12, padding: '11px 18px', cursor: 'pointer' };
 
   function card(it, opts = {}) {
     const p = projOf(it.project);
@@ -528,115 +617,7 @@ Group into real projects (invent short lowercase keys when a theme has no bucket
     </button>
   );
 
-  if (obActive) {
-    const steps = ['dump', 'projects', 'rhythm', 'priority', 'reflect'];
-    const si = steps.indexOf(obStep);
-    const wrap = (children) => (
-      <div style={{ background: PAPER, color: INK, minHeight: '100%', fontFamily: 'ui-sans-serif, system-ui, sans-serif' }}>
-        <div style={{ maxWidth: 560, margin: '0 auto', padding: '28px 20px 44px' }}>
-          <div className="flex items-center justify-between" style={{ marginBottom: 26 }}>
-            <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>Sprekta<span style={{ color: GREEN }}>.</span></div>
-            <div className="flex gap-1.5">{steps.map((s, i) => <span key={s} style={{ width: i === si ? 18 : 7, height: 7, borderRadius: 999, background: i <= si ? AI : '#E0DEEA' }} />)}</div>
-          </div>
-          {children}
-        </div>
-      </div>
-    );
-    const skipLink = (label, fn) => <button onClick={fn} style={{ display: 'block', fontSize: 13, color: MUTED, background: 'none', border: 'none', cursor: 'pointer', marginTop: 14 }}>{label}</button>;
-
-    if (obStep === 'dump') return wrap(
-      <div>
-        <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 8, letterSpacing: '-0.01em' }}>Let’s start with everything on your plate.</div>
-        <div style={{ fontSize: 14.5, color: '#4A4860', lineHeight: 1.55, marginBottom: 16 }}>Dump it all out — tasks, worries, half-thoughts, in any order. Messy is exactly right. I’ll read it and make the first pass, so you never have to start from a blank setup.</div>
-        <textarea value={obDump} onChange={e => setObDump(e.target.value)} rows={7} placeholder={'e.g. finish the SACC deck, wedding invites go out this week, book a meeting with andrea, 2hr sprekta block, getting back into lifting…'} style={{ width: '100%', resize: 'none', border: `1px solid ${LINE}`, borderRadius: 14, padding: 14, fontSize: 15, lineHeight: 1.6, outline: 'none', background: CARD, color: INK, fontFamily: 'inherit', marginBottom: 12 }} />
-        {obErr && <div style={{ fontSize: 13, color: '#B23', marginBottom: 8 }}>{obErr}</div>}
-        <button onClick={obParse} disabled={obBusy || !obDump.trim()} className="flex items-center gap-2" style={{ ...obNextBtn, background: (obBusy || !obDump.trim()) ? '#B7B3DE' : AI }}>{obBusy ? <><Loader2 size={16} className="animate-spin" /> reading it…</> : <><Sparkles size={16} /> Make sense of this</>}</button>
-        {skipLink('I’ll set up later', () => { setProfile(p => ({ ...p, onboarded: true })); setObActive(false); })}
-      </div>
-    );
-
-    if (obStep === 'projects') return wrap(
-      <div>
-        <div style={{ fontSize: 21, fontWeight: 600, marginBottom: 8 }}>Here’s how your world splits — did I read it right?</div>
-        <div style={{ fontSize: 14, color: '#4A4860', marginBottom: 16 }}>I grouped what you dumped into these. Add anything I missed, or drop one that’s off — I’m guessing from your words.</div>
-        <div className="flex gap-2" style={{ flexWrap: 'wrap', marginBottom: 14 }}>
-          {obProjects.map(k => { const p = projOf(k); return (
-            <span key={k} className="flex items-center gap-1.5" style={{ fontSize: 13.5, color: p.color, background: p.color + '22', borderRadius: 999, padding: '6px 12px' }}>{p.label}<button onClick={() => setObProjects(obProjects.filter(x => x !== k))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: p.color, display: 'flex' }}><X size={13} /></button></span>
-          ); })}
-          {obProjects.length === 0 && <span style={{ fontSize: 13.5, color: MUTED }}>Add the buckets your life falls into…</span>}
-        </div>
-        <div className="flex items-center gap-2" style={{ marginBottom: 20 }}>
-          <input value={obNewProj} onChange={e => setObNewProj(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addObProj(); }} placeholder="add a project…" style={{ flex: 1, border: `1px solid ${LINE}`, borderRadius: 10, padding: '9px 12px', fontSize: 14, outline: 'none', background: CARD, color: INK, fontFamily: 'inherit' }} />
-          <button onClick={addObProj} style={{ ...iconBtn, padding: '8px 10px' }}><Plus size={15} /></button>
-        </div>
-        <button onClick={() => setObStep('rhythm')} style={obNextBtn}>Looks right →</button>
-      </div>
-    );
-
-    if (obStep === 'rhythm') return wrap(
-      <div>
-        <div style={{ fontSize: 21, fontWeight: 600, marginBottom: 8 }}>When’s your head clearest for hard work?</div>
-        <div style={{ fontSize: 14, color: '#4A4860', marginBottom: 18 }}>So I put deep work where you’ll actually do it — not just wherever there’s a gap. Tap any that fit.</div>
-        <div className="flex gap-2" style={{ flexWrap: 'wrap', marginBottom: 20 }}>
-          {['Early morning', 'Midday', 'Evening', 'Late night', 'It varies'].map(v => { const on = obRhythm.includes(v); return (
-            <button key={v} onClick={() => toggleRhythm(v)} style={{ fontSize: 13.5, borderRadius: 999, padding: '9px 15px', cursor: 'pointer', border: `1px solid ${on ? AI : LINE}`, background: on ? '#EEEDFB' : CARD, color: on ? AI : MUTED, fontWeight: on ? 600 : 500 }}>{v}</button>
-          ); })}
-        </div>
-        <button onClick={() => setObStep('priority')} style={obNextBtn}>Continue →</button>
-        {skipLink('Skip — you’ll learn my rhythm', () => setObStep('priority'))}
-      </div>
-    );
-
-    if (obStep === 'priority') {
-      if (brk) { const pair = brk.pairs[brk.idx]; return wrap(
-        <div>
-          <div style={{ fontSize: 21, fontWeight: 600, marginBottom: 8 }}>Quick gut check.</div>
-          <div style={{ fontSize: 14, color: '#4A4860', marginBottom: 20 }}>Don’t overthink it — which matters more right now? <span style={{ color: MUTED }}>({brk.idx + 1} of {brk.pairs.length})</span></div>
-          <div className="flex gap-3">
-            {pair.map(k => { const p = projOf(k); return (
-              <button key={k} onClick={() => brkPick(k)} style={{ flex: 1, padding: '24px 14px', borderRadius: 14, cursor: 'pointer', border: `1.5px solid ${p.color}55`, background: p.color + '14', fontSize: 16, fontWeight: 600, color: p.color }}>{p.label}</button>
-            ); })}
-          </div>
-        </div>
-      ); }
-      return wrap(
-        <div>
-          <div style={{ fontSize: 21, fontWeight: 600, marginBottom: 8 }}>What can’t get crowded out?</div>
-          <div style={{ fontSize: 14, color: '#4A4860', marginBottom: 16 }}>When the week gets tight, I’ll guard this first. My best guess is highlighted — pick the real one, or let me help you rank them.</div>
-          <div className="flex flex-col gap-2" style={{ marginBottom: 14 }}>
-            {obProjects.map(k => { const p = projOf(k), sel = obPriorities[0] === k || (!obPriorities.length && obAnchor === k); return (
-              <button key={k} onClick={() => setObPriorities([k, ...obProjects.filter(x => x !== k)])} className="flex items-center justify-between" style={{ padding: '12px 14px', borderRadius: 12, cursor: 'pointer', border: `1.5px solid ${sel ? AI : LINE}`, background: sel ? '#EEEDFB' : CARD, fontSize: 14.5, fontWeight: 500, color: INK }}>
-                <span className="flex items-center gap-2"><span style={{ width: 8, height: 8, borderRadius: 999, background: p.color }} />{p.label}</span>
-                {sel && <Check size={16} style={{ color: AI }} />}
-              </button>
-            ); })}
-          </div>
-          {obProjects.length >= 2 && <button onClick={startBracket} style={{ display: 'block', fontSize: 13, color: AI, background: 'none', border: 'none', cursor: 'pointer', marginBottom: 16 }}>Not sure — help me rank them →</button>}
-          <button onClick={() => setObStep('reflect')} style={obNextBtn}>Continue →</button>
-          {skipLink('Skip', () => setObStep('reflect'))}
-        </div>
-      );
-    }
-
-    if (obStep === 'reflect') return wrap(
-      <div>
-        <div style={{ fontSize: 21, fontWeight: 600, marginBottom: 12 }}>Here’s how I read your world.</div>
-        <div style={{ background: '#F1F0FB', border: '1px solid #E3E1F7', borderRadius: 14, padding: 16, fontSize: 14.5, color: '#3B3856', lineHeight: 1.6, marginBottom: 16 }}>{obReflection || 'You’ve got a full plate across a few projects. I’ll sort it and keep the important things from getting buried.'}</div>
-        <div className="flex flex-col gap-2" style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 13.5 }}><span style={{ color: MUTED }}>Projects · </span>{obProjects.map(k => projOf(k).label).join(', ') || '—'}</div>
-          <div style={{ fontSize: 13.5 }}><span style={{ color: MUTED }}>Deep-work window · </span>{obRhythm.join(', ') || 'you’ll show me'}</div>
-          <div style={{ fontSize: 13.5 }}><span style={{ color: MUTED }}>Protecting · </span>{obPriorities[0] ? projOf(obPriorities[0]).label : (obAnchor ? projOf(obAnchor).label : '—')}</div>
-          {obSituations.length > 0 && <div style={{ fontSize: 13.5 }}><span style={{ color: MUTED }}>Noticed · </span>{obSituations.map(s => s.raw).join('; ')}</div>}
-        </div>
-        <div style={{ fontSize: 12.5, color: MUTED, marginBottom: 16 }}>Got something wrong? All of this is editable anytime in Settings.</div>
-        <div className="flex gap-2">
-          <button onClick={() => obFinish(false)} style={obNextBtn}>This is right — let’s go</button>
-          <button onClick={() => obFinish(true)} style={{ fontSize: 14, color: MUTED, background: CARD, border: `1px solid ${LINE}`, borderRadius: 12, padding: '11px 16px', cursor: 'pointer' }}>Tweak it</button>
-        </div>
-      </div>
-    );
-    return wrap(<div />);
-  }
+  if (showOnboarding) return <Onboarding onFinish={finishOnboarding} />;
 
   return (
     <div style={{ background: PAPER, color: INK, minHeight: '100%', fontFamily: 'ui-sans-serif, system-ui, sans-serif', position: 'relative' }}>
@@ -905,6 +886,27 @@ Group into real projects (invent short lowercase keys when a theme has no bucket
                 </div>
               ))}
               <button onClick={addSit} className="flex items-center gap-1" style={{ fontSize: 13, color: AI, background: 'none', border: 'none', cursor: 'pointer', alignSelf: 'flex-start' }}><Plus size={14} /> add a situation</button>
+            </div>
+
+            <div style={{ fontSize: 13, fontWeight: 600, color: AI, margin: '20px 0 4px' }}>Where planning breaks down</div>
+            <div style={{ fontSize: 12.5, color: MUTED, marginBottom: 8 }}>The part that keeps tripping you up — the first thing I work on.</div>
+            <textarea value={profile.challenge || ''} onChange={e => setProfile(p => ({ ...p, challenge: e.target.value }))} rows={2} placeholder="e.g. everything piles onto one day" style={{ width: '100%', resize: 'vertical', border: `1px solid ${LINE}`, borderRadius: 9, padding: '8px 11px', fontSize: 13.5, lineHeight: 1.5, outline: 'none', background: CARD, color: INK, fontFamily: 'inherit', marginBottom: 16 }} />
+
+            <div style={{ fontSize: 13, fontWeight: 600, color: AI, margin: '0 0 4px' }}>Where I can help most</div>
+            <div style={{ fontSize: 12.5, color: MUTED, marginBottom: 8 }}>Tap any that fit — this shapes how I handle your time.</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8, marginBottom: 6 }}>
+              {WISHES.map(w => {
+                const on = (profile.wishes || []).includes(w.key);
+                return (
+                  <button key={w.key} onClick={() => setProfile(p => ({ ...p, wishes: (p.wishes || []).includes(w.key) ? p.wishes.filter(x => x !== w.key) : [...(p.wishes || []), w.key] }))}
+                    style={{ textAlign: 'left', padding: '9px 11px', borderRadius: 10, cursor: 'pointer', border: `1.5px solid ${on ? w.color : LINE}`, background: on ? w.color + '14' : CARD }}>
+                    <div className="flex items-center justify-between" style={{ gap: 6 }}>
+                      <span style={{ fontSize: 13, fontWeight: 500, color: on ? w.color : INK }}>{w.label}</span>
+                      {on && <Check size={13} style={{ color: w.color, flexShrink: 0 }} />}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
 
             <div style={{ background: '#F4F3F0', border: `1px dashed ${LINE}`, borderRadius: 12, padding: 14, marginTop: 22 }}>
