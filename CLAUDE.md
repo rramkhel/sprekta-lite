@@ -49,7 +49,12 @@ running right now — this file is the map, that file is the territory.
   `.claude/hooks/pre-commit.sh` (installed at `.git/hooks/pre-commit` — see
   "Hook setup" below if it's not firing).
 - Deploy is manual: `vercel --prod` from `main`, after merging. Not
-  git-triggered.
+  git-triggered — Vercel doesn't watch GitHub for this project, it's
+  deployed directly from the local build. GitHub (`rramkhel/sprekta-lite`)
+  is kept in sync automatically instead: `post-merge.sh` pushes `main` to
+  `origin` right after logging to `CODEBASE_STATE.md`. GitHub is for
+  visibility (e.g. a GitHub MCP connection reading current code) — it is
+  not part of the deploy path.
 - DB changes are numbered migrations in `supabase/migrations/`, applied via
   the Supabase Management API (see any recent commit for the exact `curl`
   pattern) — there's no local Supabase CLI workflow set up for this repo.

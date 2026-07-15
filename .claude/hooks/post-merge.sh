@@ -36,4 +36,18 @@ else
   echo "  state/CODEBASE_STATE.md not found — skipped."
 fi
 
+# Keep GitHub in sync automatically — a stale remote defeats the point of
+# connecting a GitHub MCP (or anyone else cloning) to see current code. Only
+# on main, and non-fatal: a push failure (offline, auth expired) shouldn't
+# make the merge itself look broken — it already succeeded locally.
+CURRENT_BRANCH=$(git branch --show-current 2>/dev/null)
+if [ "$CURRENT_BRANCH" = "main" ] && git remote get-url origin >/dev/null 2>&1; then
+  echo "[3/3] Pushing main to origin..."
+  if git push origin main 2>&1 | tail -3; then
+    echo "  Pushed."
+  else
+    echo "  WARNING: push to origin failed — main is ahead locally, push manually when able."
+  fi
+fi
+
 echo "=== Post-merge complete ==="
