@@ -119,7 +119,7 @@ const ITEM_FIELDS = `"title", "kind":"task|event|errand", "minutes":number, "dea
 const FOCUS_RULES = `Choosing "today" — be an editor, not a list: keep it SMALL (2–4). Include hard anchors (due today / fixed time today). PROTECT one goal-advancing item (usually a Sprekta block) even when nothing forces it. Importance ≠ urgency.
 Voice: calm, warm, short. NEVER shame or alarm. Late things are a gentle choice, never a failure.`;
 
-// Shared by the regular "Build my plan" offload and onboarding's first dump
+// Shared by the regular "Sort it" offload and onboarding's first dump
 // (the "tomorrow" field) so both go through identical parse behavior.
 function offloadSystemPrompt(profile, projects) {
   return `You are Sprekta — a sharp, calm second brain. You don't transcribe a dump; you READ it. Before listing anything, notice what these have in common, which one is the real anchor (most time-critical), what depends on what, and what the person hasn't said but would care about.
@@ -211,7 +211,7 @@ async function replaceAllItems(rawItems, userId) {
 export default function Sprekta({ session, onSignOut }) {
   const [view, setView] = useState('today');
   const [mode, setMode] = useState('offload');
-  const [dump, setDump] = useState(EXAMPLE_DUMP);
+  const [dump, setDump] = useState('');
   const [chat, setChat] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [items, setItems] = useState([]);
@@ -767,10 +767,10 @@ Keep the spoken reply short and warm. Never mention the block.`;
 
             {mode === 'offload' ? (
               <div style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 16, padding: 14, marginBottom: 18 }}>
-                <textarea value={dump} onChange={e => setDump(e.target.value)} rows={3} placeholder="brain-dump it…" style={{ width: '100%', resize: 'none', border: 'none', outline: 'none', fontSize: 15, lineHeight: 1.6, height: '4.8em', maxHeight: '4.8em', overflowY: 'auto', background: 'transparent', color: INK, fontFamily: 'inherit' }} />
+                <textarea value={dump} onChange={e => setDump(e.target.value)} rows={3} placeholder={EXAMPLE_DUMP} style={{ width: '100%', resize: 'none', border: 'none', outline: 'none', fontSize: 15, lineHeight: 1.6, height: '4.8em', maxHeight: '4.8em', overflowY: 'auto', background: 'transparent', color: INK, fontFamily: 'inherit' }} />
                 <div className="flex items-center justify-between" style={{ marginTop: 8 }}>
                   <span style={{ fontSize: 12, color: MUTED }}>sorting it is my job</span>
-                  <button onClick={runOffload} disabled={busy} className="flex items-center gap-2" style={{ fontSize: 14, fontWeight: 500, color: '#fff', background: busy ? '#9A96C9' : AI, border: 'none', borderRadius: 10, padding: '9px 16px', cursor: busy ? 'default' : 'pointer' }}>{busy ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />} Build my plan</button>
+                  <button onClick={runOffload} disabled={busy || !dump.trim()} className="flex items-center gap-2" style={{ fontSize: 14, fontWeight: 500, color: '#fff', background: (busy || !dump.trim()) ? '#9A96C9' : AI, border: 'none', borderRadius: 10, padding: '9px 16px', cursor: (busy || !dump.trim()) ? 'default' : 'pointer' }}>{busy ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />} Sort it</button>
                 </div>
               </div>
             ) : (
