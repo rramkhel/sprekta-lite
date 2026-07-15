@@ -122,3 +122,4 @@ Email: Resend, domain `mail.sprekta.com`, wired as Supabase custom SMTP.
 this point without also updating "Last updated" and "Current state" above.)
 - 2026-07-13: Set up agent-facing repo infrastructure (7 files)
 - 2026-07-13: Fix post-merge hook leaving its own changelog write uncommitted (2 files)
+- 2026-07-15: Fix example dump text blocking real input, soften the offload CTA (1 files)
