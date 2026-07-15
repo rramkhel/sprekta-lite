@@ -380,7 +380,7 @@ export default function Onboarding({ onFinish }) {
 
   return (
     <div style={{ background: PAPER, minHeight: '100vh', fontFamily: SANS, color: INK, display: 'flex', flexDirection: 'column' }}>
-      <div style={{ flex: 1, maxWidth: 620, width: '100%', margin: '0 auto', padding: '30px 24px 12px', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ flex: 1, maxWidth: 620, width: '100%', margin: '0 auto', padding: 'max(30px, env(safe-area-inset-top)) 24px 12px', display: 'flex', flexDirection: 'column' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 40 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>

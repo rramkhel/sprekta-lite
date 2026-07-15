@@ -670,7 +670,7 @@ Keep the spoken reply short and warm. Never mention the block.`;
 
   return (
     <div style={{ background: PAPER, color: INK, minHeight: '100%', fontFamily: 'ui-sans-serif, system-ui, sans-serif', position: 'relative' }}>
-      <div style={{ maxWidth: 920, margin: '0 auto', padding: '22px 18px 40px' }}>
+      <div style={{ maxWidth: 920, margin: '0 auto', padding: 'max(22px, env(safe-area-inset-top)) 18px 40px' }}>
 
         <div style={{ marginBottom: 16, borderBottom: `1px solid ${LINE}`, paddingBottom: 11 }}>
           <div style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em', marginBottom: 9 }}>Sprekta<span style={{ color: GREEN }}>.</span></div>
