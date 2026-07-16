@@ -759,7 +759,7 @@ Keep the spoken reply short and warm. Never mention the block.`;
               <div style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 16, padding: 14, marginBottom: 18 }}>
                 <textarea value={dump} onChange={e => setDump(e.target.value)} rows={3} placeholder="What's on your mind?" style={{ width: '100%', resize: 'none', border: 'none', outline: 'none', fontSize: 15, lineHeight: 1.6, height: '4.8em', maxHeight: '4.8em', overflowY: 'auto', background: 'transparent', color: INK, fontFamily: 'inherit' }} />
                 <div className="flex items-center justify-end" style={{ marginTop: 8 }}>
-                  <button onClick={runOffload} disabled={busy || !dump.trim()} className="flex items-center gap-2" style={{ fontSize: 14, fontWeight: 500, color: '#fff', background: (busy || !dump.trim()) ? '#9A96C9' : AI, border: 'none', borderRadius: 10, padding: '9px 16px', cursor: (busy || !dump.trim()) ? 'default' : 'pointer' }}>{busy ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />} Send</button>
+                  <button onClick={runOffload} disabled={busy || !dump.trim()} style={{ background: (busy || !dump.trim()) ? '#9A96C9' : AI, color: '#fff', border: 'none', borderRadius: 10, padding: '9px 12px', cursor: (busy || !dump.trim()) ? 'default' : 'pointer', display: 'flex', alignItems: 'center' }}>{busy ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}</button>
                 </div>
               </div>
             ) : (
