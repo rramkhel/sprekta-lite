@@ -50,16 +50,6 @@ function wishContext(wishes) {
   return lines.length ? `\nWhat they explicitly asked for:\n${lines.map(l => '- ' + l).join('\n')}` : '';
 }
 
-const EXAMPLE_DUMP = `finish the SACC deck
-call dentist to rebook
-2hr sprekta block tonight
-groceries before sunday
-prep 1:1 w rocky friday
-oil change sometime this week
-gym ~9pm
-reply to lilian's board thing by 1pm
-visa payment was due yesterday`;
-
 const pad = (n) => String(n).padStart(2, '0');
 const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const todayYMD = () => ymd(new Date());
@@ -767,10 +757,9 @@ Keep the spoken reply short and warm. Never mention the block.`;
 
             {mode === 'offload' ? (
               <div style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 16, padding: 14, marginBottom: 18 }}>
-                <textarea value={dump} onChange={e => setDump(e.target.value)} rows={3} placeholder={EXAMPLE_DUMP} style={{ width: '100%', resize: 'none', border: 'none', outline: 'none', fontSize: 15, lineHeight: 1.6, height: '4.8em', maxHeight: '4.8em', overflowY: 'auto', background: 'transparent', color: INK, fontFamily: 'inherit' }} />
-                <div className="flex items-center justify-between" style={{ marginTop: 8 }}>
-                  <span style={{ fontSize: 12, color: MUTED }}>sorting it is my job</span>
-                  <button onClick={runOffload} disabled={busy || !dump.trim()} className="flex items-center gap-2" style={{ fontSize: 14, fontWeight: 500, color: '#fff', background: (busy || !dump.trim()) ? '#9A96C9' : AI, border: 'none', borderRadius: 10, padding: '9px 16px', cursor: (busy || !dump.trim()) ? 'default' : 'pointer' }}>{busy ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />} Sort it</button>
+                <textarea value={dump} onChange={e => setDump(e.target.value)} rows={3} placeholder="What's on your mind?" style={{ width: '100%', resize: 'none', border: 'none', outline: 'none', fontSize: 15, lineHeight: 1.6, height: '4.8em', maxHeight: '4.8em', overflowY: 'auto', background: 'transparent', color: INK, fontFamily: 'inherit' }} />
+                <div className="flex items-center justify-end" style={{ marginTop: 8 }}>
+                  <button onClick={runOffload} disabled={busy || !dump.trim()} className="flex items-center gap-2" style={{ fontSize: 14, fontWeight: 500, color: '#fff', background: (busy || !dump.trim()) ? '#9A96C9' : AI, border: 'none', borderRadius: 10, padding: '9px 16px', cursor: (busy || !dump.trim()) ? 'default' : 'pointer' }}>{busy ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />} Send</button>
                 </div>
               </div>
             ) : (
