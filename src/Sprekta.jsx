@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, ListTodo, MessageSquare, Clock, Calendar as CalIcon, Check, Loader2, Sparkles, Trash2, ChevronRight, ChevronLeft, Sun, ArrowUp, ArrowDown, Plus, X, CalendarClock, MessageSquarePlus, Zap, AlertCircle, StickyNote, Wand2, FolderInput, LogOut, Bell } from 'lucide-react';
+import { Send, ListTodo, MessageSquare, Clock, Calendar as CalIcon, Check, Loader2, Sparkles, Trash2, ChevronRight, ChevronLeft, Sun, ArrowUp, ArrowDown, ArrowLeft, Plus, X, CalendarClock, MessageSquarePlus, Zap, AlertCircle, StickyNote, Wand2, FolderInput, LogOut, Bell } from 'lucide-react';
 import { supabase } from './lib/supabaseClient.js';
 import Onboarding, { WISHES } from './Onboarding.jsx';
 import { getDeviceId, getUserTimezone } from './lib/device.js';
@@ -200,7 +200,7 @@ async function replaceAllItems(rawItems, userId) {
 
 export default function Sprekta({ session, onSignOut }) {
   const [view, setView] = useState('today');
-  const [mode, setMode] = useState('offload');
+  const [chatOpen, setChatOpen] = useState(false);
   const [dump, setDump] = useState('');
   const [chat, setChat] = useState([]);
   const [chatInput, setChatInput] = useState('');
@@ -308,7 +308,8 @@ export default function Sprekta({ session, onSignOut }) {
   }, [profile, loaded, userId]);
 
   useEffect(() => { chatEnd.current?.scrollIntoView({ behavior: 'smooth' }); }, [chat, busy]);
-  useEffect(() => { const el = chatBox.current; if (el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 74) + 'px'; } }, [chatInput, mode]);
+  useEffect(() => { const el = chatBox.current; if (el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 74) + 'px'; } }, [chatInput, chatOpen]);
+  useEffect(() => { if (chatOpen) chatBox.current?.focus(); }, [chatOpen]);
   // auto-detect new projects the model invents
   useEffect(() => {
     const known = profile.projects || {};
@@ -393,7 +394,7 @@ Keep the spoken reply short and warm. Never mention the block.`;
     } catch { setChat(c => [...c, { role: 'assistant', content: 'Hit a snag — mind resending?' }]); }
     setBusy(false);
   }
-  function nudgeToChat(seed) { setDetailId(null); setView('plan'); setMode('think'); sendChat(seed); }
+  function nudgeToChat(seed) { setDetailId(null); setView('plan'); setChatOpen(true); sendChat(seed); }
 
   // Offers the reminder-permission prompt the first time a timed item lands
   // on a device that hasn't enabled reminders and hasn't dismissed the ask —
@@ -747,44 +748,16 @@ Keep the spoken reply short and warm. Never mention the block.`;
         {/* ============ PLAN ============ */}
         {view === 'plan' && (
           <div>
-            <div className="flex gap-2" style={{ marginBottom: 12 }}>
-              {[['offload', 'Offload', ListTodo], ['think', 'Think it through', MessageSquare]].map(([k, label, Icon]) => (
-                <button key={k} onClick={() => setMode(k)} className="flex items-center gap-2" style={{ fontSize: 13, fontWeight: 500, padding: '7px 13px', borderRadius: 10, cursor: 'pointer', background: mode === k ? INK : CARD, color: mode === k ? '#fff' : MUTED, border: `1px solid ${mode === k ? INK : LINE}` }}>
-                  <Icon size={15} /> {label}
-                </button>
-              ))}
+            <div style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 16, padding: 14, marginBottom: 10 }}>
+              <textarea value={dump} onChange={e => setDump(e.target.value)} rows={3} placeholder="What's on your mind?" style={{ width: '100%', resize: 'none', border: 'none', outline: 'none', fontSize: 15, lineHeight: 1.6, height: '4.8em', maxHeight: '4.8em', overflowY: 'auto', background: 'transparent', color: INK, fontFamily: 'inherit' }} />
+              <div className="flex items-center justify-end" style={{ marginTop: 8 }}>
+                <button onClick={runOffload} disabled={busy || !dump.trim()} style={{ background: (busy || !dump.trim()) ? '#9A96C9' : AI, color: '#fff', border: 'none', borderRadius: 10, padding: '9px 12px', cursor: (busy || !dump.trim()) ? 'default' : 'pointer', display: 'flex', alignItems: 'center' }}>{busy ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}</button>
+              </div>
             </div>
 
-            {mode === 'offload' ? (
-              <div style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 16, padding: 14, marginBottom: 18 }}>
-                <textarea value={dump} onChange={e => setDump(e.target.value)} rows={3} placeholder="What's on your mind?" style={{ width: '100%', resize: 'none', border: 'none', outline: 'none', fontSize: 15, lineHeight: 1.6, height: '4.8em', maxHeight: '4.8em', overflowY: 'auto', background: 'transparent', color: INK, fontFamily: 'inherit' }} />
-                <div className="flex items-center justify-end" style={{ marginTop: 8 }}>
-                  <button onClick={runOffload} disabled={busy || !dump.trim()} style={{ background: (busy || !dump.trim()) ? '#9A96C9' : AI, color: '#fff', border: 'none', borderRadius: 10, padding: '9px 12px', cursor: (busy || !dump.trim()) ? 'default' : 'pointer', display: 'flex', alignItems: 'center' }}>{busy ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}</button>
-                </div>
-              </div>
-            ) : (
-              <div style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 16, padding: 14, marginBottom: 18 }}>
-                <div style={{ maxHeight: 300, overflowY: 'auto', marginBottom: 12 }}>
-                  {chat.length === 0 && (
-                    <div style={{ padding: '6px 2px 12px' }}>
-                      <div style={{ fontSize: 14, color: '#4A4860', marginBottom: 10 }}>Bring me the messy version. What’s the tangle?</div>
-                      <button onClick={() => sendChat("3 deadlines colliding next week and I'm on-call Thursday — help me sequence it")} style={{ fontSize: 13, color: AI, background: '#F1F0FB', border: '1px solid #E3E1F7', borderRadius: 999, padding: '6px 12px', cursor: 'pointer', textAlign: 'left' }}>“3 deadlines colliding + on-call Thursday”</button>
-                    </div>
-                  )}
-                  {chat.map((m, i) => (
-                    <div key={i} style={{ marginBottom: 12, display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                      <div style={{ maxWidth: '82%', fontSize: 14, lineHeight: 1.55, padding: '9px 13px', borderRadius: 14, background: m.role === 'user' ? INK : '#F3F2F9', color: m.role === 'user' ? '#fff' : '#33314A', whiteSpace: 'pre-wrap' }}>{m.content}</div>
-                    </div>
-                  ))}
-                  {busy && <div style={{ fontSize: 13, color: MUTED, display: 'flex', alignItems: 'center', gap: 6 }}><Loader2 size={14} className="animate-spin" /> thinking…</div>}
-                  <div ref={chatEnd} />
-                </div>
-                <div className="flex items-end gap-2" style={{ borderTop: `1px solid ${LINE}`, paddingTop: 12 }}>
-                  <textarea ref={chatBox} value={chatInput} rows={1} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }} placeholder="talk it through…" style={{ flex: 1, border: `1px solid ${LINE}`, borderRadius: 12, padding: '9px 12px', fontSize: 14, lineHeight: 1.5, outline: 'none', color: INK, fontFamily: 'inherit', resize: 'none', maxHeight: 74, overflowY: 'auto' }} />
-                  <button onClick={() => sendChat()} disabled={busy} style={{ background: AI, color: '#fff', border: 'none', borderRadius: 10, padding: '9px 12px', cursor: 'pointer' }}><Send size={16} /></button>
-                </div>
-              </div>
-            )}
+            <button onClick={() => setChatOpen(true)} className="flex items-center gap-1.5" style={{ fontSize: 13, color: MUTED, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px', marginBottom: 18 }}>
+              <MessageSquare size={14} /> Talk it through instead
+            </button>
 
             {questions.length > 0 && (
               <div style={{ background: '#FFF9EC', border: '1px solid #F0E2BE', borderRadius: 14, padding: 14, marginBottom: 18 }}>
@@ -1087,6 +1060,29 @@ Keep the spoken reply short and warm. Never mention the block.`;
           </div>
         );
       })()}
+
+      {/* ============ THINK IT THROUGH — full-screen, like a fresh chat ============ */}
+      {chatOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: PAPER, zIndex: 60, display: 'flex', flexDirection: 'column' }}>
+          <div className="flex items-center gap-3" style={{ padding: 'max(14px, env(safe-area-inset-top)) 16px 14px', borderBottom: `1px solid ${LINE}`, flexShrink: 0 }}>
+            <button onClick={() => setChatOpen(false)} aria-label="Back" style={iconBtn}><ArrowLeft size={16} /></button>
+            <div style={{ fontSize: 15, fontWeight: 600 }}>Think it through</div>
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px' }}>
+            {chat.map((m, i) => (
+              <div key={i} style={{ marginBottom: 12, display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                <div style={{ maxWidth: '82%', fontSize: 14, lineHeight: 1.55, padding: '9px 13px', borderRadius: 14, background: m.role === 'user' ? INK : '#F3F2F9', color: m.role === 'user' ? '#fff' : '#33314A', whiteSpace: 'pre-wrap' }}>{m.content}</div>
+              </div>
+            ))}
+            {busy && <div style={{ fontSize: 13, color: MUTED, display: 'flex', alignItems: 'center', gap: 6 }}><Loader2 size={14} className="animate-spin" /> thinking…</div>}
+            <div ref={chatEnd} />
+          </div>
+          <div className="flex items-end gap-2" style={{ padding: '12px 16px max(12px, env(safe-area-inset-bottom))', borderTop: `1px solid ${LINE}`, background: CARD, flexShrink: 0 }}>
+            <textarea ref={chatBox} value={chatInput} rows={1} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }} placeholder="talk it through…" style={{ flex: 1, border: `1px solid ${LINE}`, borderRadius: 12, padding: '9px 12px', fontSize: 14, lineHeight: 1.5, outline: 'none', color: INK, fontFamily: 'inherit', resize: 'none', maxHeight: 74, overflowY: 'auto' }} />
+            <button onClick={() => sendChat()} disabled={busy || !chatInput.trim()} style={{ background: (busy || !chatInput.trim()) ? '#9A96C9' : AI, color: '#fff', border: 'none', borderRadius: 10, padding: '9px 12px', cursor: (busy || !chatInput.trim()) ? 'default' : 'pointer', display: 'flex', alignItems: 'center' }}><Send size={16} /></button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
