@@ -553,8 +553,10 @@ export default function Capture({ profile, projects, userId, accessToken, onAfte
     const facts = factsFor(it);
     const time = relTime(dump.created_at);
 
+    // The 26px chip always keeps its soft background — done fills only the
+    // inner glyph square, never the chip itself.
     const glyph = done
-      ? <Check size={13} style={{ color: '#fff' }} strokeWidth={3} />
+      ? <span style={{ width: 15, height: 15, borderRadius: 5, background: ACC, display: 'grid', placeItems: 'center' }}><Check size={11} style={{ color: '#fff' }} strokeWidth={3} /></span>
       : it.status === 'parked'
         ? <span style={{ width: 11, height: 11, borderRadius: 999, border: `1.5px solid ${RING}` }} />
         : it.fixed_time
@@ -566,7 +568,7 @@ export default function Capture({ profile, projects, userId, accessToken, onAfte
         title={done ? 'Reopen' : 'Mark done'}
         onClick={(e) => { e.stopPropagation(); toggleDone(it); }}
         className="sprekta-marker-btn"
-        style={{ width: 26, height: 26, borderRadius: 8, background: done ? ACC : ACC_SOFT, display: 'grid', placeItems: 'center', flexShrink: 0, border: 'none', cursor: 'pointer', padding: 0 }}
+        style={{ width: 26, height: 26, borderRadius: 8, background: ACC_SOFT, display: 'grid', placeItems: 'center', flexShrink: 0, border: 'none', cursor: 'pointer', padding: 0 }}
       >
         {glyph}
       </button>
