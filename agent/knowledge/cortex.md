@@ -68,6 +68,52 @@ deterministically in `src/lib/dateResolve.js`, in application code, using
 `Intl.DateTimeFormat` (no new dependency). "Ambiguous ('thursday afternoon')
 means null" — no guessing a clock time from a vague part-of-day.
 
+### ADR-006: Capture built before Activity, schemas reconciled together first
+Three docs arrived describing overlapping/conflicting next work: an Activity
+handoff (ready-to-build, real file:line refs), a Capture "valet" redesign
+(its own data needs, no file refs, not yet reconciled with the real schema),
+and a thin-loop-and-panel spec (different stack — Next.js/TS — and a
+different schema entirely). The founder's calls, in order: (1) thin-loop is
+**superseded, ignore it** — the app already has a working thin loop in
+production; (2) reconcile both real schemas *together* before building
+either surface, rather than building Activity first and bolting Capture's
+needs on later; (3) scope plural reminders-per-item into that reconciliation
+now rather than deferring; (4) build **Capture before Activity** — Activity
+is a pure review layer over what Capture produces (its sweep/needs-you/
+handled sections have nothing real to show until Capture is generating
+`questions`/`activity_log`/`corrections` rows). Migrations `0006` (Activity's
+status/questions/activity_log), `0007` (Capture's flagged/reminder_offsets/
+corrections, reconciled), `0008` (dump_id linkage) were written and applied
+together, verified live against the real Supabase project, before any
+Capture UI code was written.
+
+**Naming collision, resolved by comment not by renaming:** both docs use the
+word "parked" for two different concepts. Activity's DB value
+`items.status='parked'` means *resting* — the user deferred an
+otherwise-well-formed item ("not ready to call Kevin yet"). The Capture
+design doc's "parked" state means the *opposite* problem — the system
+doesn't know the *what* yet (a genuinely vague capture like "grandma flowers
+church monday"). That second sense is **not a DB status** — it's just an
+open item with an unanswered `questions` row (tier 2/3) attached. Migration
+`0006`'s SQL comment documents this explicitly so nobody re-derives the
+confusion. If you're about to add a `status` value or a UI label spelled
+"parked", check which sense you mean first.
+
+**What Capture v1 actually shipped** (see `state/CODEBASE_STATE.md` Feature
+status and `docs/codemap.md` for specifics): composer + feed + item view +
+quick-action chips + the shared `applyCorrection` say-box/discuss channel,
+live-tested against a disposable Supabase account. Two things explicitly
+punted rather than half-built: (1) Plan/Today still don't filter items by
+`status`, so `archived`/`parked` items still show there — that's Activity
+Phase A (per the handoff, `complete()` should stop hard-deleting and become
+`status='done'`, and derived lists should filter `status='open'`), not
+touched here to avoid scope-creeping into Activity's own work. (2) the
+animated dwell/shimmer/fold sequence from the design doc (§4) was
+simplified to a plain expand/collapse — newest entry open by default,
+everything else collapsed, tap to toggle — since the *end state* (a feed of
+foldable entries) is what carries the "nothing falls through" trust
+property, not the transition animation.
+
 ### ADR-005: No permanent `dev` branch — feature/fix/chore branches into main
 Borrowed from ironbrev-v2's branch discipline, trimmed: no sprint-numbering
 system (S-0xx/H-0xx) since this is a single-person, single-thread-of-work
@@ -131,6 +177,24 @@ magic link — Supabase's `signInWithOtp` email already carries both
 flow: add to home screen → open from home screen → type the code from the
 same email → logged in, once, indefinitely (`sessions_timebox` and
 `sessions_inactivity_timeout` are both `0` = unlimited).
+
+### `vercel dev` can hang/crash-loop in a sandboxed dev environment
+Tried to run `vercel dev` locally (needed for `/api/claude` during Capture
+testing) and it repeatedly either hung on "Creating initial build" with the
+proxy port never accepting connections, or crash-looped with `Failed to
+detect a server running on port <N>` — even though the internal Vite child
+process it spawned was reachable directly and responding fine. Root cause
+looked like a stray orphaned `vite` process left listening on 5173 from an
+earlier attempt (kill it and any `builder-worker.cjs`/`vercel dev`
+processes before retrying); even after a clean restart it was still
+unreliable in this sandbox. Fallback that worked for UI-level verification:
+run plain `vite` on its own port and accept that anything hitting
+`/api/claude` will fail closed (fetch resolves to the SPA fallback, `res.json()`
+throws, caught by the existing try/catch) — good enough to verify rendering,
+navigation, and any DB write path that doesn't need the model (flag/rest/
+revive/remove/say-box UI state), not the actual parse/correction round trip.
+Prefer testing the Claude-dependent path on a real deploy (preview or prod)
+rather than burning time fighting `vercel dev` in this environment.
 
 ### RLS with zero policies is a deliberate lockdown, not an oversight
 `reminders` and `push_subscriptions` have `enable row level security`

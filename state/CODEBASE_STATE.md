@@ -1,6 +1,6 @@
 # Codebase State
 
-**Last updated:** 2026-07-14
+**Last updated:** 2026-07-16
 **Updated by:** Claude Code
 
 Snapshot of what's actually built and running, so a fresh agent (or you,
@@ -35,18 +35,33 @@ merge to `main` via `vercel --prod` (manual CLI, not git-triggered).
 ## Database (Supabase project `sprekta-lite-v2`, ref `iwtoiedigtzsiwllswim`)
 
 Tables: `profiles`, `items`, `dumps`, `feedback`, `profile_snapshots`,
-`push_subscriptions`, `reminders`. Migrations in `supabase/migrations/`,
-numbered and applied in order — that directory is the source of truth for
-schema, not this file (this file just says what exists, not the DDL).
+`push_subscriptions`, `reminders`, `questions`, `activity_log`,
+`corrections`. Migrations in `supabase/migrations/`, numbered and applied
+in order — that directory is the source of truth for schema, not this file
+(this file just says what exists, not the DDL).
 
-- `profiles`, `items`, `dumps`, `feedback`, `profile_snapshots`: RLS scoped
-  to `auth.uid() = user_id`, browser writes directly.
+- `profiles`, `items`, `dumps`, `feedback`, `profile_snapshots`, `questions`,
+  `activity_log`, `corrections`: RLS scoped to `auth.uid() = user_id`,
+  browser writes directly.
 - `push_subscriptions`, `reminders`: RLS enabled, **zero client policies** —
   browser has no access; only the `sync_item_reminder` trigger (SECURITY
   DEFINER) and service-role-keyed API routes touch them. Deliberate — see
   cortex.
+- `items` also carries (0006/0007/0008): `status` (`open|done|parked|
+  archived` — `parked` means *resting*, a user-deferred item, not the
+  Capture design doc's unrelated "doesn't know the what" sense of the same
+  English word; see cortex), `completed_at`, `deferrals`, `source` (verbatim
+  capture fragment), `flagged` (priority axis, separate from `today`),
+  `reminder_offsets` (jsonb array of minutes-before, default `[15]`),
+  `dump_id` (FK to `dumps`, links an item back to the capture that produced
+  it). `complete()` in `Sprekta.jsx` still hard-deletes rather than setting
+  `status='done'`, and Plan/Today don't yet filter by `status` — that's
+  Activity Phase A, not yet built (see cortex + Capture's ADR).
+- `reminders` also carries `offset_minutes` — an item can have multiple
+  reminders (one row per offset), not just one.
 - Trigger: `items_sync_reminder` on `items`, fires `sync_item_reminder()` —
-  keeps `reminders` in sync with `fixed_time`/`device_id`/`title`.
+  loops over `reminder_offsets` and keeps `reminders` in sync with
+  `fixed_time`/`device_id`/`title`/`reminder_offsets`.
 - Extensions enabled: `pg_cron`, `pg_net`.
 - Cron job: `sprekta-reminder-dispatch`, every minute, POSTs
   `/api/reminders/dispatch` with `CRON_SECRET`.
@@ -71,12 +86,28 @@ schema, not this file (this file just says what exists, not the DDL).
   8-screen real question flow (name/work/days/standing/protect/wish/
   tomorrow/read) + optional life/people branch. Final CTA persists the
   profile and runs the real parse on the "tomorrow" dump.
-- **Main app** (`Sprekta.jsx`, ~1100 lines): Today / Plan / Calendar /
-  Settings tabs. Plan has Offload (dump → parse) and Think-it-through
-  (chat) modes. Settings has profile editing, feedback, reminders toggle,
-  and an admin-only (`VITE_ADMIN_EMAIL`) dev-tools panel (save/load
-  profile snapshots, reset to blank, load sample tasks, re-run onboarding,
-  send test notification, raw-state import/export).
+- **Capture** (`Capture.jsx`, new — the app's landing tab): the intake
+  surface. Composer (no voice in v1) → an entry joins the `CAPTURED` feed,
+  grouped by `dump_id`, newest entry expanded by default, others
+  collapsed/tap-to-expand; row markers/facts derived from `kind`/
+  `fixed_time`/`status`/open `questions`; tap a row for a full-page item
+  view with quick-action chips (`today`/`flag`/`rest it`/`bring it back`),
+  a say-box (the shared correction primitive, `applyCorrection` in
+  `lib/parse.js`) that also doubles as the *only* place to answer a
+  `questions` row until Activity ships, and provenance (`source` +
+  the entry's raw text). "Discuss" (💬) is a one-shot focus chip that
+  scopes the main composer to one item for a spoken correction. See
+  `sprekta-capture-design-doc.md` (Downloads) for the full spec — this is
+  a v1 subset; see Feature status below for what's deferred.
+- **Main app** (`Sprekta.jsx`, ~1050 lines): Capture / Today / Plan /
+  Calendar / Settings tabs. Plan's old Offload textarea and inline
+  questions box are gone — Capture now owns "get it out of your head"
+  entirely; Plan's "Think it through" full-screen chat entry point was
+  removed too (the shared chat overlay itself is untouched, still used by
+  Today and item-detail). Settings has profile editing, feedback,
+  reminders toggle, and an admin-only (`VITE_ADMIN_EMAIL`) dev-tools panel
+  (save/load profile snapshots, reset to blank, load sample tasks, re-run
+  onboarding, send test notification, raw-state import/export).
 
 ## Feature status
 
@@ -93,6 +124,15 @@ schema, not this file (this file just says what exists, not the DDL).
 - Web push infrastructure end-to-end except the final "grant OS
   permission" step, which requires a real user gesture automation can't
   simulate — needs one manual pass on a real device.
+- Capture v1 (composer, feed, item view, quick-action chips, scoped
+  correction via say-box/discuss, `questions` answering) — live-tested via
+  a disposable account: multi-item dumps, the vague-verb tier-3 question
+  path, flag/rest/revive/remove (with undo), and entry fold/collapse all
+  verified against real Supabase writes. The actual Claude parse/
+  correction round-trip was verified by code review + the existing
+  `runOffload`/`sendChat` pattern it's built on, not a live model call in
+  this pass (no local serverless runtime available in the dev sandbox
+  used) — verify the first real capture on `app.sprekta.com` after deploy.
 
 **Explicitly out of scope for v1 (don't build unless asked):**
 - Post-onboarding just-in-time signal acquisition (noticing "cake tasting
@@ -100,9 +140,16 @@ schema, not this file (this file just says what exists, not the DDL).
   copy, not implemented.
 - "Next Thursday" vs "this Thursday" disambiguation — a bare weekday
   always means its next occurrence, today included.
-- Reminder snooze, custom offsets, reminders for todos/date-only items,
-  retry logic, per-user notification preferences beyond one on/off toggle.
+- Reminder snooze, reminders for todos/date-only items, retry logic,
+  per-user notification preferences beyond one on/off toggle (multiple
+  reminder offsets per item are supported — see `reminder_offsets` above).
 - Email/SMS reminder fallback.
+- Capture: voice/mic input, the "torn" divergent-parse UI, the agentic
+  "action" verb type, the personalization/learning layer (§10 of the
+  design doc), point-of-use correction (reminder fire/calendar/Today),
+  9/10 auto-urgency detection, and the Activity tab itself (next up —
+  Capture's `questions`/`activity_log`/`corrections` rows are what it will
+  review).
 
 ## Infra inventory (names only — see `.env`/Vercel for values)
 
