@@ -68,6 +68,16 @@ deterministically in `src/lib/dateResolve.js`, in application code, using
 `Intl.DateTimeFormat` (no new dependency). "Ambiguous ('thursday afternoon')
 means null" — no guessing a clock time from a vague part-of-day.
 
+### ADR-005: No permanent `dev` branch — feature/fix/chore branches into main
+Borrowed from ironbrev-v2's branch discipline, trimmed: no sprint-numbering
+system (S-0xx/H-0xx) since this is a single-person, single-thread-of-work
+project — that ceremony pays for itself at ironbrev's scale, not here. The
+part worth keeping is simpler: **never commit directly to `main`** (enforced
+by `.claude/hooks/pre-commit.sh`), branch per change
+(`feature/`, `fix/`, `chore/` prefix + short name), merge to `main`, deploy
+from `main` via `vercel --prod`. `state/CODEBASE_STATE.md` gets a changelog
+line automatically on merge via `.claude/hooks/post-merge.sh`.
+
 ### ADR-006: Capture built before Activity, schemas reconciled together first
 Three docs arrived describing overlapping/conflicting next work: an Activity
 handoff (ready-to-build, real file:line refs), a Capture "valet" redesign
@@ -114,15 +124,16 @@ everything else collapsed, tap to toggle — since the *end state* (a feed of
 foldable entries) is what carries the "nothing falls through" trust
 property, not the transition animation.
 
-### ADR-005: No permanent `dev` branch — feature/fix/chore branches into main
-Borrowed from ironbrev-v2's branch discipline, trimmed: no sprint-numbering
-system (S-0xx/H-0xx) since this is a single-person, single-thread-of-work
-project — that ceremony pays for itself at ironbrev's scale, not here. The
-part worth keeping is simpler: **never commit directly to `main`** (enforced
-by `.claude/hooks/pre-commit.sh`), branch per change
-(`feature/`, `fix/`, `chore/` prefix + short name), merge to `main`, deploy
-from `main` via `vercel --prod`. `state/CODEBASE_STATE.md` gets a changelog
-line automatically on merge via `.claude/hooks/post-merge.sh`.
+### ADR-007: Capture design review — Laurel theme, real parked/resting split, optimistic capture
+A line-by-line diff of the shipped Capture v1 against `sprekta-capture-design-doc.md` and the reference prototype `sprekta-capture-valet.html` found the mechanics were right but the *identity* had drifted: the first pass used `Sprekta.jsx`'s own INK/AI-purple/MUTED constants instead of the design doc's actual Laurel palette, individually-carded feed entries instead of a de-carded ledger, no optimistic loading state, and — the substantive bug, not just a style miss — `status='parked'` conflating two unrelated meanings (Capture's "the system doesn't know the what" vs. Activity's "the user isn't ready yet"), with the marker/status-line logic derived from a question's tier instead of from destination. Fixed in one pass:
+
+- **Theme**: replaced the constants wholesale (`PAPER/INK/STONE/FAINT/HAIR/LINE/ACC/ACC_DEEP/ACC_SOFT/ACC_LINE/RING/FLAG`), loaded Fraunces (Google Fonts link in `index.html`) for item-view titles only — everything else stays sans per doc §11 (serif at caption sizes failed readability in testing).
+- **De-carded feed**: entries are rows with `border-bottom` separators, not individually-carded widgets; only the expanded multi-item dropdown and the composer are actual white cards.
+- **`parked_reason` column** (migration `0009`): `'clarify'` (tier-3 vague capture, system's problem, status line "needs clarification · this evening", no chips at all — the say-box "tell me what this is" is the whole treatment) vs. `'rest'` (user deferred a well-formed item, "resting · back in a day or two", gets a "bring it back" chip that restores its prior `today`/`fixed_time` by reading the most recent `kind='rest'` `corrections` row — no separate snapshot column needed, the audit log doubles as the undo source). `applyCorrection` (`lib/parse.js`) auto-clears `clarify` back to `status='open'` on any successful correction — answering *is* forming the item, per doc §5.3.
+- **`quiet` column + deadline-based reminders** (same migration): notification inversion (doc §9.3) — a deadline-only item now gets a day-before nudge by default (`prepareParsedItems` sets `reminder_offsets:[1440]` when there's a deadline but no `fixed_time`; `sync_item_reminder` was extended to fire off `deadline` at a fixed 9am local anchor when `fixed_time` is null). `quiet=true` suppresses all reminders for that item; it's the only opt-out, never an opt-in.
+- **Optimistic capture** (`Capture.jsx`'s `pendingEntry` state): the composer clears the instant Send is pressed — words are safe unconditionally — and a shimmer-skeleton entry shows while the real parse/insert round-trip runs in the background; a failure keeps the raw text visible with a retry link, never silently drops it.
+- Fixed two real bugs the review caught: `removeItem`'s undo restored `status='open'` unconditionally (an archived *resting* item should come back resting — now restores the pre-remove `status`), and `load()` used to force-expand the newest entry on *every* call, which silently undid collapse-all after any unrelated correction (now only expands on an explicit fresh capture via `load({ expandNewest })`).
+- Explicitly punted (per the review's own punt list, unchanged from before): voice/mic, torn/flip UI, project/saved-fact verbs + markers, travel/hold facts, cross-dump dedupe, 9/10 auto-urgency, and the "Activity →" footer link (no dead links to a tab that doesn't exist yet).
 
 ---
 

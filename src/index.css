@@ -5,3 +5,41 @@
 html, body, #root {
   height: 100%;
 }
+
+/* Capture (src/Capture.jsx) — the loading-state shimmer, the entry
+   slide-in, and the EA-reply/reveal fade all come from
+   sprekta-capture-valet.html; kept as real CSS (not inline styles) since
+   inline style objects can't declare @keyframes. */
+@keyframes sprekta-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@keyframes sprekta-fadeup {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes sprekta-slidein {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes sprekta-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .35; }
+}
+.sprekta-skel {
+  background: linear-gradient(90deg, #F1EDE4 25%, #E7E3DA 50%, #F1EDE4 75%);
+  background-size: 200% 100%;
+  animation: sprekta-shimmer 1.3s ease-in-out infinite;
+  border-radius: 6px;
+}
+.sprekta-fadeup { animation: sprekta-fadeup .25s ease; }
+.sprekta-slidein { animation: sprekta-slidein .45s ease; }
+.sprekta-pulsedot { animation: sprekta-pulse 1.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .sprekta-skel, .sprekta-fadeup, .sprekta-slidein, .sprekta-pulsedot { animation: none !important; }
+}
+
+.sprekta-input::placeholder { color: #B5AFA2; }
+.sprekta-send-btn { background: #0F6E56; transition: background .15s ease; }
+.sprekta-send-btn:hover:not(:disabled) { background: #0C5A47; }
+.sprekta-send-btn:disabled { background: #B5AFA2; cursor: default; }

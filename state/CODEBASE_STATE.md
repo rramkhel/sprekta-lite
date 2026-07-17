@@ -1,6 +1,6 @@
 # Codebase State
 
-**Last updated:** 2026-07-16
+**Last updated:** 2026-07-17
 **Updated by:** Claude Code
 
 Snapshot of what's actually built and running, so a fresh agent (or you,
@@ -47,21 +47,27 @@ in order — that directory is the source of truth for schema, not this file
   browser has no access; only the `sync_item_reminder` trigger (SECURITY
   DEFINER) and service-role-keyed API routes touch them. Deliberate — see
   cortex.
-- `items` also carries (0006/0007/0008): `status` (`open|done|parked|
-  archived` — `parked` means *resting*, a user-deferred item, not the
-  Capture design doc's unrelated "doesn't know the what" sense of the same
-  English word; see cortex), `completed_at`, `deferrals`, `source` (verbatim
-  capture fragment), `flagged` (priority axis, separate from `today`),
-  `reminder_offsets` (jsonb array of minutes-before, default `[15]`),
-  `dump_id` (FK to `dumps`, links an item back to the capture that produced
-  it). `complete()` in `Sprekta.jsx` still hard-deletes rather than setting
+- `items` also carries (0006/0007/0008/0009): `status` (`open|done|parked|
+  archived`), `parked_reason` (`clarify|rest|null` — splits the two
+  unrelated meanings `status='parked'` used to conflate: "the system
+  doesn't know the what" vs. "the user isn't ready yet"; see cortex),
+  `completed_at`, `deferrals`, `source` (verbatim capture fragment),
+  `flagged` (priority axis, separate from `today`), `quiet` (opt-out of an
+  item's default reminder), `reminder_offsets` (jsonb array of
+  minutes-before, default `[15]`; a deadline-only item defaults to
+  `[1440]` — see `prepareParsedItems` in `lib/parse.js`), `dump_id` (FK to
+  `dumps`, links an item back to the capture that produced it).
+  `complete()` in `Sprekta.jsx` still hard-deletes rather than setting
   `status='done'`, and Plan/Today don't yet filter by `status` — that's
   Activity Phase A, not yet built (see cortex + Capture's ADR).
 - `reminders` also carries `offset_minutes` — an item can have multiple
   reminders (one row per offset), not just one.
 - Trigger: `items_sync_reminder` on `items`, fires `sync_item_reminder()` —
   loops over `reminder_offsets` and keeps `reminders` in sync with
-  `fixed_time`/`device_id`/`title`/`reminder_offsets`.
+  `fixed_time`/`device_id`/`title`/`reminder_offsets`/`deadline`/`quiet`.
+  Also fires a reminder off `deadline` (date-only, no `fixed_time`) at a
+  fixed default local time (9am) when set; respects `quiet` (no reminders
+  at all when true).
 - Extensions enabled: `pg_cron`, `pg_net`.
 - Cron job: `sprekta-reminder-dispatch`, every minute, POSTs
   `/api/reminders/dispatch` with `CRON_SECRET`.
@@ -87,18 +93,25 @@ in order — that directory is the source of truth for schema, not this file
   tomorrow/read) + optional life/people branch. Final CTA persists the
   profile and runs the real parse on the "tomorrow" dump.
 - **Capture** (`Capture.jsx`, new — the app's landing tab): the intake
-  surface. Composer (no voice in v1) → an entry joins the `CAPTURED` feed,
-  grouped by `dump_id`, newest entry expanded by default, others
-  collapsed/tap-to-expand; row markers/facts derived from `kind`/
-  `fixed_time`/`status`/open `questions`; tap a row for a full-page item
-  view with quick-action chips (`today`/`flag`/`rest it`/`bring it back`),
-  a say-box (the shared correction primitive, `applyCorrection` in
-  `lib/parse.js`) that also doubles as the *only* place to answer a
-  `questions` row until Activity ships, and provenance (`source` +
-  the entry's raw text). "Discuss" (💬) is a one-shot focus chip that
-  scopes the main composer to one item for a spoken correction. See
-  `sprekta-capture-design-doc.md` (Downloads) for the full spec — this is
-  a v1 subset; see Feature status below for what's deferred.
+  surface, restyled to the design doc's actual Laurel palette (`INK
+  #1D1B17`/`ACC #0F6E56`/`STONE`/`FAINT`/`HAIR`/`LINE`, Fraunces serif for
+  item-view titles) after a design review found the first pass had drifted
+  into a generic purple-accent look — see cortex. Composer (no voice in
+  v1) → an optimistic pending entry appears instantly with a shimmer
+  skeleton ("got it" → "sorting it out") while the parse call is in
+  flight, then joins the `CAPTURED` feed for real, grouped by `dump_id`
+  (a single-item capture renders the item directly, no synthetic summary
+  line; a multi-item capture is a de-carded row that expands to a white
+  card, footer = collapsed "You said" + a whole-dump undo icon). Row
+  markers/facts are read off `kind`/`fixed_time`/`status`/`parked_reason`
+  only — never a question's tier. Tap a row for a full-page item view
+  (Fraunces title, quick-action chips incl. `quiet this one`, a When/Remind
+  fact-row card whose `change`/`+ add` prefill the say-box, and the say-box
+  itself — the *only* place to answer a `questions` row until Activity
+  ships). "Discuss" (💬) is a one-shot focus chip that scopes the main
+  composer to one item for a spoken correction. See
+  `sprekta-capture-design-doc.md` (Downloads) for the full spec; see
+  Feature status below for what's still deferred.
 - **Main app** (`Sprekta.jsx`, ~1050 lines): Capture / Today / Plan /
   Calendar / Settings tabs. Plan's old Offload textarea and inline
   questions box are gone — Capture now owns "get it out of your head"

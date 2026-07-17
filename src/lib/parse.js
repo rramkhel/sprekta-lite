@@ -132,7 +132,12 @@ export function prepareParsedItems(rawItems) {
   return (rawItems || []).map((it) => {
     const { stated_date, stated_time, ...rest } = it;
     const fixed_time = computeFixedTime({ stated_date, stated_time, timezone, now });
-    return { ...rest, fixed_time, device_id: deviceId, timezone };
+    // Notification inversion (Capture design doc §9.3): reminders are
+    // opt-out, not opt-in. A timed item already gets one via the DB
+    // column default; a deadline-only item (no time given) needs the
+    // same default set explicitly here, or it silently gets none.
+    const reminder_offsets = (!fixed_time && rest.deadline) ? [1440] : undefined;
+    return { ...rest, fixed_time, device_id: deviceId, timezone, ...(reminder_offsets ? { reminder_offsets } : {}) };
   });
 }
 
@@ -245,8 +250,8 @@ export async function applyCorrection({ item, utterance, profile, userId, access
   const system = correctionSystemPrompt(profile);
   const itemSnapshot = {
     title: item.title, kind: item.kind, deadline: item.deadline, priority: item.priority,
-    flagged: item.flagged, status: item.status, project: item.project, notes: item.notes,
-    fixed_time: item.fixed_time, today: item.today,
+    flagged: item.flagged, status: item.status, parked_reason: item.parked_reason,
+    project: item.project, notes: item.notes, fixed_time: item.fixed_time, today: item.today,
   };
   const raw = await callClaude({
     system,
@@ -259,6 +264,14 @@ export async function applyCorrection({ item, utterance, profile, userId, access
   const { stated_date, stated_time, ...updates } = parsed.updates || {};
   if (stated_date !== undefined || stated_time !== undefined) {
     updates.fixed_time = computeFixedTime({ stated_date, stated_time, timezone: item.timezone, now: new Date() });
+  }
+  // Answering a genuinely-vague ("clarify") item is what forms it into a
+  // real item — the user's words become the todo (Capture doc §5.3). A
+  // "rest" item stays parked until the user explicitly brings it back
+  // (§5.4) — that's a different chip, not a side effect of any correction.
+  if (item.status === 'parked' && item.parked_reason === 'clarify') {
+    updates.status = 'open';
+    updates.parked_reason = null;
   }
   if (Object.keys(updates).length) {
     await supabase.from('items').update(updates).eq('id', item.id);
