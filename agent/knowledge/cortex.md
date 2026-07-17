@@ -135,6 +135,11 @@ A line-by-line diff of the shipped Capture v1 against `sprekta-capture-design-do
 - Fixed two real bugs the review caught: `removeItem`'s undo restored `status='open'` unconditionally (an archived *resting* item should come back resting — now restores the pre-remove `status`), and `load()` used to force-expand the newest entry on *every* call, which silently undid collapse-all after any unrelated correction (now only expands on an explicit fresh capture via `load({ expandNewest })`).
 - Explicitly punted (per the review's own punt list, unchanged from before): voice/mic, torn/flip UI, project/saved-fact verbs + markers, travel/hold facts, cross-dump dedupe, 9/10 auto-urgency, and the "Activity →" footer link (no dead links to a tab that doesn't exist yet).
 
+### ADR-008: Single-item capture entries render as a bare feed row
+Follow-up to ADR-007: a one-item dump was still wrapped in the same footer+padding shell as a multi-item entry, just without the card — close, but it still had a "You said" block and an undo-dump affordance for something that's just one item with its own 🗑. Fixed: `Capture.jsx`'s `renderEntry` now special-cases a single-item dump to return `renderItemRow(...)` directly — no wrapper, no tray icon, no summary line, no footer; the row gets a right-aligned relative timestamp instead (`.sprekta-ts`, hidden below 420px). The item view's provenance collapses to one register for these (`You said "…" · {time}` instead of `from "…" / part of "…"`), since pinpoint and utterance are the same words when there's only one item.
+
+The **form choice is pinned to the dump's original parse count, not its current surviving count** — `dumps.item_count` (migration `0010`) is set once at capture time. A 3-item dump that later has 2 items archived still renders as a multi-item card with a working "You said"/undo-dump footer, because those still refer to the original three-line capture; it does not collapse into the bare single-row form just because only one item survives. `originalItemCount(dump, items)` (`Capture.jsx`) is the one place this decision is made — falls back to `items.length` for dumps that predate the column.
+
 ---
 
 ## Platform gotchas

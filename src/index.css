@@ -40,6 +40,9 @@ html, body, #root {
 }
 
 .sprekta-input::placeholder { color: #B5AFA2; }
+@media (max-width: 420px) {
+  .sprekta-ts { display: none; }
+}
 .sprekta-send-btn { background: #0F6E56; transition: background .15s ease; }
 .sprekta-send-btn:hover:not(:disabled) { background: #0C5A47; }
 .sprekta-send-btn:disabled { background: #B5AFA2; cursor: default; }
