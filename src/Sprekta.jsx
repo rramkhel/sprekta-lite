@@ -1,10 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, ListTodo, MessageSquare, Clock, Calendar as CalIcon, Check, Loader2, Sparkles, Trash2, ChevronRight, ChevronLeft, Sun, ArrowUp, ArrowDown, ArrowLeft, Plus, X, CalendarClock, MessageSquarePlus, Zap, AlertCircle, StickyNote, Wand2, FolderInput, LogOut, Bell } from 'lucide-react';
+import { Send, ListTodo, MessageSquare, Clock, Calendar as CalIcon, Check, Loader2, Trash2, ChevronRight, ChevronLeft, Sun, ArrowUp, ArrowDown, ArrowLeft, Plus, X, CalendarClock, MessageSquarePlus, Zap, AlertCircle, StickyNote, Wand2, FolderInput, LogOut, Bell, Inbox } from 'lucide-react';
 import { supabase } from './lib/supabaseClient.js';
 import Onboarding, { WISHES } from './Onboarding.jsx';
-import { getDeviceId, getUserTimezone } from './lib/device.js';
-import { computeFixedTime } from './lib/dateResolve.js';
+import Capture from './Capture.jsx';
 import { isIOS, isInstalled, isPromptDismissed, dismissPrompt, remindersEnabledOnThisDevice, enableReminders, sendTestNotification } from './lib/push.js';
+import {
+  pad, ymd, todayYMD, addDays, nowStr, uid,
+  callClaude, grabJSON, splitReplyAndJSON, offloadSystemPrompt, prepareParsedItems, mergeItems,
+  itemDay, whenLabel, persistNewItems, insertAllItems, replaceAllItems, persistQuestions,
+} from './lib/parse.js';
 
 const INK = '#22223B', PAPER = '#FAF9F6', CARD = '#FFFFFF', LINE = '#E7E4DC';
 const GREEN = '#12886A', AI = '#6A5AE0', MUTED = '#77748A';
@@ -34,28 +38,6 @@ const SEED_PROFILE = {
   onboardingAnswers: {},
 };
 
-// Maps each onboarding "wish" key to a planner directive — preferences the
-// system leans toward, never hard-gated behavior. See onboarding handoff §5.
-const WISH_HINTS = {
-  clear: 'They want to just dump and have it sorted — minimize follow-up questions, parse aggressively.',
-  big: 'When a large multi-step item appears, break it into a short sequence of dated steps.',
-  remember: 'Proactively surface small things at the right time — treat deadlines and small tasks as worth a gentle nudge, not just a list entry.',
-  room: 'Defend their "protect" goals even on weeks they do not mention them — do not let them get silently dropped.',
-  protectwork: 'Reserve real, uninterrupted deep-work blocks; avoid fragmenting focus time into small pieces.',
-  reverse: 'For deadline-driven items, schedule backward from the deadline, sequencing prep steps in dependency order.',
-};
-function wishContext(wishes) {
-  if (!wishes || !wishes.length) return '';
-  const lines = wishes.map(k => WISH_HINTS[k]).filter(Boolean);
-  return lines.length ? `\nWhat they explicitly asked for:\n${lines.map(l => '- ' + l).join('\n')}` : '';
-}
-
-const pad = (n) => String(n).padStart(2, '0');
-const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const todayYMD = () => ymd(new Date());
-const addDays = (n) => ymd(new Date(Date.now() + n * 86400000));
-const nowStr = () => new Date().toString();
-const uid = () => Math.random().toString(36).slice(2);
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const WD = ['Su','Mo','Tu','We','Th','Fr','Sa'];
 const SAMPLE_ITEMS = [
@@ -65,149 +47,13 @@ const SAMPLE_ITEMS = [
   { title: 'Groceries', kind: 'errand', minutes: 45, deadline: addDays(2), energy: 'physical', priority: 'low', project: 'personal', suggested_slot: 'slump' },
 ];
 
-function extractText(d) { return (d && Array.isArray(d.content)) ? d.content.filter(b => b.type === 'text').map(b => b.text).join('\n') : ''; }
-function splitReplyAndJSON(text) {
-  const f = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (f) { let d = null; try { d = JSON.parse(f[1].trim()); } catch {} return { visible: text.replace(f[0], '').trim(), data: d }; }
-  return { visible: text.trim(), data: null };
-}
-function grabJSON(text) {
-  let t = text.trim();
-  const f = t.match(/```(?:json)?\s*([\s\S]*?)```/); if (f) t = f[1].trim();
-  const s = t.indexOf('{'), e = t.lastIndexOf('}'); if (s >= 0 && e > s) t = t.slice(s, e + 1);
-  return JSON.parse(t);
-}
-async function callClaude({ system, messages, accessToken }) {
-  const res = await fetch('/api/claude', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-    body: JSON.stringify({ model: 'claude-sonnet-5', max_tokens: 6000, system, messages }),
-  });
-  return extractText(await res.json());
-}
-function profileContext(p) {
-  const d = p.defaults;
-  return `WHAT YOU ALREADY KNOW — never ask about anything covered here:
-Rhythm:
-${p.rhythm.filter(Boolean).map(r => '- ' + r).join('\n')}
-Defaults: call ${d.call}m, errand ${d.errand}m, deep block ${d.deepBlock}m.
-Learned:
-${p.learned.filter(Boolean).length ? p.learned.filter(Boolean).map(l => '- ' + l).join('\n') : '- (none yet)'}
-Life facts (use these to connect the dots — people, dates, what matters):
-${(p.facts || []).filter(Boolean).length ? (p.facts || []).filter(Boolean).map(f => '- ' + f).join('\n') : '- (none)'}
-${(p.priorities || []).length ? 'Priority order — protect the top when the week is tight: ' + (p.priorities || []).join(' > ') : ''}
-${(p.situations || []).length ? 'Right now — bend the plan to these:\n' + (p.situations || []).filter(s => s.raw).map(s => `- ${s.raw} [${s.scope}]`).join('\n') : ''}
-${(p.challenge || '').trim() ? 'Their #1 planning pain, in their own words — actively address this: ' + p.challenge.trim() : ''}${wishContext(p.wishes)}`;
-}
-function projectMap(projects) {
-  const known = Object.entries(projects).map(([k, v]) => `- ${k}: ${v.label}`).join('\n');
-  return `PROJECTS — tag every item with the best-fit key:
-${known}
-Prefer a SPECIFIC project over the "personal" catch-all whenever two or more items share a real theme (a wedding, a trip, a launch). If a real theme has no bucket yet, invent a short lowercase key. Don't scatter related things into "personal".`;
-}
-const ITEM_FIELDS = `"title", "kind":"task|event|errand", "minutes":number, "deadline":"YYYY-MM-DD"|null, "energy":"deep|admin|physical", "priority":"high|med|low", "suggested_slot": short placement from their rhythm, "project": a project key, "today": boolean, "why": one short warm line — ONLY when today is true, "stated_date": ONLY if they named a specific day for this item — either an absolute "YYYY-MM-DD" if they gave a real date, or the literal token "today"/"tomorrow"/one of monday..sunday if they said a relative day name. Do NOT compute which calendar date a weekday resolves to yourself — just echo the token you heard; the app resolves it deterministically. null if no day was named. "stated_time": ONLY if they stated an explicit clock time, as 24h "HH:MM" (e.g. "2pm" → "14:00"). Never infer a time from a vague part-of-day ("afternoon"/"evening"/"morning" alone) — that stays null, not a guess`;
-const FOCUS_RULES = `Choosing "today" — be an editor, not a list: keep it SMALL (2–4). Include hard anchors (due today / fixed time today). PROTECT one goal-advancing item (usually a Sprekta block) even when nothing forces it. Importance ≠ urgency.
-Voice: calm, warm, short. NEVER shame or alarm. Late things are a gentle choice, never a failure.`;
-
-// Shared by the regular "Sort it" offload and onboarding's first dump
-// (the "tomorrow" field) so both go through identical parse behavior.
-function offloadSystemPrompt(profile, projects) {
-  return `You are Sprekta — a sharp, calm second brain. You don't transcribe a dump; you READ it. Before listing anything, notice what these have in common, which one is the real anchor (most time-critical), what depends on what, and what the person hasn't said but would care about.
-
-${profileContext(profile)}
-
-${projectMap(projects)}
-
-Return ONLY JSON — no prose, no fences:
-{
-  "read": "1–2 warm, specific sentences of genuine insight — the thread connecting these, the anchor, or a dependency/stake worth naming. NOT a summary of the list. Empty string only if there is truly nothing to add.",
-  "items": [ { ${ITEM_FIELDS} } ],
-  "ask": [ genuinely ambiguous questions — usually empty ]
-}
-
-Think, don't transcribe:
-- Group by real project. Related items belong together, not scattered in "personal".
-- Sequence by real urgency: honor hard dates ("tomorrow" = tomorrow), and surface dependencies — you can't attend a meeting you never booked, so booking is the task.
-- Vary energy honestly. Focused or emotionally-weighty work (sending wedding invites, a hard email) is NOT slump filler.
-- Priority reflects consequence + deadline, not a default of "med".
-- Turn a vague note into its real next action ("meeting with Andrea? haven't booked" → the task is booking it).
-
-${FOCUS_RULES}
-Resolve dates against NOW: ${nowStr()}. Always estimate minutes.`;
-}
-
-// Resolves each raw parsed item's stated_date/stated_time (model-supplied,
-// unresolved tokens) into a real fixed_time in application code — the model
-// never does date/time arithmetic. Also stamps device_id/timezone so the
-// items-table trigger can decide reminder eligibility. stated_date/
-// stated_time are intermediate signals only; they're never persisted.
-function prepareParsedItems(rawItems) {
-  const deviceId = getDeviceId();
-  const timezone = getUserTimezone();
-  const now = new Date();
-  return (rawItems || []).map((it) => {
-    const { stated_date, stated_time, ...rest } = it;
-    const fixed_time = computeFixedTime({ stated_date, stated_time, timezone, now });
-    return { ...rest, fixed_time, device_id: deviceId, timezone };
-  });
-}
-
-function mergeItems(existing, incoming) {
-  const out = [...existing];
-  for (const it of incoming) {
-    if (!it || !it.title) continue;
-    const i = out.findIndex(x => x.title.trim().toLowerCase() === it.title.trim().toLowerCase());
-    if (i >= 0) out[i] = { ...out[i], ...it }; else out.push({ ...it, id: uid() });
-  }
-  return out;
-}
-function itemDay(i) {
-  if (i.fixed_time) { const d = new Date(i.fixed_time); if (!isNaN(d.getTime())) return ymd(d); }
-  if (i.deadline) return i.deadline;
-  if (i.today) return todayYMD();
-  return null;
-}
-function whenLabel(i) {
-  if (i.fixed_time) { const d = new Date(i.fixed_time); if (!isNaN(d.getTime())) return d.toLocaleDateString([], { weekday: 'short' }) + ' ' + d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
-  if (i.suggested_slot) return i.suggested_slot;
-  if (i.deadline) return 'by ' + i.deadline;
-  return 'anytime';
-}
-
-// New items from an AI merge get a temp local id — this inserts only the brand-new
-// ones into Supabase and swaps their temp id for the real DB-generated one.
-async function persistNewItems(mergedList, prevList, userId) {
-  const prevIds = new Set(prevList.map(i => i.id));
-  const brandNew = mergedList.filter(i => !prevIds.has(i.id));
-  if (!brandNew.length) return mergedList;
-  const rows = brandNew.map(({ id, ...rest }) => ({ ...rest, user_id: userId }));
-  const { data, error } = await supabase.from('items').insert(rows).select();
-  if (error || !data) return mergedList;
-  let idx = 0;
-  return mergedList.map(i => (prevIds.has(i.id) ? i : { ...i, id: data[idx++]?.id ?? i.id }));
-}
-async function insertAllItems(rawItems, userId) {
-  if (!rawItems.length) return [];
-  const rows = rawItems.map(({ id, ...rest }) => ({ ...rest, user_id: userId }));
-  const { data, error } = await supabase.from('items').insert(rows).select();
-  if (error || !data) return rawItems;
-  return data;
-}
-async function replaceAllItems(rawItems, userId) {
-  await supabase.from('items').delete().eq('user_id', userId);
-  return insertAllItems(rawItems, userId);
-}
-
 export default function Sprekta({ session, onSignOut }) {
-  const [view, setView] = useState('today');
+  const [view, setView] = useState('capture');
   const [chatOpen, setChatOpen] = useState(false);
-  const [dump, setDump] = useState('');
   const [chat, setChat] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [items, setItems] = useState([]);
   const [profile, setProfile] = useState(SEED_PROFILE);
-  const [questions, setQuestions] = useState([]);
-  const [answer, setAnswer] = useState('');
   const [busy, setBusy] = useState(false);
   const [detailId, setDetailId] = useState(null);
   const [projFilter, setProjFilter] = useState('all');
@@ -328,23 +174,6 @@ export default function Sprekta({ session, onSignOut }) {
     }, 600);
   }
 
-  async function runOffload() {
-    if (!dump.trim() || busy) return;
-    setBusy(true); setErr(''); setJustDetected([]);
-    const system = offloadSystemPrompt(profile, projects);
-    try {
-      const parsed = grabJSON(await callClaude({ system, messages: [{ role: 'user', content: dump }], accessToken }));
-      const merged = mergeItems(items, prepareParsedItems(parsed.items));
-      setItems(merged);
-      setRead(parsed.read || '');
-      if (Array.isArray(parsed.ask) && parsed.ask.length) setQuestions(prev => [...prev, ...parsed.ask.filter(Boolean)]);
-      await supabase.from('dumps').insert({ user_id: userId, raw_text: dump });
-      const withIds = await persistNewItems(merged, items, userId);
-      setItems(withIds);
-      maybeOfferReminders(withIds);
-    } catch { setErr('Parse hiccup — try again.'); }
-    setBusy(false);
-  }
   async function planMyDay() {
     if (!items.length || busy) return;
     setBusy(true); setErr('');
@@ -518,11 +347,6 @@ Keep the spoken reply short and warm. Never mention the block.`;
     } catch { setErr('Couldn’t break it down.'); }
     setBusy(false);
   }
-  function teach() {
-    if (!answer.trim() || !questions.length) return;
-    setProfile(p => ({ ...p, learned: [...p.learned, `${questions[0]} → ${answer.trim()}`] }));
-    setQuestions(q => q.slice(1)); setAnswer('');
-  }
   const complete = (id) => {
     setItems(prev => prev.filter(i => i.id !== id));
     setDetailId(d => d === id ? null : d);
@@ -563,7 +387,7 @@ Keep the spoken reply short and warm. Never mention the block.`;
   // ---- dev tools (admin only, still RLS-scoped to the caller's own rows) ----
   async function devResetToBlank() {
     if (!window.confirm('Reset your profile to blank and clear all items?')) return;
-    setItems([]); setRead(''); setQuestions([]); setJustDetected([]);
+    setItems([]); setRead(''); setJustDetected([]);
     setProfile(SEED_PROFILE);
     await supabase.from('items').delete().eq('user_id', userId);
   }
@@ -666,6 +490,7 @@ Keep the spoken reply short and warm. Never mention the block.`;
         <div style={{ marginBottom: 16, borderBottom: `1px solid ${LINE}`, paddingBottom: 11 }}>
           <div style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em', marginBottom: 9 }}>Sprekta<span style={{ color: GREEN }}>.</span></div>
           <div className="flex gap-4" style={{ flexWrap: 'wrap' }}>
+            <Tab id="capture" label="Capture" Icon={Inbox} />
             <Tab id="today" label="Today" Icon={Sun} />
             <Tab id="plan" label="Plan" Icon={ListTodo} />
             <Tab id="calendar" label="Calendar" Icon={CalIcon} />
@@ -745,38 +570,14 @@ Keep the spoken reply short and warm. Never mention the block.`;
           </div>
         )}
 
+        {/* ============ CAPTURE ============ */}
+        {view === 'capture' && (
+          <Capture profile={profile} projects={projects} userId={userId} accessToken={accessToken} onAfterCapture={maybeOfferReminders} />
+        )}
+
         {/* ============ PLAN ============ */}
         {view === 'plan' && (
           <div>
-            <div style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 16, padding: 14, marginBottom: 10 }}>
-              <textarea value={dump} onChange={e => setDump(e.target.value)} rows={3} placeholder="What's on your mind?" style={{ width: '100%', resize: 'none', border: 'none', outline: 'none', fontSize: 15, lineHeight: 1.6, height: '4.8em', maxHeight: '4.8em', overflowY: 'auto', background: 'transparent', color: INK, fontFamily: 'inherit' }} />
-              <div className="flex items-center justify-end" style={{ marginTop: 8 }}>
-                <button onClick={runOffload} disabled={busy || !dump.trim()} style={{ background: (busy || !dump.trim()) ? '#9A96C9' : AI, color: '#fff', border: 'none', borderRadius: 10, padding: '9px 12px', cursor: (busy || !dump.trim()) ? 'default' : 'pointer', display: 'flex', alignItems: 'center' }}>{busy ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}</button>
-              </div>
-            </div>
-
-            <button onClick={() => setChatOpen(true)} className="flex items-center gap-1.5" style={{ fontSize: 13, color: MUTED, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px', marginBottom: 18 }}>
-              <MessageSquare size={14} /> Talk it through instead
-            </button>
-
-            {questions.length > 0 && (
-              <div style={{ background: '#FFF9EC', border: '1px solid #F0E2BE', borderRadius: 14, padding: 14, marginBottom: 18 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#8A6D1E', marginBottom: 8 }}>One quick thing, so I get it right</div>
-                <div style={{ fontSize: 14, color: '#5B4B1E', marginBottom: 10 }}>{questions[0]}</div>
-                <div className="flex items-center gap-2">
-                  <input value={answer} onChange={e => setAnswer(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') teach(); }} placeholder="tell me once…" style={{ flex: 1, border: '1px solid #E7D9AE', borderRadius: 10, padding: '8px 12px', fontSize: 14, outline: 'none', background: '#fff', fontFamily: 'inherit' }} />
-                  <button onClick={teach} style={{ background: '#8A6D1E', color: '#fff', border: 'none', borderRadius: 10, padding: '8px 14px', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>Got it</button>
-                </div>
-              </div>
-            )}
-
-            {read && (
-              <div style={{ background: '#F1F0FB', border: '1px solid #E3E1F7', borderRadius: 14, padding: 14, marginBottom: 16 }}>
-                <div className="flex items-center gap-2" style={{ fontSize: 12.5, fontWeight: 600, color: AI, marginBottom: 5 }}><Sparkles size={14} /> Sprekta’s read</div>
-                <div style={{ fontSize: 14, color: '#3B3856', lineHeight: 1.55 }}>{read}</div>
-              </div>
-            )}
-
             {justDetected.length > 0 && (
               <div className="flex items-center gap-2" style={{ fontSize: 12.5, color: AI, marginBottom: 12 }}>
                 <FolderInput size={14} /> Sprekta created a new project: <b>{justDetected.map(k => projOf(k).label).join(', ')}</b>
