@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Send, Loader2, Inbox, Calendar as CalIcon, Bell, Flag, MessageCircle, Trash2,
-  ChevronDown, ChevronUp, Circle, Square, ArrowLeft, X,
+  ChevronDown, ChevronUp, Square, ArrowLeft, X, RotateCcw,
 } from 'lucide-react';
 import { supabase } from './lib/supabaseClient.js';
 import {
@@ -9,24 +9,56 @@ import {
   persistQuestions, applyCorrection, undoCorrection, whenLabel,
 } from './lib/parse.js';
 
-const INK = '#22223B', PAPER = '#FAF9F6', CARD = '#FFFFFF', LINE = '#E7E4DC';
-const AI = '#6A5AE0', MUTED = '#77748A', FLAG = '#B07A1E';
+// Laurel palette — shared with the Activity mockup (sprekta-capture-valet.html).
+// One accent total; held/uncertain states stay neutral (STONE/FAINT), never
+// red or yellow — per design doc §11, uncertainty is normal, not an error.
+const PAPER = '#FBFAF7', INK = '#1D1B17', STONE = '#8D877B', FAINT = '#B5AFA2',
+      HAIR = '#E7E3DA', LINE = '#F1EDE4', CARD = '#FFFFFF',
+      ACC = '#0F6E56', ACC_DEEP = '#0C5A47', ACC_SOFT = '#EAF3EE', ACC_LINE = '#D3E6DC',
+      RING = '#BBB4A6', FLAG = '#B07A1E';
+const SERIF = "'Fraunces', Georgia, serif";
 
 const OFFSET_LABEL = (m) => (m % 10080 === 0 ? `${m / 10080}w` : m % 1440 === 0 ? `${m / 1440}d` : `${m}m`);
 
-const chipStyle = { fontSize: 12.5, borderRadius: 999, padding: '6px 12px', cursor: 'pointer', border: `1px solid ${LINE}`, background: CARD, color: INK };
-const iconBtnSm = { background: 'none', border: `1px solid ${LINE}`, borderRadius: 8, cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', color: MUTED };
+const chip = { fontSize: 12.5, fontWeight: 600, color: ACC_DEEP, background: '#fff', border: `1px solid ${HAIR}`, borderRadius: 999, padding: '5px 12px', cursor: 'pointer' };
+const ricon = { background: 'none', border: 'none', cursor: 'pointer', padding: 4, width: 26, height: 26, borderRadius: 8, display: 'grid', placeItems: 'center' };
 
-function markerFor(item, openQs) {
-  if (item.status === 'parked') return <Circle size={14} style={{ color: MUTED, flexShrink: 0 }} />;
-  if (openQs.some(q => q.tier >= 2)) return <Circle size={14} style={{ color: MUTED, flexShrink: 0 }} />;
-  if (item.fixed_time) return <CalIcon size={14} style={{ color: AI, flexShrink: 0 }} />;
-  return <Square size={14} style={{ color: MUTED, flexShrink: 0 }} />;
+function relTime(iso) {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days === 1) return 'yesterday';
+  if (days < 7) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
+// Marker says what the item became — destination only, never a question
+// tier. Held items (status='parked', either reason) get the open ring;
+// everything else is read off kind/fixed_time. See heldStatusLine for the
+// two held reasons' distinct copy.
+function Marker({ item, size = 13 }) {
+  if (item.status === 'parked') {
+    return <span style={{ width: size - 2, height: size - 2, borderRadius: 999, border: `1.5px solid ${RING}`, flexShrink: 0, display: 'inline-block' }} />;
+  }
+  if (item.fixed_time) return <CalIcon size={size} style={{ color: ACC, flexShrink: 0 }} />;
+  return <Square size={size} style={{ color: ACC, flexShrink: 0 }} />;
+}
+
+// Ambiguity is the system's problem (clarify); readiness is the user's
+// prerogative (rest). Same open-ring marker, different owner and different
+// fixed-grammar line — never derived from a question's tier.
+function heldStatusLine(item) {
+  if (item.status !== 'parked') return null;
+  return item.parked_reason === 'rest' ? 'resting · back in a day or two' : 'needs clarification · this evening';
 }
 
 function factsFor(item) {
   const facts = [];
-  if (item.flagged) facts.push({ icon: <Flag size={11} style={{ color: FLAG }} />, text: 'priority' });
+  if (item.flagged) facts.push({ icon: <Flag size={11} />, text: 'priority', flag: true });
   if (item.fixed_time) {
     const d = new Date(item.fixed_time);
     const days = Math.round((d - new Date()) / 86400000);
@@ -34,11 +66,31 @@ function factsFor(item) {
       ? d.toLocaleDateString([], { weekday: 'short' }) + ' · ' + d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
       : 'due ' + d.toLocaleDateString([], { month: 'short', day: 'numeric' });
     facts.push({ icon: <CalIcon size={11} />, text: when });
-    (item.reminder_offsets || []).forEach(m => facts.push({ icon: <Bell size={11} />, text: OFFSET_LABEL(m) }));
   } else if (item.deadline) {
     facts.push({ icon: <CalIcon size={11} />, text: 'due ' + item.deadline });
   }
+  if (item.quiet) {
+    facts.push({ icon: <Bell size={11} />, text: 'quiet' });
+  } else if ((item.fixed_time || item.deadline) && (item.reminder_offsets || []).length) {
+    facts.push({ icon: <Bell size={11} />, text: item.reminder_offsets.map(OFFSET_LABEL).join(' + ') });
+  }
   return facts;
+}
+
+// icon + info, middot-joined, wrapping only at fact boundaries — never a
+// bare flex gap (that wraps mid-fact and reads as a metadata dump).
+function FactsLine({ facts }) {
+  if (!facts.length) return null;
+  return (
+    <div style={{ fontSize: 12.5, fontWeight: 500, marginTop: 2, display: 'flex', flexWrap: 'wrap', alignItems: 'center', rowGap: 3 }}>
+      {facts.map((f, i) => (
+        <span key={i} style={{ whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', color: f.flag ? FLAG : ACC_DEEP }}>
+          {i > 0 && <span style={{ margin: '0 8px', color: FAINT, fontWeight: 400 }}>·</span>}
+          <span style={{ marginRight: 4, display: 'inline-flex' }}>{f.icon}</span>{f.text}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 function entrySummary(items) {
@@ -46,19 +98,36 @@ function entrySummary(items) {
   const more = items.length - 1;
   const scheduled = items.filter(i => i.fixed_time).length;
   const todos = items.filter(i => !i.fixed_time && i.status === 'open').length;
-  const resting = items.filter(i => i.status === 'parked').length;
+  const resting = items.filter(i => i.status === 'parked' && i.parked_reason === 'rest').length;
+  const clarify = items.filter(i => i.status === 'parked' && i.parked_reason === 'clarify').length;
+  const flagged = items.filter(i => i.flagged).length;
   const parts = [];
-  if (scheduled) parts.push(`${scheduled} scheduled`);
-  if (todos) parts.push(`${todos} todo${todos > 1 ? 's' : ''}`);
-  if (resting) parts.push(`${resting} resting`);
-  return { first, more, meta: parts.join(' · ') };
+  if (flagged) parts.push({ text: `⚑ ${flagged} flagged`, sched: true });
+  if (scheduled) parts.push({ text: `${scheduled} scheduled`, sched: true });
+  if (todos) parts.push({ text: `${todos} todo${todos > 1 ? 's' : ''}` });
+  if (resting) parts.push({ text: `${resting} resting` });
+  if (clarify) parts.push({ text: `${clarify} for later` });
+  return { first, more, parts };
+}
+
+function MetaLine({ parts }) {
+  if (!parts.length) return null;
+  return (
+    <div style={{ fontSize: 12, color: FAINT, marginTop: 1, display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+      {parts.map((p, i) => (
+        <span key={i} style={{ color: p.sched ? ACC_DEEP : FAINT, fontWeight: p.sched ? 500 : 400 }}>
+          {i > 0 && <span style={{ margin: '0 6px', color: FAINT }}>·</span>}{p.text}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 // The Capture tab — the app's one intake surface. Composer + a feed of past
-// captures ("entries"), each grouped by the dump that produced it. See
-// sprekta-capture-design-doc.md for the full interaction spec; this is a v1
-// subset (no voice, no torn/flip UI, no animated dwell/fold — entries just
-// default-collapsed except the newest, toggle by tap).
+// captures ("entries"), each grouped by the dump that produced it.
+// v1 subset of sprekta-capture-design-doc.md / sprekta-capture-valet.html —
+// no voice, no torn/flip UI, no project/saved-fact verbs, no point-of-use
+// correction, no Activity link yet (Activity tab doesn't exist to open into).
 export default function Capture({ profile, projects, userId, accessToken, onAfterCapture }) {
   const [composerText, setComposerText] = useState('');
   const [sending, setSending] = useState(false);
@@ -67,14 +136,22 @@ export default function Capture({ profile, projects, userId, accessToken, onAfte
   const [entries, setEntries] = useState([]); // [{ dump, items }]
   const [questionsByItem, setQuestionsByItem] = useState(new Map());
   const [expandedIds, setExpandedIds] = useState(() => new Set());
+  const [rawOpenIds, setRawOpenIds] = useState(() => new Set());
   const [openItemId, setOpenItemId] = useState(null);
   const [sayText, setSayText] = useState('');
   const [saySending, setSaySending] = useState(false);
   const [sayClarify, setSayClarify] = useState(null);
   const [err, setErr] = useState('');
+  const [pendingEntry, setPendingEntry] = useState(null); // { text, failed }
+  const [freshEntryId, setFreshEntryId] = useState(null);
   const ceaTimer = useRef(null);
+  const sayInputRef = useRef(null);
+  const allQuestionsRef = useRef([]);
 
-  const load = useCallback(async () => {
+  // Only auto-expands the newest entry when explicitly asked to (right
+  // after a fresh capture) — never on a plain refresh, or collapse-all
+  // silently undoes itself after any unrelated correction (P2-9).
+  const load = useCallback(async (opts = {}) => {
     const [{ data: dumps }, { data: items }, { data: qs }] = await Promise.all([
       supabase.from('dumps').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
       supabase.from('items').select('*').eq('user_id', userId).neq('status', 'archived').order('created_at', { ascending: true }),
@@ -88,7 +165,7 @@ export default function Capture({ profile, projects, userId, accessToken, onAfte
     });
     const list = (dumps || []).map(d => ({ dump: d, items: byDump.get(d.id) || [] })).filter(e => e.items.length);
     setEntries(list);
-    if (list[0]) setExpandedIds(prev => new Set(prev).add(list[0].dump.id));
+    if (opts.expandNewest) setExpandedIds(prev => new Set(prev).add(opts.expandNewest));
     const byItem = new Map();
     (qs || []).forEach((q) => {
       if (!q.item_id || q.status !== 'open') return;
@@ -99,15 +176,19 @@ export default function Capture({ profile, projects, userId, accessToken, onAfte
     return qs || [];
   }, [userId]);
 
-  const allQuestionsRef = useRef([]);
   useEffect(() => { load().then((qs) => { allQuestionsRef.current = qs; }); }, [load]);
+  useEffect(() => {
+    if (!freshEntryId) return;
+    const t = setTimeout(() => setFreshEntryId(null), 2000);
+    return () => clearTimeout(t);
+  }, [freshEntryId]);
+  useEffect(() => { setSayText(''); setSayClarify(null); }, [openItemId]);
 
   function toggleEntry(id) {
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
+    setExpandedIds((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+  }
+  function toggleRaw(id) {
+    setRawOpenIds((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
   }
   const collapseAll = () => setExpandedIds(new Set());
 
@@ -124,10 +205,14 @@ export default function Capture({ profile, projects, userId, accessToken, onAfte
     ceaTimer.current = setTimeout(() => setCeaLine(null), 9000);
   }
 
-  async function maybeMarkQuestionAnswered(itemId, answerText) {
-    const q = allQuestionsRef.current.find(x => x.item_id === itemId && x.status === 'open' && x.kind === 'fact' && x.tier === 1);
-    if (!q) return;
-    await supabase.from('questions').update({ status: 'answered', answer: answerText, answered_at: new Date().toISOString() }).eq('id', q.id);
+  // Answering here should clear the Activity question too — one queue,
+  // two doors. Marks every open question on the item, not just tier-1
+  // facts: a say-box correction is the user directly addressing the item,
+  // which resolves whatever was outstanding on it.
+  async function markItemQuestionsAnswered(itemId, answerText) {
+    const openQs = allQuestionsRef.current.filter(q => q.item_id === itemId && q.status === 'open');
+    if (!openQs.length) return;
+    await supabase.from('questions').update({ status: 'answered', answer: answerText, answered_at: new Date().toISOString() }).in('id', openQs.map(q => q.id));
   }
 
   function findItem(id) {
@@ -143,19 +228,38 @@ export default function Capture({ profile, projects, userId, accessToken, onAfte
     const { data: dumpRow } = await supabase.from('dumps').insert({ user_id: userId, raw_text: text }).select().single();
     const rows = prepared.map(({ id, ...rest }) => ({ ...rest, user_id: userId, dump_id: dumpRow?.id || null }));
     const { data: inserted } = rows.length ? await supabase.from('items').insert(rows).select() : { data: [] };
-    if (Array.isArray(parsed.questions) && parsed.questions.length && inserted?.length) {
-      await persistQuestions(parsed.questions, inserted, parsed.items, userId);
+    const insertedQuestions = (Array.isArray(parsed.questions) && parsed.questions.length && inserted?.length)
+      ? await persistQuestions(parsed.questions, inserted, parsed.items, userId)
+      : [];
+    // Tier 3 = genuinely vague, the system cannot responsibly form a task
+    // (design doc §5.3) — that item is held as "clarify", distinct from a
+    // well-formed item the user later rests themselves.
+    const parkIds = insertedQuestions.filter(q => q.tier === 3 && q.item_id).map(q => q.item_id);
+    if (parkIds.length) {
+      await supabase.from('items').update({ status: 'parked', parked_reason: 'clarify' }).in('id', parkIds);
     }
     if (onAfterCapture && inserted?.length) onAfterCapture(inserted);
-    await load();
+    await load({ expandNewest: dumpRow?.id });
+    return dumpRow?.id || null;
+  }
+
+  async function retryPending() {
+    if (!pendingEntry) return;
+    const text = pendingEntry.text;
+    setPendingEntry({ text, failed: false });
+    try {
+      const dumpId = await runCapture(text);
+      setFreshEntryId(dumpId);
+      setPendingEntry(null);
+    } catch { setPendingEntry({ text, failed: true }); }
   }
 
   async function send() {
     const text = composerText.trim();
     if (!text || sending) return;
     setSending(true); setErr('');
-    try {
-      if (focusItem) {
+    if (focusItem) {
+      try {
         const item = findItem(focusItem.id);
         if (!item) { setErr('Couldn’t find that item anymore.'); setFocusItem(null); }
         else {
@@ -164,18 +268,27 @@ export default function Capture({ profile, projects, userId, accessToken, onAfte
             setFocusItem({ ...focusItem, clarify: result.clarify, placeholder: result.placeholder });
             setComposerText('');
           } else {
-            await maybeMarkQuestionAnswered(focusItem.id, result.confirmation);
+            await markItemQuestionsAnswered(focusItem.id, result.confirmation);
             showConfirmation(result);
             setFocusItem(null);
             setComposerText('');
             await load();
           }
         }
-      } else {
-        await runCapture(text);
-        setComposerText('');
-      }
-    } catch { setErr('Parse hiccup — try again.'); }
+      } catch { setErr('That didn’t land — try again.'); }
+      setSending(false);
+      return;
+    }
+    // The words are safe the instant we clear the box; only the
+    // interpretation still has to load (design doc §4 — safety is
+    // unconditional and immediate).
+    setComposerText('');
+    setPendingEntry({ text, failed: false });
+    try {
+      const dumpId = await runCapture(text);
+      setFreshEntryId(dumpId);
+      setPendingEntry(null);
+    } catch { setPendingEntry({ text, failed: true }); }
     setSending(false);
   }
 
@@ -191,25 +304,37 @@ export default function Capture({ profile, projects, userId, accessToken, onAfte
     await supabase.from('corrections').insert({ user_id: userId, item_id: item.id, kind: 'promote_today', before: { today: item.today }, after: { today }, surface: 'item_view' });
     await load();
   }
+  async function toggleQuiet(item) {
+    const quiet = !item.quiet;
+    await supabase.from('items').update({ quiet }).eq('id', item.id);
+    await supabase.from('corrections').insert({ user_id: userId, item_id: item.id, kind: 'edit_field', before: { quiet: item.quiet }, after: { quiet }, surface: 'item_view' });
+    await load();
+  }
   async function restItem(item) {
-    await supabase.from('items').update({ status: 'parked', today: false }).eq('id', item.id);
-    await supabase.from('corrections').insert({ user_id: userId, item_id: item.id, kind: 'rest', before: { status: item.status, today: item.today }, after: { status: 'parked', today: false }, surface: 'item_view' });
+    const before = { status: item.status, parked_reason: item.parked_reason, today: item.today, fixed_time: item.fixed_time };
+    const after = { status: 'parked', parked_reason: 'rest', today: false, fixed_time: null };
+    await supabase.from('items').update(after).eq('id', item.id);
+    await supabase.from('corrections').insert({ user_id: userId, item_id: item.id, kind: 'rest', before, after, surface: 'item_view' });
     setOpenItemId(null);
     await load();
   }
   async function reviveItem(item) {
-    await supabase.from('items').update({ status: 'open' }).eq('id', item.id);
-    await supabase.from('corrections').insert({ user_id: userId, item_id: item.id, kind: 'edit_field', before: { status: 'parked' }, after: { status: 'open' }, surface: 'item_view' });
+    const { data: corr } = await supabase.from('corrections').select('before')
+      .eq('item_id', item.id).eq('kind', 'rest').order('created_at', { ascending: false }).limit(1).maybeSingle();
+    const restore = { status: 'open', parked_reason: null, today: corr?.before?.today ?? false, fixed_time: corr?.before?.fixed_time ?? null };
+    await supabase.from('items').update(restore).eq('id', item.id);
+    await supabase.from('corrections').insert({ user_id: userId, item_id: item.id, kind: 'edit_field', before: { status: item.status }, after: restore, surface: 'item_view' });
     await load();
   }
   async function removeItem(item) {
+    const before = { status: item.status };
     await supabase.from('items').update({ status: 'archived' }).eq('id', item.id);
-    await supabase.from('corrections').insert({ user_id: userId, item_id: item.id, kind: 'delete', before: { status: item.status }, after: { status: 'archived' }, surface: 'capture' });
+    await supabase.from('corrections').insert({ user_id: userId, item_id: item.id, kind: 'delete', before, after: { status: 'archived' }, surface: 'capture' });
     clearTimeout(ceaTimer.current);
     setCeaLine({
-      text: `Removed — ${item.title}`,
+      text: `Removed ${item.title}.`,
       onUndo: async () => {
-        await supabase.from('items').update({ status: 'open' }).eq('id', item.id);
+        await supabase.from('items').update(before).eq('id', item.id);
         setCeaLine(null);
         await load();
       },
@@ -218,8 +343,31 @@ export default function Capture({ profile, projects, userId, accessToken, onAfte
     if (openItemId === item.id) setOpenItemId(null);
     await load();
   }
+  async function undoWholeDump(dump, items) {
+    const live = items.filter(i => i.status !== 'archived');
+    if (!live.length) return;
+    const before = live.map(i => ({ id: i.id, status: i.status }));
+    await supabase.from('items').update({ status: 'archived' }).in('id', live.map(i => i.id));
+    await Promise.all(live.map(i => supabase.from('corrections').insert({
+      user_id: userId, item_id: i.id, kind: 'delete', before: { status: i.status }, after: { status: 'archived' }, surface: 'capture',
+    })));
+    clearTimeout(ceaTimer.current);
+    setCeaLine({
+      text: `Undid this capture — ${live.length} item${live.length > 1 ? 's' : ''} removed.`,
+      onUndo: async () => {
+        await Promise.all(before.map(b => supabase.from('items').update({ status: b.status }).eq('id', b.id)));
+        setCeaLine(null);
+        await load();
+      },
+    });
+    ceaTimer.current = setTimeout(() => setCeaLine(null), 9000);
+    await load();
+  }
 
-  useEffect(() => { setSayText(''); setSayClarify(null); }, [openItemId]);
+  function prefillSay(text) {
+    setSayText(text);
+    requestAnimationFrame(() => sayInputRef.current?.focus());
+  }
 
   async function submitSay(it) {
     const text = sayText.trim();
@@ -229,73 +377,134 @@ export default function Capture({ profile, projects, userId, accessToken, onAfte
       const result = await applyCorrection({ item: it, utterance: text, profile, userId, accessToken, surface: 'item_view' });
       if (result.kind === 'clarify') { setSayClarify(result.clarify); setSayText(''); }
       else {
-        await maybeMarkQuestionAnswered(it.id, result.confirmation);
+        await markItemQuestionsAnswered(it.id, result.confirmation);
         showConfirmation(result);
         setSayText(''); setSayClarify(null);
         await load();
       }
-    } catch { setErr('Hiccup — try again.'); }
+    } catch { setErr('That didn’t land — try again.'); }
     setSaySending(false);
   }
 
-  function renderItemRow(it) {
-    const openQs = questionsByItem.get(it.id) || [];
+  function renderItemRow(it, idx = 0, isFresh = false, showBorder = true) {
     const facts = factsFor(it);
+    const held = heldStatusLine(it);
     return (
-      <div key={it.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 2px' }}>
-        <button onClick={() => setOpenItemId(it.id)} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}>
-          {markerFor(it, openQs)}
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 14, color: INK, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.title}</div>
-            {facts.length > 0 && (
-              <div className="flex items-center gap-1.5" style={{ fontSize: 11.5, color: MUTED, marginTop: 2, flexWrap: 'wrap' }}>
-                {facts.map((f, i) => <span key={i} className="flex items-center gap-1">{f.icon}{f.text}</span>)}
-              </div>
-            )}
-            {it.status === 'parked' && <div style={{ fontSize: 11.5, color: MUTED, marginTop: 2 }}>resting · back in a day or two</div>}
-            {it.status === 'open' && openQs.some(q => q.tier >= 2) && <div style={{ fontSize: 11.5, color: MUTED, marginTop: 2 }}>needs clarification · answer below</div>}
+      <div key={it.id} className={`group${isFresh ? ' sprekta-fadeup' : ''}`}
+        style={{ display: 'flex', gap: 11, alignItems: 'flex-start', padding: '11px 0', borderBottom: showBorder ? `1px solid ${LINE}` : 'none', animationDelay: isFresh ? `${idx * 160}ms` : undefined }}>
+        <button onClick={() => setOpenItemId(it.id)} style={{ flex: 1, minWidth: 0, display: 'flex', gap: 11, alignItems: 'flex-start', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}>
+          <span style={{ marginTop: 3 }}><Marker item={it} /></span>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ fontSize: 14.5, fontWeight: 500, color: INK, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.title}</div>
+            {held ? <div style={{ fontSize: 12.5, fontWeight: 500, color: '#736D60', marginTop: 2 }}>{held}</div> : <FactsLine facts={facts} />}
           </div>
         </button>
-        <div className="flex items-center gap-1">
-          <button title="Flag" onClick={() => toggleFlag(it)} style={iconBtnSm}><Flag size={13} style={{ color: it.flagged ? FLAG : MUTED }} /></button>
-          <button title="Discuss" onClick={() => { setFocusItem({ id: it.id, title: it.title }); setComposerText(''); }} style={iconBtnSm}><MessageCircle size={13} /></button>
-          <button title="Remove" onClick={() => removeItem(it)} style={iconBtnSm}><Trash2 size={13} /></button>
+        <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100" style={{ flexShrink: 0, alignSelf: 'flex-start', transition: 'opacity .15s' }}>
+          <button title={it.flagged ? 'Unflag' : 'Mark priority'} onClick={() => toggleFlag(it)} className="hover:bg-[#F0ECE3]" style={ricon}><Flag size={14} style={{ color: it.flagged ? FLAG : STONE }} /></button>
+          <button title="Discuss / change this" onClick={() => { setFocusItem({ id: it.id, title: it.title }); setComposerText(''); }} className="hover:bg-[#F0ECE3]" style={ricon}><MessageCircle size={14} style={{ color: STONE }} /></button>
+          <button title="Remove" onClick={() => removeItem(it)} className="hover:bg-[#F0ECE3]" style={ricon}><Trash2 size={14} style={{ color: STONE }} /></button>
+        </div>
+      </div>
+    );
+  }
+
+  function renderFooter(dump, items) {
+    const rawOpen = rawOpenIds.has(dump.id);
+    return (
+      <div>
+        {rawOpen && (
+          <div className="sprekta-fadeup" style={{ borderTop: `1px solid ${LINE}`, marginTop: 2, paddingTop: 9, paddingBottom: 4 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: FAINT, marginBottom: 4 }}>You said</div>
+            <div style={{ fontSize: 12.5, color: STONE, lineHeight: 1.65, whiteSpace: 'pre-line' }}>“{dump.raw_text}”</div>
+          </div>
+        )}
+        <div className="flex items-center" style={{ gap: 14, borderTop: `1px solid ${LINE}`, marginTop: 2, paddingTop: 9, paddingBottom: 8 }}>
+          <button onClick={() => toggleRaw(dump.id)} className="flex items-center gap-1.5 hover:text-[#1D1B17]" style={{ border: 'none', background: 'none', fontSize: 12, fontWeight: 600, color: STONE, cursor: 'pointer', padding: 0 }}>
+            You said <span style={{ fontSize: 10, display: 'inline-block', transition: 'transform .2s ease', transform: rawOpen ? 'rotate(180deg)' : 'none' }}>▾</span>
+          </button>
+          <span style={{ flex: 1 }} />
+          <button title="Undo this capture" onClick={() => undoWholeDump(dump, items)} className="hover:text-[#1D1B17]" style={{ border: 'none', background: 'none', cursor: 'pointer', color: FAINT, padding: 2, display: 'grid', placeItems: 'center' }}>
+            <RotateCcw size={15} />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function renderPendingEntry() {
+    if (!pendingEntry) return null;
+    const firstLine = pendingEntry.text.split('\n')[0];
+    const shortFirst = firstLine.length > 38 ? firstLine.slice(0, 37) + '…' : firstLine;
+    if (pendingEntry.failed) {
+      return (
+        <div className="sprekta-slidein" style={{ padding: '13px 2px', borderBottom: `1px solid ${LINE}` }}>
+          <div style={{ fontSize: 14.5, color: INK }}>That didn’t land — try again. Your words are safe below.</div>
+          <div style={{ fontSize: 13, color: STONE, marginTop: 6, fontStyle: 'italic', whiteSpace: 'pre-line' }}>“{pendingEntry.text}”</div>
+          <button onClick={retryPending} style={{ marginTop: 8, fontSize: 12.5, fontWeight: 600, color: ACC, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Retry</button>
+        </div>
+      );
+    }
+    return (
+      <div className="sprekta-slidein" style={{ padding: '13px 2px', borderBottom: `1px solid ${LINE}` }}>
+        <div className="flex items-start gap-3">
+          <div style={{ width: 26, height: 26, borderRadius: 8, background: ACC_SOFT, display: 'grid', placeItems: 'center', flexShrink: 0, marginTop: 1 }}>
+            <Inbox size={14} style={{ color: ACC }} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14.5 }}><b>{shortFirst}</b> <span style={{ color: STONE }}>— got it</span></div>
+            <div className="flex items-center gap-1.5" style={{ fontSize: 12, color: FAINT, marginTop: 1 }}>
+              just now ·
+              <span className="flex items-center gap-1.5">
+                <span className="sprekta-pulsedot" style={{ width: 7, height: 7, borderRadius: 999, background: ACC, display: 'inline-block' }} />
+                sorting it out
+              </span>
+            </div>
+          </div>
+        </div>
+        <div className="ml-[14px] sm:ml-10 mr-1.5" style={{ marginTop: 10, background: CARD, border: `1px solid ${HAIR}`, borderRadius: 12, padding: '4px 15px' }}>
+          {[42, 61, 35].map((w, i) => (
+            <div key={i} className="flex items-center gap-3" style={{ padding: '12px 0', borderBottom: i < 2 ? `1px solid ${LINE}` : 'none' }}>
+              <span className="sprekta-skel" style={{ width: 12, height: 12, borderRadius: '50%', flexShrink: 0 }} />
+              <span className="sprekta-skel" style={{ height: 12, width: `${w}%` }} />
+            </div>
+          ))}
         </div>
       </div>
     );
   }
 
   function renderEntry({ dump, items }) {
-    // A single-item capture has nothing to summarize — showing a synthetic
-    // "X — organized" headline above the one real row just repeats the
-    // title. Render the item directly; no fold, no fake summary.
+    const isFresh = dump.id === freshEntryId;
     if (items.length === 1) {
       return (
-        <div key={dump.id} style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 14, padding: 12 }}>
-          {renderItemRow(items[0])}
-          <div style={{ fontSize: 12, color: MUTED, marginTop: 6, paddingTop: 8, borderTop: `1px solid ${LINE}` }}>
-            You said: <i>“{dump.raw_text}”</i>
-          </div>
+        <div key={dump.id} className={isFresh ? 'sprekta-slidein' : ''} style={{ padding: '13px 2px', borderBottom: `1px solid ${LINE}` }}>
+          {renderItemRow(items[0], 0, isFresh, false)}
+          {renderFooter(dump, items)}
         </div>
       );
     }
     const isOpen = expandedIds.has(dump.id);
-    const { first, more, meta } = entrySummary(items);
+    const { first, more, parts } = entrySummary(items);
     return (
-      <div key={dump.id} style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 14, padding: 12 }}>
-        <button onClick={() => toggleEntry(dump.id)} style={{ width: '100%', display: 'flex', alignItems: 'flex-start', gap: 8, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}>
-          <Inbox size={14} style={{ marginTop: 2, color: MUTED, flexShrink: 0 }} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, color: INK }}><b>{first.title}</b>{more > 0 ? ` and ${more} more` : ''} — organized</div>
-            {meta && <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>{meta}</div>}
+      <div key={dump.id} className={isFresh ? 'sprekta-slidein' : ''} style={{ borderBottom: `1px solid ${LINE}` }}>
+        <button onClick={() => toggleEntry(dump.id)} className="hover:bg-black/[0.025]" style={{ width: '100%', display: 'flex', alignItems: 'flex-start', gap: 12, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: '13px 6px 13px 2px', borderRadius: 9 }}>
+          <div style={{ width: 26, height: 26, borderRadius: 8, background: ACC_SOFT, display: 'grid', placeItems: 'center', flexShrink: 0, marginTop: 1 }}>
+            <Inbox size={14} style={{ color: ACC }} />
           </div>
-          {isOpen ? <ChevronUp size={15} style={{ color: MUTED, flexShrink: 0 }} /> : <ChevronDown size={15} style={{ color: MUTED, flexShrink: 0 }} />}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14.5 }}>
+              <b>{first.title}</b>{' '}
+              <span style={{ color: STONE }}>{more > 0 ? `and ${more} more — organized` : '— organized'}</span>
+            </div>
+            <MetaLine parts={parts} />
+          </div>
+          {isOpen ? <ChevronUp size={13} style={{ color: FAINT, marginTop: 6, flexShrink: 0 }} /> : <ChevronDown size={13} style={{ color: FAINT, marginTop: 6, flexShrink: 0 }} />}
         </button>
         {isOpen && (
-          <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {items.map(renderItemRow)}
-            <div style={{ fontSize: 12, color: MUTED, marginTop: 6, paddingTop: 8, borderTop: `1px solid ${LINE}` }}>
-              You said: <i>“{dump.raw_text}”</i>
+          <div className="sprekta-fadeup ml-[14px] sm:ml-10 mr-1.5 mb-3.5">
+            <div style={{ background: CARD, border: `1px solid ${HAIR}`, borderRadius: 12, padding: '4px 15px' }}>
+              {items.map((it, i) => renderItemRow(it, i, isFresh, i < items.length - 1))}
+              {renderFooter(dump, items)}
             </div>
           </div>
         )}
@@ -306,49 +515,87 @@ export default function Capture({ profile, projects, userId, accessToken, onAfte
   function renderItemView() {
     const it = findItem(openItemId);
     if (!it) return null;
-    const openQs = questionsByItem.get(it.id) || [];
     const entry = entries.find(e => e.items.some(i => i.id === it.id));
+    const isClarify = it.status === 'parked' && it.parked_reason === 'clarify';
+    const isRest = it.status === 'parked' && it.parked_reason === 'rest';
+    const facts = factsFor(it);
+    const firstLine = entry ? entry.dump.raw_text.split('\n')[0] : '';
     return (
       <div style={{ position: 'fixed', inset: 0, background: PAPER, zIndex: 50, overflowY: 'auto' }}>
-        <div style={{ maxWidth: 640, margin: '0 auto', padding: 'max(22px, env(safe-area-inset-top)) 18px 40px' }}>
-          <button onClick={() => setOpenItemId(null)} className="flex items-center gap-1.5" style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, fontSize: 13, marginBottom: 16, padding: 0 }}><ArrowLeft size={15} /> Back</button>
-          <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.04em', color: MUTED, marginBottom: 6 }}>ITEM</div>
-          <div style={{ fontSize: 21, fontWeight: 600, color: INK, marginBottom: 8 }}>{it.title}</div>
-          <div style={{ fontSize: 13.5, color: MUTED, marginBottom: 18 }}>
-            {it.status === 'parked' ? 'resting, not gone' : it.fixed_time ? whenLabel(it) : it.deadline ? `due ${it.deadline}` : 'anytime'}
+        <div className="max-w-[600px] mx-auto" style={{ padding: 'max(24px, env(safe-area-inset-top)) 20px 46px' }}>
+          <button onClick={() => setOpenItemId(null)} className="flex items-center gap-1.5 hover:text-[#1D1B17]" style={{ border: 'none', background: 'none', fontSize: 14, color: STONE, cursor: 'pointer', padding: '4px 6px 4px 0', marginBottom: 14 }}>
+            <ArrowLeft size={15} /> Back
+          </button>
+
+          <div className="flex items-start gap-3">
+            <span style={{ marginTop: 9 }}><Marker item={it} size={14} /></span>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', lineHeight: 1.2, color: INK }}>{it.title}</div>
+              {isClarify && <div style={{ fontSize: 13.5, color: STONE, margin: '2px 0 18px' }}>needs clarification · this evening</div>}
+              {isRest && <div style={{ fontSize: 13.5, color: STONE, margin: '2px 0 18px' }}>resting · back in a day or two</div>}
+              {!isClarify && !isRest && <div style={{ margin: '2px 0 18px' }}><FactsLine facts={facts} /></div>}
+            </div>
           </div>
 
-          {openQs.length > 0 && (
-            <div style={{ background: '#FFF9EC', border: '1px solid #F0E2BE', borderRadius: 14, padding: 14, marginBottom: 16 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#8A6D1E', marginBottom: 4 }}>Needs an answer</div>
-              {openQs.map(q => <div key={q.id} style={{ fontSize: 13.5, color: '#5B4B1E' }}>{q.text}</div>)}
+          {!isClarify && (
+            <div className="flex items-center gap-2 flex-wrap" style={{ marginBottom: 18 }}>
+              {!it.fixed_time && it.status === 'open' && (
+                <button onClick={() => toggleToday(it)} className="hover:bg-[#EAF3EE] hover:border-[#D3E6DC]" style={chip}>{it.today ? 'in today' : 'today'}</button>
+              )}
+              {(it.fixed_time || it.deadline) && it.status === 'open' && (
+                <button onClick={() => toggleQuiet(it)} className="hover:bg-[#EAF3EE] hover:border-[#D3E6DC]" style={chip}>{it.quiet ? 'un-quiet' : 'quiet this one'}</button>
+              )}
+              <button onClick={() => toggleFlag(it)} className="hover:bg-[#EAF3EE] hover:border-[#D3E6DC]" style={chip}>{it.flagged ? 'unflag' : '⚑ priority'}</button>
+              {it.status === 'open' && <button onClick={() => restItem(it)} className="hover:bg-[#EAF3EE] hover:border-[#D3E6DC]" style={chip}>not now — rest it</button>}
+              {isRest && <button onClick={() => reviveItem(it)} className="hover:bg-[#EAF3EE] hover:border-[#D3E6DC]" style={chip}>bring it back</button>}
             </div>
           )}
 
-          <div className="flex items-center gap-2" style={{ marginBottom: 20, flexWrap: 'wrap' }}>
-            {!it.fixed_time && it.status === 'open' && <button onClick={() => toggleToday(it)} style={chipStyle}>{it.today ? 'in today' : 'today'}</button>}
-            {it.status !== 'archived' && <button onClick={() => toggleFlag(it)} style={chipStyle}>{it.flagged ? 'unflag' : 'flag'}</button>}
-            {it.status === 'open' && <button onClick={() => restItem(it)} style={chipStyle}>not now — rest it</button>}
-            {it.status === 'parked' && <button onClick={() => reviveItem(it)} style={chipStyle}>bring it back</button>}
-          </div>
+          {!isClarify && (
+            <div style={{ background: CARD, border: `1px solid ${HAIR}`, borderRadius: 13, padding: '4px 15px', marginBottom: 14 }}>
+              <div className="flex items-center gap-2.5" style={{ padding: '9px 0', borderBottom: `1px solid ${LINE}`, fontSize: 13.5 }}>
+                <CalIcon size={13} style={{ color: STONE, flexShrink: 0 }} />
+                <span style={{ color: STONE, width: 58, flexShrink: 0 }}>When</span>
+                <span style={{ fontWeight: 500, flex: 1 }}>{it.fixed_time ? whenLabel(it) : it.deadline ? `due ${it.deadline}` : 'unscheduled'}</span>
+                <button onClick={() => prefillSay('move it to ')} style={{ fontSize: 12, fontWeight: 600, color: ACC, background: 'none', border: 'none', cursor: 'pointer' }}>change</button>
+              </div>
+              <div className="flex items-center gap-2.5" style={{ padding: '9px 0', fontSize: 13.5 }}>
+                <Bell size={13} style={{ color: STONE, flexShrink: 0 }} />
+                <span style={{ color: STONE, width: 58, flexShrink: 0 }}>Remind</span>
+                <span style={{ fontWeight: 500, flex: 1 }}>{it.quiet ? 'quiet' : (it.reminder_offsets || []).length ? it.reminder_offsets.map(OFFSET_LABEL).join(' · ') : '—'}</span>
+                <button onClick={() => prefillSay('add another reminder ')} style={{ fontSize: 12, fontWeight: 600, color: ACC, background: 'none', border: 'none', cursor: 'pointer' }}>+ add</button>
+              </div>
+            </div>
+          )}
 
-          <div style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 16, padding: 14, marginBottom: 16 }}>
-            <textarea
+          {ceaLine && (
+            <div className="flex items-center justify-between sprekta-fadeup" style={{ fontSize: 13, color: '#4A4860', marginBottom: 14 }}>
+              <span>{ceaLine.text}</span>
+              {ceaLine.onUndo && <button onClick={ceaLine.onUndo} style={{ fontSize: 12.5, color: ACC, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>undo</button>}
+            </div>
+          )}
+
+          {err && <div style={{ fontSize: 13, color: STONE, marginBottom: 12 }}>{err}</div>}
+
+          <div className="flex items-center gap-2" style={{ marginBottom: 18 }}>
+            <input
+              ref={sayInputRef}
               value={sayText}
               onChange={e => setSayText(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitSay(it); } }}
-              rows={2}
-              placeholder={sayClarify || (openQs.length ? 'answer here' : 'say the change — I’ll handle it')}
-              style={{ width: '100%', resize: 'none', border: 'none', outline: 'none', fontSize: 14.5, lineHeight: 1.5, background: 'transparent', color: INK, fontFamily: 'inherit' }}
+              onKeyDown={e => { if (e.key === 'Enter') submitSay(it); }}
+              placeholder={sayClarify || (isClarify ? 'tell me what this is — I’ll take it from there' : 'say anything — I’ll handle it')}
+              className="sprekta-input"
+              style={{ flex: 1, border: `1px solid ${HAIR}`, borderRadius: 999, background: '#fff', fontSize: 14, color: INK, padding: '10px 15px', outline: 'none' }}
             />
-            <div className="flex items-center justify-end" style={{ marginTop: 6 }}>
-              <button onClick={() => submitSay(it)} disabled={saySending || !sayText.trim()} style={{ background: (saySending || !sayText.trim()) ? '#9A96C9' : AI, color: '#fff', border: 'none', borderRadius: 10, padding: '8px 11px', cursor: (saySending || !sayText.trim()) ? 'default' : 'pointer', display: 'flex' }}>
-                {saySending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
-              </button>
-            </div>
+            <button onClick={() => submitSay(it)} disabled={saySending || !sayText.trim()} className="sprekta-send-btn" style={{ width: 36, height: 36, borderRadius: 999, border: 'none', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+              {saySending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+            </button>
           </div>
 
-          <div style={{ fontSize: 12.5, color: MUTED }}>from <i>“{it.source || entry?.dump.raw_text || ''}”</i></div>
+          <div style={{ fontSize: 12, color: FAINT, lineHeight: 1.7 }}>
+            {it.source && <>from <b style={{ color: STONE, fontWeight: 500 }}>“{it.source}”</b><br /></>}
+            {entry && <>part of “{firstLine}{entry.dump.raw_text.includes('\n') ? '…' : ''}” · {relTime(entry.dump.created_at)}</>}
+          </div>
         </div>
       </div>
     );
@@ -356,11 +603,12 @@ export default function Capture({ profile, projects, userId, accessToken, onAfte
 
   return (
     <div>
-      <div style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 16, padding: 14, marginBottom: 10 }}>
+      <div style={{ background: CARD, border: `1px solid ${focusItem ? ACC_LINE : HAIR}`, borderRadius: 14, padding: '14px 15px', marginBottom: 10, boxShadow: focusItem ? `0 0 0 3px ${ACC_SOFT}` : 'none', transition: 'border-color .2s, box-shadow .2s' }}>
         {focusItem && (
-          <div className="flex items-center gap-1.5" style={{ fontSize: 12.5, color: AI, marginBottom: 6 }}>
-            re: {focusItem.title}
-            <button onClick={() => setFocusItem(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, padding: 0, display: 'flex' }}><X size={12} /></button>
+          <div className="flex items-center gap-1.5 sprekta-fadeup" style={{ fontSize: 12, fontWeight: 500, color: ACC_DEEP, marginBottom: 7 }}>
+            <span style={{ fontWeight: 600, color: FAINT }}>re:</span>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{focusItem.title}</span>
+            <button onClick={() => setFocusItem(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: ACC, padding: '0 4px', display: 'flex' }}><X size={13} /></button>
           </div>
         )}
         <textarea
@@ -368,11 +616,12 @@ export default function Capture({ profile, projects, userId, accessToken, onAfte
           onChange={e => setComposerText(e.target.value)}
           onKeyDown={focusItem ? (e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }) : undefined}
           rows={3}
-          placeholder={focusItem ? (focusItem.clarify || 'say the change — I’ll handle it') : "What's on your mind?"}
-          style={{ width: '100%', resize: 'none', border: 'none', outline: 'none', fontSize: 15, lineHeight: 1.6, height: '4.8em', maxHeight: '4.8em', overflowY: 'auto', background: 'transparent', color: INK, fontFamily: 'inherit' }}
+          placeholder={focusItem ? (focusItem.clarify || 'say anything about this — I’ll handle it') : "What's on your mind?"}
+          className="sprekta-input"
+          style={{ width: '100%', resize: 'none', border: 'none', outline: 'none', fontSize: 15, lineHeight: 1.55, height: '4.8em', maxHeight: '4.8em', overflowY: 'auto', background: 'transparent', color: INK, fontFamily: 'inherit' }}
         />
         <div className="flex items-center justify-end" style={{ marginTop: 8 }}>
-          <button onClick={send} disabled={sending || !composerText.trim()} style={{ background: (sending || !composerText.trim()) ? '#9A96C9' : AI, color: '#fff', border: 'none', borderRadius: 10, padding: '9px 12px', cursor: (sending || !composerText.trim()) ? 'default' : 'pointer', display: 'flex', alignItems: 'center' }}>
+          <button onClick={send} disabled={sending || !composerText.trim()} className="sprekta-send-btn" style={{ color: '#fff', border: 'none', borderRadius: 10, padding: '9px 12px', display: 'flex', alignItems: 'center' }}>
             {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
           </button>
         </div>
@@ -381,17 +630,22 @@ export default function Capture({ profile, projects, userId, accessToken, onAfte
       {ceaLine && (
         <div className="flex items-center justify-between" style={{ fontSize: 13, color: '#4A4860', marginBottom: 16 }}>
           <span>{ceaLine.text}</span>
-          {ceaLine.onUndo && <button onClick={ceaLine.onUndo} style={{ fontSize: 12.5, color: AI, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>undo</button>}
+          {ceaLine.onUndo && <button onClick={ceaLine.onUndo} style={{ fontSize: 12.5, color: ACC, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>undo</button>}
         </div>
       )}
 
-      {err && <div style={{ fontSize: 13, color: '#B23', marginBottom: 14 }}>{err}</div>}
+      {err && <div style={{ fontSize: 13, color: STONE, marginBottom: 14 }}>{err}</div>}
 
-      <button onClick={collapseAll} style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.04em', color: MUTED, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px', marginBottom: 10 }}>CAPTURED</button>
+      <div className="flex items-center gap-3" style={{ margin: '22px 0 4px' }}>
+        <button onClick={collapseAll} style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: FAINT, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Captured</button>
+        <span style={{ flex: 1, height: 1, background: HAIR }} />
+      </div>
 
-      {entries.length === 0
-        ? <div style={{ border: `1px dashed ${LINE}`, borderRadius: 14, padding: '26px 20px', textAlign: 'center', color: MUTED, fontSize: 14 }}>Nothing yet — dump what's on your mind above.</div>
-        : <div className="flex flex-col gap-2">{entries.map(renderEntry)}</div>}
+      {renderPendingEntry()}
+
+      {entries.length === 0 && !pendingEntry
+        ? <div style={{ padding: '26px 2px', textAlign: 'center', color: FAINT, fontSize: 14 }}>Nothing yet — dump what's on your mind above.</div>
+        : entries.map(renderEntry)}
 
       {openItemId && renderItemView()}
     </div>
