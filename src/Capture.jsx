@@ -110,6 +110,16 @@ function entrySummary(items) {
   return { first, more, parts };
 }
 
+// The single-row vs. card+summary form is decided by how many items the
+// dump originally parsed to, not how many currently survive — a 3-item
+// capture reduced to 1 surviving item (2 archived) still means its
+// "You said" footer and undo-this-dump are talking about three lines, not
+// one. dump.item_count is frozen at capture time (migration 0010); older
+// dumps that predate it fall back to the current surviving count.
+function originalItemCount(dump, items) {
+  return dump.item_count ?? items.length;
+}
+
 function MetaLine({ parts }) {
   if (!parts.length) return null;
   return (
@@ -225,7 +235,10 @@ export default function Capture({ profile, projects, userId, accessToken, onAfte
     const system = offloadSystemPrompt(profile, projects, { askedQuestions });
     const parsed = grabJSON(await callClaude({ system, messages: [{ role: 'user', content: text }], accessToken }));
     const prepared = prepareParsedItems(parsed.items || []).map(it => ({ ...it, source: it.source || text }));
-    const { data: dumpRow } = await supabase.from('dumps').insert({ user_id: userId, raw_text: text }).select().single();
+    // item_count freezes the parsed count so a single-item entry's bare-row
+    // form (or a multi-item entry's card+footer form) doesn't flip-flop
+    // later as items get archived — see migration 0010.
+    const { data: dumpRow } = await supabase.from('dumps').insert({ user_id: userId, raw_text: text, item_count: prepared.length }).select().single();
     const rows = prepared.map(({ id, ...rest }) => ({ ...rest, user_id: userId, dump_id: dumpRow?.id || null }));
     const { data: inserted } = rows.length ? await supabase.from('items').insert(rows).select() : { data: [] };
     const insertedQuestions = (Array.isArray(parsed.questions) && parsed.questions.length && inserted?.length)
@@ -386,7 +399,7 @@ export default function Capture({ profile, projects, userId, accessToken, onAfte
     setSaySending(false);
   }
 
-  function renderItemRow(it, idx = 0, isFresh = false, showBorder = true) {
+  function renderItemRow(it, idx = 0, isFresh = false, showBorder = true, timestamp = null) {
     const facts = factsFor(it);
     const held = heldStatusLine(it);
     return (
@@ -399,6 +412,7 @@ export default function Capture({ profile, projects, userId, accessToken, onAfte
             {held ? <div style={{ fontSize: 12.5, fontWeight: 500, color: '#736D60', marginTop: 2 }}>{held}</div> : <FactsLine facts={facts} />}
           </div>
         </button>
+        {timestamp && <span className="sprekta-ts" style={{ fontSize: 11.5, color: FAINT, marginTop: 3, marginRight: 2 }}>{timestamp}</span>}
         <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100" style={{ flexShrink: 0, alignSelf: 'flex-start', transition: 'opacity .15s' }}>
           <button title={it.flagged ? 'Unflag' : 'Mark priority'} onClick={() => toggleFlag(it)} className="hover:bg-[#F0ECE3]" style={ricon}><Flag size={14} style={{ color: it.flagged ? FLAG : STONE }} /></button>
           <button title="Discuss / change this" onClick={() => { setFocusItem({ id: it.id, title: it.title }); setComposerText(''); }} className="hover:bg-[#F0ECE3]" style={ricon}><MessageCircle size={14} style={{ color: STONE }} /></button>
@@ -475,13 +489,13 @@ export default function Capture({ profile, projects, userId, accessToken, onAfte
 
   function renderEntry({ dump, items }) {
     const isFresh = dump.id === freshEntryId;
-    if (items.length === 1) {
-      return (
-        <div key={dump.id} className={isFresh ? 'sprekta-slidein' : ''} style={{ padding: '13px 2px', borderBottom: `1px solid ${LINE}` }}>
-          {renderItemRow(items[0], 0, isFresh, false)}
-          {renderFooter(dump, items)}
-        </div>
-      );
+    // A dump that parsed to exactly one item renders as the bare item row
+    // itself — no tray icon, no summary line, no You-said footer, no
+    // undo-this-dump (the row's own 🗑 is that). Pinpoint and utterance
+    // provenance are the same words for a single-item capture, so they
+    // live only in the item view (single-register "You said" there).
+    if (originalItemCount(dump, items) === 1) {
+      return renderItemRow(items[0], 0, isFresh, true, relTime(dump.created_at));
     }
     const isOpen = expandedIds.has(dump.id);
     const { first, more, parts } = entrySummary(items);
@@ -593,8 +607,16 @@ export default function Capture({ profile, projects, userId, accessToken, onAfte
           </div>
 
           <div style={{ fontSize: 12, color: FAINT, lineHeight: 1.7 }}>
-            {it.source && <>from <b style={{ color: STONE, fontWeight: 500 }}>“{it.source}”</b><br /></>}
-            {entry && <>part of “{firstLine}{entry.dump.raw_text.includes('\n') ? '…' : ''}” · {relTime(entry.dump.created_at)}</>}
+            {entry && originalItemCount(entry.dump, entry.items) === 1 ? (
+              // Single-item capture: pinpoint and utterance provenance are
+              // the same words — one register, not from/part-of.
+              <>You said <b style={{ color: STONE, fontWeight: 500 }}>“{entry.dump.raw_text}”</b> · {relTime(entry.dump.created_at)}</>
+            ) : (
+              <>
+                {it.source && <>from <b style={{ color: STONE, fontWeight: 500 }}>“{it.source}”</b><br /></>}
+                {entry && <>part of “{firstLine}{entry.dump.raw_text.includes('\n') ? '…' : ''}” · {relTime(entry.dump.created_at)}</>}
+              </>
+            )}
           </div>
         </div>
       </div>
