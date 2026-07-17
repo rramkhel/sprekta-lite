@@ -266,6 +266,19 @@ export default function Capture({ profile, projects, userId, accessToken, onAfte
   }
 
   function renderEntry({ dump, items }) {
+    // A single-item capture has nothing to summarize — showing a synthetic
+    // "X — organized" headline above the one real row just repeats the
+    // title. Render the item directly; no fold, no fake summary.
+    if (items.length === 1) {
+      return (
+        <div key={dump.id} style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 14, padding: 12 }}>
+          {renderItemRow(items[0])}
+          <div style={{ fontSize: 12, color: MUTED, marginTop: 6, paddingTop: 8, borderTop: `1px solid ${LINE}` }}>
+            You said: <i>“{dump.raw_text}”</i>
+          </div>
+        </div>
+      );
+    }
     const isOpen = expandedIds.has(dump.id);
     const { first, more, meta } = entrySummary(items);
     return (
@@ -353,7 +366,7 @@ export default function Capture({ profile, projects, userId, accessToken, onAfte
         <textarea
           value={composerText}
           onChange={e => setComposerText(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
+          onKeyDown={focusItem ? (e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }) : undefined}
           rows={3}
           placeholder={focusItem ? (focusItem.clarify || 'say the change — I’ll handle it') : "What's on your mind?"}
           style={{ width: '100%', resize: 'none', border: 'none', outline: 'none', fontSize: 15, lineHeight: 1.6, height: '4.8em', maxHeight: '4.8em', overflowY: 'auto', background: 'transparent', color: INK, fontFamily: 'inherit' }}
