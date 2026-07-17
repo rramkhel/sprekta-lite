@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, ListTodo, MessageSquare, Clock, Calendar as CalIcon, Check, Loader2, Trash2, ChevronRight, ChevronLeft, Sun, ArrowUp, ArrowDown, ArrowLeft, Plus, X, CalendarClock, MessageSquarePlus, Zap, AlertCircle, StickyNote, Wand2, FolderInput, LogOut, Bell, Inbox } from 'lucide-react';
+import { MessageSquare, Clock, Calendar as CalIcon, Check, Loader2, Trash2, ChevronRight, ChevronLeft, Sun, ArrowUp, ArrowDown, ArrowLeft, Plus, X, CalendarClock, MessageSquarePlus, Zap, AlertCircle, StickyNote, Wand2, FolderInput, LogOut, Bell } from 'lucide-react';
 import { supabase } from './lib/supabaseClient.js';
 import Onboarding, { WISHES } from './Onboarding.jsx';
 import Capture from './Capture.jsx';
@@ -11,8 +11,8 @@ import {
 } from './lib/parse.js';
 
 const INK = '#22223B', PAPER = '#FAF9F6', CARD = '#FFFFFF', LINE = '#E7E4DC';
-const GREEN = '#12886A', AI = '#6A5AE0', MUTED = '#77748A';
-const ENERGY = { deep: { label: 'deep', color: '#6A5AE0' }, admin: { label: 'admin', color: '#5B7085' }, physical: { label: 'physical', color: '#C77D2E' } };
+const GREEN = '#12886A', AI = '#0F6E56', MUTED = '#77748A';
+const ENERGY = { deep: { label: 'deep', color: '#0F6E56' }, admin: { label: 'admin', color: '#5B7085' }, physical: { label: 'physical', color: '#C77D2E' } };
 const PRIO = { high: '#D8552E', med: '#C79A2E', low: '#9B9A93' };
 const PALETTE = ['#7A6FF0', '#2E9E8F', '#C25A76', '#C77D2E', '#4E7CA1', '#8A6D1E', '#5B7085', '#B0568F', '#3F8F5B'];
 const labelize = (k) => (k || 'personal').charAt(0).toUpperCase() + (k || 'personal').slice(1);
@@ -475,9 +475,9 @@ Keep the spoken reply short and warm. Never mention the block.`;
   }
 
   const projectKeys = Object.keys(projects);
-  const Tab = ({ id, label, Icon }) => (
-    <button onClick={() => setView(id)} className="flex items-center gap-1.5" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px', fontSize: 13.5, fontWeight: view === id ? 600 : 500, color: view === id ? INK : MUTED, borderBottom: `2px solid ${view === id ? AI : 'transparent'}` }}>
-      <Icon size={15} /> {label}
+  const Tab = ({ id, label }) => (
+    <button onClick={() => setView(id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px', fontSize: 14, fontWeight: view === id ? 600 : 500, color: view === id ? '#1D1B17' : '#B5AFA2', borderBottom: `2px solid ${view === id ? '#0F6E56' : 'transparent'}` }}>
+      {label}
     </button>
   );
 
@@ -488,18 +488,18 @@ Keep the spoken reply short and warm. Never mention the block.`;
       <div style={{ maxWidth: 920, margin: '0 auto', padding: 'max(22px, env(safe-area-inset-top)) 18px 40px' }}>
 
         <div style={{ marginBottom: 16, borderBottom: `1px solid ${LINE}`, paddingBottom: 11 }}>
-          <div style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em', marginBottom: 9 }}>Sprekta<span style={{ color: GREEN }}>.</span></div>
+          <div style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 24, fontWeight: 600, letterSpacing: '-0.01em', marginBottom: 9 }}>Sprekta<span style={{ color: '#0F6E56' }}>.</span></div>
           <div className="flex gap-4" style={{ flexWrap: 'wrap' }}>
-            <Tab id="capture" label="Capture" Icon={Inbox} />
-            <Tab id="today" label="Today" Icon={Sun} />
-            <Tab id="plan" label="Plan" Icon={ListTodo} />
-            <Tab id="calendar" label="Calendar" Icon={CalIcon} />
-            <Tab id="settings" label="Settings" Icon={MessageSquare} />
+            <Tab id="capture" label="Capture" />
+            <Tab id="today" label="Today" />
+            <Tab id="plan" label="Plan" />
+            <Tab id="calendar" label="Calendar" />
+            <Tab id="settings" label="Settings" />
           </div>
         </div>
 
         {showReminderPrompt && (
-          <div style={{ background: '#F1F0FB', border: '1px solid #E3E1F7', borderRadius: 14, padding: 14, marginBottom: 16 }}>
+          <div style={{ background: '#EAF3EE', border: '1px solid #D3E6DC', borderRadius: 14, padding: 14, marginBottom: 16 }}>
             <div className="flex items-center gap-2" style={{ fontSize: 13.5, fontWeight: 600, color: AI, marginBottom: 6 }}><Bell size={15} /> Want a nudge before this starts?</div>
             {reminderStatus === 'needs-install' && <div style={{ fontSize: 13, color: '#5A5878', lineHeight: 1.5, marginBottom: 8 }}>On iPhone, reminders need Sprekta added to your home screen first — tap Share, then "Add to Home Screen," then open it from there and try again.</div>}
             {reminderStatus === 'denied' && <div style={{ fontSize: 13, color: '#5A5878', marginBottom: 8 }}>Notifications are blocked for this site — turn them on in your browser's site settings, then try again.</div>}
@@ -507,7 +507,7 @@ Keep the spoken reply short and warm. Never mention the block.`;
             {reminderStatus === 'error' && <div style={{ fontSize: 13, color: '#5A5878', marginBottom: 8 }}>Couldn't turn reminders on — you can try again from Settings.</div>}
             <div className="flex items-center gap-2">
               {!['needs-install', 'denied', 'unsupported'].includes(reminderStatus) && (
-                <button onClick={handleEnableReminders} disabled={reminderStatus === 'working'} style={{ fontSize: 13, fontWeight: 500, color: '#fff', background: reminderStatus === 'working' ? '#B7B3DE' : AI, border: 'none', borderRadius: 10, padding: '7px 14px', cursor: reminderStatus === 'working' ? 'default' : 'pointer' }}>{reminderStatus === 'working' ? 'Turning on…' : 'Enable reminders'}</button>
+                <button onClick={handleEnableReminders} disabled={reminderStatus === 'working'} style={{ fontSize: 13, fontWeight: 500, color: '#fff', background: reminderStatus === 'working' ? '#B5AFA2' : AI, border: 'none', borderRadius: 10, padding: '7px 14px', cursor: reminderStatus === 'working' ? 'default' : 'pointer' }}>{reminderStatus === 'working' ? 'Turning on…' : 'Enable reminders'}</button>
               )}
               <button onClick={handleDismissReminderPrompt} style={{ fontSize: 13, color: MUTED, background: 'none', border: 'none', cursor: 'pointer' }}>Not now</button>
             </div>
@@ -562,7 +562,7 @@ Keep the spoken reply short and warm. Never mention the block.`;
 
             {(tomorrowList.length + weekList.length + decisions.length) >= 2 && (
               <button onClick={() => nudgeToChat(`Help me sequence what's coming — I've got ${[...decisions, ...tomorrowList, ...weekList].slice(0, 6).map(i => i.title).join(', ')}. What order makes sense for my week?`)}
-                style={{ width: '100%', textAlign: 'left', background: '#F1F0FB', border: '1px solid #E3E1F7', borderRadius: 14, padding: 14, cursor: 'pointer' }}>
+                style={{ width: '100%', textAlign: 'left', background: '#EAF3EE', border: '1px solid #D3E6DC', borderRadius: 14, padding: 14, cursor: 'pointer' }}>
                 <div className="flex items-center gap-2" style={{ fontSize: 13.5, fontWeight: 600, color: AI, marginBottom: 3 }}><MessageSquarePlus size={15} /> Think it through with me</div>
                 <div style={{ fontSize: 13, color: '#5A5878', lineHeight: 1.5 }}>Want to talk through the order before the week starts?</div>
               </button>
@@ -627,7 +627,7 @@ Keep the spoken reply short and warm. Never mention the block.`;
                   const ds = `${cal.y}-${pad(cal.m + 1)}-${pad(d)}`, di = items.filter(i => itemDay(i) === ds), isT = ds === T, isSel = ds === selDay;
                   const cols = [...new Set(di.map(i => projOf(i.project).color))].slice(0, 3);
                   return (
-                    <button key={idx} onClick={() => setSelDay(ds)} style={{ minHeight: 44, borderRadius: 9, cursor: 'pointer', padding: '4px 0 3px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, background: isSel ? '#EEEDFB' : CARD, border: `1px solid ${isSel ? AI : LINE}` }}>
+                    <button key={idx} onClick={() => setSelDay(ds)} style={{ minHeight: 44, borderRadius: 9, cursor: 'pointer', padding: '4px 0 3px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, background: isSel ? '#EAF3EE' : CARD, border: `1px solid ${isSel ? AI : LINE}` }}>
                       <span style={{ fontSize: 12.5, fontWeight: isT ? 700 : 500, color: isT ? AI : INK }}>{d}</span>
                       <div className="flex gap-0.5">{cols.map((c, i) => <span key={i} style={{ width: 5, height: 5, borderRadius: 999, background: c }} />)}</div>
                     </button>
@@ -745,7 +745,7 @@ Keep the spoken reply short and warm. Never mention the block.`;
             <div style={{ fontSize: 13, fontWeight: 600, color: AI, margin: '20px 0 8px' }}>Reminders</div>
             <div style={{ fontSize: 12.5, color: MUTED, marginBottom: 8 }}>A nudge 15 minutes before something with a set time — only on this device.</div>
             <div className="flex items-center gap-2" style={{ marginBottom: 6 }}>
-              <button onClick={handleEnableReminders} disabled={reminderStatus === 'working'} className="flex items-center gap-1.5" style={{ fontSize: 13, fontWeight: 500, color: '#fff', background: reminderStatus === 'working' ? '#B7B3DE' : AI, border: 'none', borderRadius: 10, padding: '8px 14px', cursor: reminderStatus === 'working' ? 'default' : 'pointer' }}><Bell size={14} /> {reminderStatus === 'working' ? 'Turning on…' : reminderStatus === 'enabled' ? 'Reminders on' : 'Enable reminders'}</button>
+              <button onClick={handleEnableReminders} disabled={reminderStatus === 'working'} className="flex items-center gap-1.5" style={{ fontSize: 13, fontWeight: 500, color: '#fff', background: reminderStatus === 'working' ? '#B5AFA2' : AI, border: 'none', borderRadius: 10, padding: '8px 14px', cursor: reminderStatus === 'working' ? 'default' : 'pointer' }}><Bell size={14} /> {reminderStatus === 'working' ? 'Turning on…' : reminderStatus === 'enabled' ? 'Reminders on' : 'Enable reminders'}</button>
             </div>
             {reminderStatus === 'needs-install' && <div style={{ fontSize: 12.5, color: MUTED, marginBottom: 8 }}>On iPhone, add Sprekta to your home screen first (Share → Add to Home Screen), then open it from there and try again.</div>}
             {reminderStatus === 'denied' && <div style={{ fontSize: 12.5, color: MUTED, marginBottom: 8 }}>Notifications are blocked for this site — turn them on in your browser's site settings.</div>}
@@ -847,15 +847,15 @@ Keep the spoken reply short and warm. Never mention the block.`;
               <textarea value={it.notes || ''} onChange={e => setField(it.id, { notes: e.target.value })} rows={4} placeholder="jot anything — or let Sprekta break it down…" style={{ width: '100%', resize: 'vertical', border: `1px solid ${LINE}`, borderRadius: 10, padding: '10px 12px', fontSize: 13.5, lineHeight: 1.55, outline: 'none', background: CARD, color: INK, fontFamily: 'inherit', marginBottom: 12 }} />
 
               <div className="flex items-center gap-2" style={{ flexWrap: 'wrap', marginBottom: 16 }}>
-                <button onClick={() => breakDown(it)} disabled={busy} className="flex items-center gap-1.5" style={{ fontSize: 13, color: AI, background: '#F1F0FB', border: '1px solid #E3E1F7', borderRadius: 10, padding: '7px 12px', cursor: 'pointer' }}>{busy ? <Loader2 size={13} className="animate-spin" /> : <Wand2 size={13} />} Break it down</button>
-                <button onClick={() => nudgeToChat(`Let's think through "${it.title}".${it.why ? ' ' + it.why : ''} How should I approach it?`)} className="flex items-center gap-1.5" style={{ fontSize: 13, color: AI, background: '#F1F0FB', border: '1px solid #E3E1F7', borderRadius: 10, padding: '7px 12px', cursor: 'pointer' }}><MessageSquarePlus size={13} /> Talk about this</button>
+                <button onClick={() => breakDown(it)} disabled={busy} className="flex items-center gap-1.5" style={{ fontSize: 13, color: AI, background: '#EAF3EE', border: '1px solid #D3E6DC', borderRadius: 10, padding: '7px 12px', cursor: 'pointer' }}>{busy ? <Loader2 size={13} className="animate-spin" /> : <Wand2 size={13} />} Break it down</button>
+                <button onClick={() => nudgeToChat(`Let's think through "${it.title}".${it.why ? ' ' + it.why : ''} How should I approach it?`)} className="flex items-center gap-1.5" style={{ fontSize: 13, color: AI, background: '#EAF3EE', border: '1px solid #D3E6DC', borderRadius: 10, padding: '7px 12px', cursor: 'pointer' }}><MessageSquarePlus size={13} /> Talk about this</button>
               </div>
 
               <div className="flex items-center gap-2" style={{ borderTop: `1px solid ${LINE}`, paddingTop: 14 }}>
                 <button onClick={() => complete(it.id)} className="flex items-center gap-1.5" style={{ fontSize: 13.5, fontWeight: 500, color: '#fff', background: GREEN, border: 'none', borderRadius: 10, padding: '9px 15px', cursor: 'pointer' }}><Check size={15} /> Done</button>
                 {it.today
                   ? <button onClick={() => { defer(it.id); }} className="flex items-center gap-1.5" style={{ fontSize: 13.5, color: MUTED, background: CARD, border: `1px solid ${LINE}`, borderRadius: 10, padding: '9px 15px', cursor: 'pointer' }}><ArrowDown size={15} /> Not today</button>
-                  : <button onClick={() => { promote(it.id); }} className="flex items-center gap-1.5" style={{ fontSize: 13.5, color: AI, background: CARD, border: `1px solid #DED9F6`, borderRadius: 10, padding: '9px 15px', cursor: 'pointer' }}><ArrowUp size={15} /> Do today</button>}
+                  : <button onClick={() => { promote(it.id); }} className="flex items-center gap-1.5" style={{ fontSize: 13.5, color: AI, background: CARD, border: `1px solid #D3E6DC`, borderRadius: 10, padding: '9px 15px', cursor: 'pointer' }}><ArrowUp size={15} /> Do today</button>}
               </div>
             </div>
           </div>
@@ -872,7 +872,7 @@ Keep the spoken reply short and warm. Never mention the block.`;
           <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px' }}>
             {chat.map((m, i) => (
               <div key={i} style={{ marginBottom: 12, display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                <div style={{ maxWidth: '82%', fontSize: 14, lineHeight: 1.55, padding: '9px 13px', borderRadius: 14, background: m.role === 'user' ? INK : '#F3F2F9', color: m.role === 'user' ? '#fff' : '#33314A', whiteSpace: 'pre-wrap' }}>{m.content}</div>
+                <div style={{ maxWidth: '82%', fontSize: 14, lineHeight: 1.55, padding: '9px 13px', borderRadius: 14, background: m.role === 'user' ? INK : '#EAF3EE', color: m.role === 'user' ? '#fff' : INK, whiteSpace: 'pre-wrap' }}>{m.content}</div>
               </div>
             ))}
             {busy && <div style={{ fontSize: 13, color: MUTED, display: 'flex', alignItems: 'center', gap: 6 }}><Loader2 size={14} className="animate-spin" /> thinking…</div>}
@@ -880,7 +880,7 @@ Keep the spoken reply short and warm. Never mention the block.`;
           </div>
           <div className="flex items-end gap-2" style={{ padding: '12px 16px max(12px, env(safe-area-inset-bottom))', borderTop: `1px solid ${LINE}`, background: CARD, flexShrink: 0 }}>
             <textarea ref={chatBox} value={chatInput} rows={1} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }} placeholder="talk it through…" style={{ flex: 1, border: `1px solid ${LINE}`, borderRadius: 12, padding: '9px 12px', fontSize: 14, lineHeight: 1.5, outline: 'none', color: INK, fontFamily: 'inherit', resize: 'none', maxHeight: 74, overflowY: 'auto' }} />
-            <button onClick={() => sendChat()} disabled={busy || !chatInput.trim()} style={{ background: (busy || !chatInput.trim()) ? '#9A96C9' : AI, color: '#fff', border: 'none', borderRadius: 10, padding: '9px 12px', cursor: (busy || !chatInput.trim()) ? 'default' : 'pointer', display: 'flex', alignItems: 'center' }}><Send size={16} /></button>
+            <button onClick={() => sendChat()} disabled={busy || !chatInput.trim()} style={{ background: (busy || !chatInput.trim()) ? '#B5AFA2' : AI, color: '#fff', border: 'none', borderRadius: 10, padding: '9px 12px', cursor: (busy || !chatInput.trim()) ? 'default' : 'pointer', display: 'flex', alignItems: 'center' }}><ArrowUp size={16} /></button>
           </div>
         </div>
       )}

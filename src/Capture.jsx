@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  Send, Loader2, Inbox, Calendar as CalIcon, Bell, Flag, MessageCircle, Trash2,
+  ArrowUp, Loader2, Inbox, Calendar as CalIcon, Bell, Flag, MessageCircle, Trash2,
   ChevronDown, ChevronUp, Square, ArrowLeft, X, RotateCcw,
 } from 'lucide-react';
 import { supabase } from './lib/supabaseClient.js';
@@ -602,7 +602,7 @@ export default function Capture({ profile, projects, userId, accessToken, onAfte
               style={{ flex: 1, border: `1px solid ${HAIR}`, borderRadius: 999, background: '#fff', fontSize: 14, color: INK, padding: '10px 15px', outline: 'none' }}
             />
             <button onClick={() => submitSay(it)} disabled={saySending || !sayText.trim()} className="sprekta-send-btn" style={{ width: 36, height: 36, borderRadius: 999, border: 'none', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-              {saySending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+              {saySending ? <Loader2 size={14} className="animate-spin" /> : <ArrowUp size={14} />}
             </button>
           </div>
 
@@ -644,7 +644,7 @@ export default function Capture({ profile, projects, userId, accessToken, onAfte
         />
         <div className="flex items-center justify-end" style={{ marginTop: 8 }}>
           <button onClick={send} disabled={sending || !composerText.trim()} className="sprekta-send-btn" style={{ color: '#fff', border: 'none', borderRadius: 10, padding: '9px 12px', display: 'flex', alignItems: 'center' }}>
-            {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+            {sending ? <Loader2 size={16} className="animate-spin" /> : <ArrowUp size={16} />}
           </button>
         </div>
       </div>

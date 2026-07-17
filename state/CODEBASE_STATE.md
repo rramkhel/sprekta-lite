@@ -125,7 +125,14 @@ in order — that directory is the source of truth for schema, not this file
   Today and item-detail). Settings has profile editing, feedback,
   reminders toggle, and an admin-only (`VITE_ADMIN_EMAIL`) dev-tools panel
   (save/load profile snapshots, reset to blank, load sample tasks, re-run
-  onboarding, send test notification, raw-state import/export).
+  onboarding, send test notification, raw-state import/export). The tab
+  nav is text-only (icons removed) and the brand wordmark uses Fraunces —
+  `Sprekta.jsx`'s own `AI` accent constant was recolored from purple
+  (`#6A5AE0`) to the Laurel `#0F6E56` used everywhere in Capture, and every
+  paired pale-lavender background/border in the file was swapped to the
+  matching Laurel tint, so the two surfaces read as one app. `App.jsx` and
+  `Onboarding.jsx` were **not** touched in this pass and still use the old
+  purple — worth doing if/when those get their own polish pass.
 
 ## Feature status
 
