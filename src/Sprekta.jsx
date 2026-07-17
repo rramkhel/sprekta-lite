@@ -121,7 +121,12 @@ export default function Sprekta({ session, onSignOut }) {
           onboarding_answers: SEED_PROFILE.onboardingAnswers,
         });
       }
-      const { data: itemRows } = await supabase.from('items').select('*').eq('user_id', userId).order('created_at', { ascending: true });
+      // Capture can now mark an item done or archive it (status, never a
+      // delete) — Today/Plan/Calendar share this one fetch, so both must
+      // vanish from here the same way they already vanish from Capture's
+      // own feed's "surviving" filter, or a Capture-completed item would
+      // still show as outstanding here.
+      const { data: itemRows } = await supabase.from('items').select('*').eq('user_id', userId).neq('status', 'done').neq('status', 'archived').order('created_at', { ascending: true });
       if (cancelled) return;
       setItems(itemRows || []);
       setLoaded(true);

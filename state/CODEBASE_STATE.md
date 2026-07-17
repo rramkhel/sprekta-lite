@@ -100,23 +100,28 @@ in order — that directory is the source of truth for schema, not this file
   v1) → an optimistic pending entry appears instantly with a shimmer
   skeleton ("got it" → "sorting it out") while the parse call is in
   flight, then joins the `CAPTURED` feed for real, grouped by `dump_id`
-  (a single-item capture is a bare feed row — the item's own marker,
-  facts, and a relative timestamp, no tray icon/summary/footer at all;
-  a multi-item capture is a de-carded row that expands to a white card,
-  footer = collapsed "You said" + a whole-dump undo icon. The single- vs.
-  multi-item form is pinned to the dump's original parse count —
-  `dumps.item_count` — not however many items currently survive, so
-  archiving down to one survivor doesn't collapse a 3-item capture into
-  the bare-row form). Row
+  (a single-item capture uses the same "entry anatomy" as a multi-item
+  summary — a 26px glyph chip in an `ACC_SOFT` square, bold title, a meta
+  line leading with relative time then middot-separated facts — no tray,
+  no separate summary, no "You said" footer; a multi-item capture is a
+  de-carded row that expands to a white card, footer = collapsed "You
+  said" + a whole-dump undo icon. The single- vs. multi-item form is
+  pinned to the dump's original parse count — `dumps.item_count` — not
+  however many items currently survive, so archiving down to one survivor
+  doesn't collapse a 3-item capture into the single-row form). Row
   markers/facts are read off `kind`/`fixed_time`/`status`/`parked_reason`
-  only — never a question's tier. Tap a row for a full-page item view
-  (Fraunces title, quick-action chips incl. `quiet this one`, a When/Remind
-  fact-row card whose `change`/`+ add` prefill the say-box, and the say-box
-  itself — the *only* place to answer a `questions` row until Activity
-  ships). "Discuss" (💬) is a one-shot focus chip that scopes the main
-  composer to one item for a spoken correction. See
-  `sprekta-capture-design-doc.md` (Downloads) for the full spec; see
-  Feature status below for what's still deferred.
+  only — never a question's tier. **Todo/calendar items are checkable
+  wherever their marker/chip appears** (dropdown rows, single-item chips,
+  and a "✓ done"/"reopen" chip in the item view) — `status='done'`, row
+  stays in the feed (struck-through, faded), never a delete; parked items
+  aren't checkable. Tap a row for a full-page item view (Fraunces title,
+  quick-action chips incl. `quiet this one`, a When/Remind fact-row card
+  whose `change`/`+ add` prefill the say-box, and the say-box itself — the
+  *only* place to answer a `questions` row until Activity ships).
+  "Discuss" (💬) is a one-shot focus chip that scopes the main composer to
+  one item for a spoken correction. See `sprekta-capture-design-doc.md`
+  (Downloads) for the full spec; see Feature status below for what's
+  still deferred.
 - **Main app** (`Sprekta.jsx`, ~1050 lines): Capture / Today / Plan /
   Calendar / Settings tabs. Plan's old Offload textarea and inline
   questions box are gone — Capture now owns "get it out of your head"

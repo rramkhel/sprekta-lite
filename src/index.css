@@ -40,9 +40,19 @@ html, body, #root {
 }
 
 .sprekta-input::placeholder { color: #B5AFA2; }
-@media (max-width: 420px) {
-  .sprekta-ts { display: none; }
-}
 .sprekta-send-btn { background: #0F6E56; transition: background .15s ease; }
 .sprekta-send-btn:hover:not(:disabled) { background: #0C5A47; }
 .sprekta-send-btn:disabled { background: #B5AFA2; cursor: default; }
+
+/* Check-off marker/chip (Capture.jsx) — feedback is scale + stroke on the
+   glyph itself, deliberately no background halo (settled after testing:
+   a filled highlight behind a small glyph reads as a mis-registered
+   sticker). Color change needs !important since inline styles otherwise
+   always win over an external stylesheet rule. */
+.sprekta-marker-btn { transition: transform 120ms ease; }
+.sprekta-marker-btn:hover { transform: scale(1.15); }
+.sprekta-marker-btn:hover .sprekta-marker-glyph { color: #0C5A47 !important; }
+.sprekta-marker-btn:active { transform: scale(0.92); }
+@media (prefers-reduced-motion: reduce) {
+  .sprekta-marker-btn, .sprekta-marker-btn:hover, .sprekta-marker-btn:active { transition: none; transform: none; }
+}
