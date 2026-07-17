@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   ArrowUp, Loader2, Inbox, Calendar as CalIcon, Bell, Flag, MessageCircle, Trash2,
-  ChevronDown, ChevronUp, Square, ArrowLeft, X, RotateCcw,
+  ChevronDown, ChevronUp, Square, ArrowLeft, X, RotateCcw, Check,
 } from 'lucide-react';
 import { supabase } from './lib/supabaseClient.js';
 import {
@@ -41,11 +41,25 @@ function relTime(iso) {
 // everything else is read off kind/fixed_time. See heldStatusLine for the
 // two held reasons' distinct copy.
 function Marker({ item, size = 13 }) {
+  if (item.status === 'done') {
+    return (
+      <span style={{ width: size + 2, height: size + 2, borderRadius: 5, background: ACC, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+        <Check size={size - 4} style={{ color: '#fff' }} strokeWidth={3} />
+      </span>
+    );
+  }
   if (item.status === 'parked') {
     return <span style={{ width: size - 2, height: size - 2, borderRadius: 999, border: `1.5px solid ${RING}`, flexShrink: 0, display: 'inline-block' }} />;
   }
-  if (item.fixed_time) return <CalIcon size={size} style={{ color: ACC, flexShrink: 0 }} />;
-  return <Square size={size} style={{ color: ACC, flexShrink: 0 }} />;
+  if (item.fixed_time) return <CalIcon size={size} className="sprekta-marker-glyph" style={{ color: ACC, flexShrink: 0 }} />;
+  return <Square size={size} className="sprekta-marker-glyph" style={{ color: ACC, flexShrink: 0 }} />;
+}
+
+// Todo/calendar items are checkable off any marker (design-doc §7.1
+// amendment); parked/resting rings are not — ambiguity and readiness
+// aren't the user's to resolve by tapping a glyph.
+function isCheckable(item) {
+  return item.status === 'open' || item.status === 'done';
 }
 
 // Ambiguity is the system's problem (clarify); readiness is the user's
@@ -96,10 +110,11 @@ function FactsLine({ facts }) {
 function entrySummary(items) {
   const first = items[0];
   const more = items.length - 1;
-  const scheduled = items.filter(i => i.fixed_time).length;
+  const scheduled = items.filter(i => i.fixed_time && i.status !== 'done').length;
   const todos = items.filter(i => !i.fixed_time && i.status === 'open').length;
   const resting = items.filter(i => i.status === 'parked' && i.parked_reason === 'rest').length;
   const clarify = items.filter(i => i.status === 'parked' && i.parked_reason === 'clarify').length;
+  const done = items.filter(i => i.status === 'done').length;
   const flagged = items.filter(i => i.flagged).length;
   const parts = [];
   if (flagged) parts.push({ text: `⚑ ${flagged} flagged`, sched: true });
@@ -107,6 +122,7 @@ function entrySummary(items) {
   if (todos) parts.push({ text: `${todos} todo${todos > 1 ? 's' : ''}` });
   if (resting) parts.push({ text: `${resting} resting` });
   if (clarify) parts.push({ text: `${clarify} for later` });
+  if (done) parts.push({ text: `${done} done` });
   return { first, more, parts };
 }
 
@@ -305,6 +321,28 @@ export default function Capture({ profile, projects, userId, accessToken, onAfte
     setSending(false);
   }
 
+  // Users complete items wherever they see them — the old "checking off
+  // happens on Today" rule only ever constrained Sprekta, not the user
+  // (design-doc §7.1 amendment). Row stays in the feed either way; done is
+  // a status, never a delete, same as everywhere else in this schema.
+  async function toggleDone(item) {
+    const wasDone = item.status === 'done';
+    const before = { status: item.status };
+    const after = { status: wasDone ? 'open' : 'done' };
+    await supabase.from('items').update(after).eq('id', item.id);
+    await supabase.from('corrections').insert({ user_id: userId, item_id: item.id, kind: wasDone ? 'reopen' : 'close', before, after, surface: 'capture' });
+    clearTimeout(ceaTimer.current);
+    setCeaLine({
+      text: wasDone ? `Reopened ${item.title}.` : `Done — ${item.title}.`,
+      onUndo: async () => {
+        await supabase.from('items').update(before).eq('id', item.id);
+        setCeaLine(null);
+        await load();
+      },
+    });
+    ceaTimer.current = setTimeout(() => setCeaLine(null), 9000);
+    await load();
+  }
   async function toggleFlag(item) {
     const flagged = !item.flagged;
     await supabase.from('items').update({ flagged }).eq('id', item.id);
@@ -399,20 +437,34 @@ export default function Capture({ profile, projects, userId, accessToken, onAfte
     setSaySending(false);
   }
 
-  function renderItemRow(it, idx = 0, isFresh = false, showBorder = true, timestamp = null) {
+  function renderItemRow(it, idx = 0, isFresh = false, showBorder = true) {
     const facts = factsFor(it);
     const held = heldStatusLine(it);
+    const done = it.status === 'done';
+    const checkable = isCheckable(it);
     return (
       <div key={it.id} className={`group${isFresh ? ' sprekta-fadeup' : ''}`}
         style={{ display: 'flex', gap: 11, alignItems: 'flex-start', padding: '11px 0', borderBottom: showBorder ? `1px solid ${LINE}` : 'none', animationDelay: isFresh ? `${idx * 160}ms` : undefined }}>
         <button onClick={() => setOpenItemId(it.id)} style={{ flex: 1, minWidth: 0, display: 'flex', gap: 11, alignItems: 'flex-start', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}>
-          <span style={{ marginTop: 3 }}><Marker item={it} /></span>
+          {checkable ? (
+            <button
+              title={done ? 'Reopen' : 'Mark done'}
+              onClick={(e) => { e.stopPropagation(); toggleDone(it); }}
+              className="sprekta-marker-btn"
+              style={{ marginTop: 1, width: 24, height: 24, marginLeft: -6, background: 'none', border: 'none', cursor: 'pointer', display: 'grid', placeItems: 'center', padding: 0, flexShrink: 0 }}
+            >
+              <Marker item={it} />
+            </button>
+          ) : (
+            <span style={{ marginTop: 3 }}><Marker item={it} /></span>
+          )}
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontSize: 14.5, fontWeight: 500, color: INK, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.title}</div>
-            {held ? <div style={{ fontSize: 12.5, fontWeight: 500, color: '#736D60', marginTop: 2 }}>{held}</div> : <FactsLine facts={facts} />}
+            <div style={{ fontSize: 14.5, fontWeight: 500, color: done ? FAINT : INK, textDecoration: done ? 'line-through' : 'none', textDecorationColor: HAIR, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.title}</div>
+            <div style={{ opacity: done ? 0.45 : 1 }}>
+              {held ? <div style={{ fontSize: 12.5, fontWeight: 500, color: '#736D60', marginTop: 2 }}>{held}</div> : <FactsLine facts={facts} />}
+            </div>
           </div>
         </button>
-        {timestamp && <span className="sprekta-ts" style={{ fontSize: 11.5, color: FAINT, marginTop: 3, marginRight: 2 }}>{timestamp}</span>}
         <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100" style={{ flexShrink: 0, alignSelf: 'flex-start', transition: 'opacity .15s' }}>
           <button title={it.flagged ? 'Unflag' : 'Mark priority'} onClick={() => toggleFlag(it)} className="hover:bg-[#F0ECE3]" style={ricon}><Flag size={14} style={{ color: it.flagged ? FLAG : STONE }} /></button>
           <button title="Discuss / change this" onClick={() => { setFocusItem({ id: it.id, title: it.title }); setComposerText(''); }} className="hover:bg-[#F0ECE3]" style={ricon}><MessageCircle size={14} style={{ color: STONE }} /></button>
@@ -487,15 +539,83 @@ export default function Capture({ profile, projects, userId, accessToken, onAfte
     );
   }
 
+  // Singles use the same "entry anatomy" as a multi-item summary row (chip
+  // in a soft square, bold title, meta line) rather than the plainer
+  // per-item dropdown-row anatomy — so a one-line capture doesn't read as
+  // a different kind of list. The chip doubles as the checkbox for
+  // todo/calendar items; parked rings are inert. No tray, no summary, no
+  // "You said" footer — pinpoint and utterance provenance are the same
+  // words for a single-item capture, so they live only in the item view.
+  function renderSingleItemEntry(dump, it, isFresh) {
+    const done = it.status === 'done';
+    const checkable = isCheckable(it);
+    const held = heldStatusLine(it);
+    const facts = factsFor(it);
+    const time = relTime(dump.created_at);
+
+    const glyph = done
+      ? <Check size={13} style={{ color: '#fff' }} strokeWidth={3} />
+      : it.status === 'parked'
+        ? <span style={{ width: 11, height: 11, borderRadius: 999, border: `1.5px solid ${RING}` }} />
+        : it.fixed_time
+          ? <CalIcon size={14} className="sprekta-marker-glyph" style={{ color: ACC }} />
+          : <Square size={14} className="sprekta-marker-glyph" style={{ color: ACC }} />;
+
+    const chip = checkable ? (
+      <button
+        title={done ? 'Reopen' : 'Mark done'}
+        onClick={(e) => { e.stopPropagation(); toggleDone(it); }}
+        className="sprekta-marker-btn"
+        style={{ width: 26, height: 26, borderRadius: 8, background: done ? ACC : ACC_SOFT, display: 'grid', placeItems: 'center', flexShrink: 0, border: 'none', cursor: 'pointer', padding: 0 }}
+      >
+        {glyph}
+      </button>
+    ) : (
+      <div style={{ width: 26, height: 26, borderRadius: 8, background: ACC_SOFT, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+        {glyph}
+      </div>
+    );
+
+    return (
+      <div key={dump.id} className={isFresh ? 'sprekta-slidein' : ''} style={{ borderBottom: `1px solid ${LINE}` }}>
+        <div className="group" style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '13px 6px 13px 2px' }}>
+          <button onClick={() => setOpenItemId(it.id)} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 12, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}>
+            <span style={{ marginTop: 1 }}>{chip}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14.5, fontWeight: 600, color: done ? FAINT : INK, textDecoration: done ? 'line-through' : 'none', textDecorationColor: HAIR, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.title}</div>
+              <div style={{ opacity: done ? 0.45 : 1 }}>
+                {held ? (
+                  <div style={{ fontSize: 12, display: 'flex', alignItems: 'center' }}>
+                    <span style={{ color: FAINT }}>{time}</span><span style={{ margin: '0 8px', color: FAINT }}>·</span><span style={{ color: '#736D60', fontWeight: 500 }}>{held}</span>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 12, display: 'flex', alignItems: 'center', flexWrap: 'wrap', rowGap: 3 }}>
+                    <span style={{ color: FAINT }}>{time}</span>
+                    {facts.map((f, i) => (
+                      <span key={i} style={{ whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', color: f.flag ? FLAG : ACC_DEEP, fontWeight: 500 }}>
+                        <span style={{ margin: '0 8px', color: FAINT, fontWeight: 400 }}>·</span>
+                        <span style={{ marginRight: 4, display: 'inline-flex' }}>{f.icon}</span>{f.text}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </button>
+          <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100" style={{ flexShrink: 0, marginTop: 2, transition: 'opacity .15s' }}>
+            <button title={it.flagged ? 'Unflag' : 'Mark priority'} onClick={() => toggleFlag(it)} className="hover:bg-[#F0ECE3]" style={ricon}><Flag size={14} style={{ color: it.flagged ? FLAG : STONE }} /></button>
+            <button title="Discuss / change this" onClick={() => { setFocusItem({ id: it.id, title: it.title }); setComposerText(''); }} className="hover:bg-[#F0ECE3]" style={ricon}><MessageCircle size={14} style={{ color: STONE }} /></button>
+            <button title="Remove" onClick={() => removeItem(it)} className="hover:bg-[#F0ECE3]" style={ricon}><Trash2 size={14} style={{ color: STONE }} /></button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   function renderEntry({ dump, items }) {
     const isFresh = dump.id === freshEntryId;
-    // A dump that parsed to exactly one item renders as the bare item row
-    // itself — no tray icon, no summary line, no You-said footer, no
-    // undo-this-dump (the row's own 🗑 is that). Pinpoint and utterance
-    // provenance are the same words for a single-item capture, so they
-    // live only in the item view (single-register "You said" there).
     if (originalItemCount(dump, items) === 1) {
-      return renderItemRow(items[0], 0, isFresh, true, relTime(dump.created_at));
+      return renderSingleItemEntry(dump, items[0], isFresh);
     }
     const isOpen = expandedIds.has(dump.id);
     const { first, more, parts } = entrySummary(items);
@@ -553,6 +673,9 @@ export default function Capture({ profile, projects, userId, accessToken, onAfte
 
           {!isClarify && (
             <div className="flex items-center gap-2 flex-wrap" style={{ marginBottom: 18 }}>
+              {isCheckable(it) && (
+                <button onClick={() => toggleDone(it)} className="hover:bg-[#EAF3EE] hover:border-[#D3E6DC]" style={chip}>{it.status === 'done' ? 'reopen' : '✓ done'}</button>
+              )}
               {!it.fixed_time && it.status === 'open' && (
                 <button onClick={() => toggleToday(it)} className="hover:bg-[#EAF3EE] hover:border-[#D3E6DC]" style={chip}>{it.today ? 'in today' : 'today'}</button>
               )}
